@@ -1831,17 +1831,12 @@ description, hand-edited ones included.
 
 Full suite: **981 / 981** (19 skipped by their own conditions).
 
-## 28. View File keeps you on the page
+## 28. The QA Assistant's View Document opens a new tab
 
-View File (the Document Details popup, the Repository row menu, Area
-Submissions) opened the file in a new tab and the browser switched to it; the
-QA Assistant's "View Document" buttons under an answer opened it in the same
-tab, leaving the chat. Every link to a document's viewer now opens a new tab in
-the background and leaves the current page — popup included — where it was,
-with a short "Opened in a new tab" notice (`static/js/main.js`).
+The View Document button under an assistant answer opened the file in the same
+tab, leaving the chat; it now opens a new tab like View File everywhere else.
 
-A page cannot ask for a background tab directly; the click is re-sent as the
-browser's own Ctrl+click (Cmd+click on a Mac). Chrome and Edge honour that; a
-browser that does not simply opens the tab in front, as before. Verified in
-Chromium that the new tab opens and the original page is unchanged; which tab
-is in front can only be seen in a desktop browser.
+A background tab (open the file but stay on the page) was tried and removed:
+Chrome opens a tab in front for any click a page sends itself, Ctrl or not, so
+it cannot be done from the page. Ctrl+click on View File still opens a
+background tab, because that click comes from the person.

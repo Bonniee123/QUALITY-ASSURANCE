@@ -404,7 +404,9 @@
                 if (a.kind === 'suggest') {
                     return '<button type="button" class="qa-action js-suggest">' + esc(a.label) + '</button>';
                 }
-                return '<a class="qa-action" href="' + esc(a.url) + '">' + esc(a.label) + '</a>';
+                // A document's viewer opens in a new tab, as View File does everywhere, so the chat stays put.
+                var newTab = /^\/documents\/\d+\/view\/$/.test(a.url) ? ' target="_blank" rel="noopener"' : '';
+                return '<a class="qa-action" href="' + esc(a.url) + '"' + newTab + '>' + esc(a.label) + '</a>';
             }).join('') + '</div>';
         }
         if (extras.note) {

@@ -362,33 +362,3 @@ document.addEventListener('scroll', function (e) {
         window.qaSizeScrollPanels = sizePanels;
     }
 })();
-
-/* View File opens the file in a new tab and leaves you on this page.
-   A plain click on a target="_blank" link switches to the new tab, and a page
-   cannot ask the browser for a background tab directly. A click that carries
-   the Ctrl key (Cmd on a Mac) is the browser's own "open in background tab",
-   so a plain click on a file link is re-sent as one. Chrome and Edge honour
-   that; a browser that does not simply opens the tab as before. */
-(function () {
-    var FILE_VIEW = /^\/documents\/\d+\/view\/$/;
-    var isMac = /Mac|iPhone|iPad/.test(navigator.platform || '');
-
-    document.addEventListener('click', function (e) {
-        if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || !e.isTrusted) { return; }
-        var link = e.target.closest && e.target.closest('a[href]');
-        if (!link || !FILE_VIEW.test(link.pathname) || link.origin !== window.location.origin) { return; }
-        e.preventDefault();
-        var behind = document.createElement('a');
-        behind.href = link.href;
-        behind.target = '_blank';
-        behind.rel = 'noopener';
-        behind.style.display = 'none';
-        document.body.appendChild(behind);
-        behind.dispatchEvent(new MouseEvent('click', {
-            bubbles: true, cancelable: true, view: window, button: 0,
-            ctrlKey: !isMac, metaKey: isMac,
-        }));
-        behind.remove();
-        if (window.qaToast) { window.qaToast('Opened in a new tab — you are still on this page.', 'info'); }
-    }, true);
-})();
