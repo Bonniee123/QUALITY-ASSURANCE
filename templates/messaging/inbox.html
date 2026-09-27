@@ -612,15 +612,15 @@
     }
 
     // Read receipts change with no new message arriving, so the ticks already on
-    // screen are refreshed from the other side's last-read stamp.
+    // screen are refreshed from the id of the last message the other side read.
     function refreshReceipts(readUpto) {
-        if (!readUpto) { return; }
-        var mark = new Date(readUpto);
+        var mark = Number(readUpto);
+        if (!mark) { return; }
         messagesEl.querySelectorAll('.qa-row.is-mine .qa-receipt:not(.is-read)')
             .forEach(function (el) {
                 var row = el.closest('.qa-row');
-                var iso = row && row.getAttribute('data-iso');
-                if (iso && new Date(iso) <= mark) {
+                var mid = row && Number(row.getAttribute('data-mid'));
+                if (mid && mid <= mark) {
                     el.classList.add('is-read');
                     el.title = 'Read';
                     el.innerHTML = '<i class="bi bi-check2-all"></i>Read';

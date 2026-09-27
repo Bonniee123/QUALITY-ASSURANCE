@@ -149,19 +149,19 @@ def _avatar(user) -> str:
     return _profile_photo(user)
 
 
-def _other_read_at(thread: Thread, viewer):
-    """When the other participant last opened this thread."""
+def _other_read_upto(thread: Thread, viewer) -> int:
+    """Id of the last message the other participant has read (0 for none)."""
     state = (thread.read_states.exclude(user=viewer)
-             .order_by('-last_read_at').first())
-    return state.last_read_at if state else None
+             .order_by('-last_read_message_id').first())
+    return state.last_read_message_id if state else 0
 
 
 def _first_unread_id(thread: Thread, viewer):
     """Id of the earliest message this reader has not seen, or None."""
     state = thread.read_states.filter(user=viewer).first()
     qs = thread.visible_messages().exclude(sender=viewer)
-    if state and state.last_read_at:
-        qs = qs.filter(created_at__gt=state.last_read_at)
+    if state:
+        qs = qs.filter(pk__gt=state.last_read_message_id)
     first = qs.order_by('id').first()
     return first.pk if first else None
 
@@ -188,7 +188,7 @@ def _thread_json(thread: Thread, viewer) -> dict:
     }
 
 
-def _message_json(message: ThreadMessage, viewer, other_read_at=None) -> dict:
+def _message_json(message: ThreadMessage, viewer, other_read_upto=0) -> dict:
     # The sender is the stored sender_id, compared against the account that
     # asked. Never the position of the message, the sender's role, or which side
     # of the conversation is being viewed.
@@ -214,9 +214,9 @@ def _message_json(message: ThreadMessage, viewer, other_read_at=None) -> dict:
         'iso': message.created_at.isoformat(),
         'stamp': message.created_at.strftime('%b %d, %Y at %H:%M'),
         'edited': bool(message.edited_at),
-        # Whether the other participant has opened the thread since this was
-        # sent. Only meaningful for your own messages -- it is the read receipt.
-        'read': bool(mine and other_read_at and other_read_at >= message.created_at),
+        # Whether the other participant has read up to this message. Only
+        # meaningful for your own messages -- it is the read receipt.
+        'read': bool(mine and message.pk <= other_read_upto),
         'document': None,
         'document_withheld': False,
     }
@@ -299,12 +299,16 @@ def thread_detail(request, pk):
     # Capture the unread mark *before* clearing it, so the interface can draw a
     # "new messages" divider at the point the reader last left off.
     first_unread = _first_unread_id(thread, request.user)
-    thread.mark_read_for(request.user)
-    messages = thread.visible_messages().select_related('sender__profile', 'document')
-    other_read_at = _other_read_at(thread, request.user)
+    messages = list(thread.visible_messages()
+                    .select_related('sender__profile', 'document').order_by('id'))
+    # Read up to the last message this response delivers, not whatever is
+    # newest by the time the mark is written.
+    if messages:
+        thread.mark_read_for(request.user, upto=messages[-1].pk)
+    other_read_upto = _other_read_upto(thread, request.user)
     return JsonResponse({
         'thread': _thread_json(thread, request.user),
-        'messages': [_message_json(m, request.user, other_read_at) for m in messages],
+        'messages': [_message_json(m, request.user, other_read_upto) for m in messages],
         'first_unread': first_unread,
     })
 
@@ -359,7 +363,7 @@ def message_send(request, pk):
         thread=thread, sender=request.user, body=body, document=document
     )
     thread.touch()
-    thread.mark_read_for(request.user)
+    thread.mark_read_for(request.user, upto=message.pk)
 
     _notify_recipients(thread, request.user, message)
     # No thread number, no recipient, no content. The row exists so the action
@@ -490,15 +494,16 @@ def sync(request):
                   .first())
         if thread is not None:
             fresh = thread.visible_messages().select_related('sender__profile', 'document')
-            if after:
-                try:
-                    fresh = fresh.filter(pk__gt=int(after))
-                except (TypeError, ValueError):
-                    pass
-            other_read_at = _other_read_at(thread, request.user)
+            try:
+                on_screen = max(int(after or 0), 0)
+            except (TypeError, ValueError):
+                on_screen = 0
+            if on_screen:
+                fresh = fresh.filter(pk__gt=on_screen)
+            other_read_upto = _other_read_upto(thread, request.user)
             rows = list(fresh.order_by('id')[:50])
             payload['messages'] = [
-                _message_json(m, request.user, other_read_at) for m in rows
+                _message_json(m, request.user, other_read_upto) for m in rows
             ]
             # Seeing them is reading them -- when someone is there to see them.
             # A passive refresh (nobody has touched the page for a minute) still
@@ -509,13 +514,17 @@ def sync(request):
             # them, even though it brings nothing new -- the messages already
             # arrived during the passive one, so waiting for `rows` would leave
             # them unread for good while they sit in plain view.
-            if not is_passive_request(request) and (rows or thread.unread_count_for(request.user)):
-                thread.mark_read_for(request.user)
-                payload['unread_messages'] = unread_total_for(request.user)
+            #
+            # Only what is on the screen is marked: the messages this response
+            # delivers, or those already shown (`after`). A message that lands
+            # while this request runs stays unread until a refresh delivers it.
+            if not is_passive_request(request):
+                seen = rows[-1].pk if rows else on_screen
+                if seen and thread.mark_read_for(request.user, upto=seen):
+                    payload['unread_messages'] = unread_total_for(request.user)
             # Read receipts change without any new message arriving, so the
             # already-sent ones are reported too.
-            payload['read_upto'] = (other_read_at.isoformat()
-                                    if other_read_at else None)
+            payload['read_upto'] = other_read_upto or None
     return JsonResponse(payload)
 
 

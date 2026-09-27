@@ -1633,3 +1633,34 @@ Head and Faculty with no console errors; the Log Out button measures 122.0 ×
 ("nobody at the page, the message stays unread") is timing-dependent on Windows
 — it compares two timestamps that can fall in the same clock tick — and failed
 once in four runs; it is unrelated to these changes.
+
+## 22. "Read" decided by message, not by clock tick
+
+The one test left failing now and then in section 21 ("nobody at the page, the
+message stays unread") was a real fault, not a test problem. A message counted
+as read when it was created at or before the moment its reader last looked.
+Windows clocks advance about every 15 ms, so a message sent in the same tick
+as the reader's last look carried the same time and was taken as already
+read: the sender was told "Read" and the reader got no unread badge.
+
+**What changed.** Each participant's read mark is now the id of the last
+message they read (`ThreadRead.last_read_message_id`). Ids never tie. Unread
+counts, the "new messages" divider, the read receipts and the inbox page's
+live receipt refresh all compare ids. A refresh marks only what is on screen
+(the messages it delivers, or those already shown), so a message landing
+while a refresh runs stays unread until it is delivered. The mark only moves
+forward and cannot pass the newest message. `last_read_at` stays as the time
+the mark last moved.
+
+**Migration.** `messaging 0002` adds the field and sets each existing mark to
+the last message sent before that person's recorded read time, so no
+conversation changes read state. Run `python manage.py migrate`.
+
+**Also.** `test_render.py`, a debug script in the project root, was removed:
+its name made `manage.py test` import it, and it queried the live database
+rather than the test one on every test run.
+
+Verified on MariaDB 10.11: the new tie test fails on the old code and passes
+on the new; in a browser, a sent message showed "Sent" and turned "Read" on
+its own when the other person opened the conversation. Full suite: **940 /
+940** (19 skipped by their own conditions).
