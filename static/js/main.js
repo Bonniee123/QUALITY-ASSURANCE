@@ -131,9 +131,10 @@ function getCookie(name) {
 const csrftoken = getCookie('csrftoken');
 
 function qaEscapeHtml(s) {
-    const d = document.createElement('div');
-    d.textContent = s == null ? '' : String(s);
-    return d.innerHTML;
+    // Quotes too: this text may be placed inside an attribute.
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
 }
 
 /**

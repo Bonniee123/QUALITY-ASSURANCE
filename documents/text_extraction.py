@@ -37,11 +37,11 @@ def _default_tesseract_cmd():
 
 def extract_text_from_pdf(file_path):
     """
-    Extract text from a machine-readable PDF file using PyPDF2.
+    Extract text from a machine-readable PDF file using pypdf.
     Returns extracted text as a string.
     """
     try:
-        from PyPDF2 import PdfReader
+        from pypdf import PdfReader
         reader = PdfReader(file_path)
         text_parts = []
         for page in reader.pages:
@@ -330,9 +330,9 @@ def _why_no_text(file_path, ext):
 
 
 def _pdf_opens(file_path):
-    """True if either PDF reader can open the file (PyPDF2 is stricter than MuPDF)."""
+    """True if either PDF reader can open the file (pypdf is stricter than MuPDF)."""
     try:
-        from PyPDF2 import PdfReader
+        from pypdf import PdfReader
         PdfReader(file_path)
         return True
     except Exception:
@@ -355,7 +355,7 @@ def _pdf_too_big_for_ocr(file_path):
 
 def _pdf_page_count(file_path):
     try:
-        from PyPDF2 import PdfReader
+        from pypdf import PdfReader
         return len(PdfReader(file_path).pages)
     except Exception:
         return 0

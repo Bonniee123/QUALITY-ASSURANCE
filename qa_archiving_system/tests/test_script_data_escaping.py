@@ -64,3 +64,26 @@ class ScriptDataEscapingTests(TestCase):
         html = self.client.get(reverse('accounts:user_list')).content.decode()
         self.assertNotIn('<img src=x onerror', html)
         self.assertIn('&lt;img src=x onerror=alert(1)&gt;', html)
+
+
+class ClientEscaperTests(TestCase):
+    """
+    The pages' own escape helpers must escape quotes.
+
+    They escaped by assigning textContent and reading innerHTML back, which
+    leaves " and ' alone. Their output also goes into attributes: the floating
+    assistant turned a URL in its answer into <a href="..."> and a document
+    title such as 'https://x/"onmouseover="..."' ran as script (reproduced in a
+    browser before the fix).
+    """
+
+    def test_no_page_escapes_through_innerHTML(self):
+        from pathlib import Path
+        from django.conf import settings
+        root = Path(settings.BASE_DIR)
+        offenders = []
+        for path in list((root / 'templates').rglob('*.html')) + list((root / 'static' / 'js').rglob('*.js')):
+            text = path.read_text(encoding='utf-8')
+            if 'textContent = s' in text and 'return d.innerHTML' in text:
+                offenders.append(str(path.relative_to(root)))
+        self.assertEqual(offenders, [])

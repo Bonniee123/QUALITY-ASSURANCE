@@ -350,9 +350,10 @@
     }
 
     function esc(s) {
-        var d = document.createElement('div');
-        d.textContent = s == null ? '' : String(s);
-        return d.innerHTML;
+        // Quotes too: this text is also placed inside attributes (href, title, src).
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
     }
 
     // Only **bold** is honoured, and only after escaping, so agent text can

@@ -1840,3 +1840,35 @@ A background tab (open the file but stay on the page) was tried and removed:
 Chrome opens a tab in front for any click a page sends itself, Ctrl or not, so
 it cannot be done from the page. Ctrl+click on View File still opens a
 background tab, because that click comes from the person.
+
+## 29. Security review
+
+Every measure in `SECURITY_MEASURES.md` was re-checked against the code and
+the running system, and the document updated where it no longer held.
+
+**Fixed: a document title could run as script from the floating QA
+Assistant.** The pages' escape helpers (`textContent` in, `innerHTML` out) do
+not escape quotes, and the floating assistant turns URLs in its answers into
+links. A title containing `https://x/"onmouseover="…"` — which Faculty can set
+on their uploads — broke out of the link's `href` and ran in the reader's
+browser when the mouse moved (reproduced in a browser, then fixed). All five
+escape helpers now escape `"` and `'` too; a test keeps the old helper out.
+
+**Fixed: vulnerable libraries.** `pip-audit` found Pillow 12.2.0 (image-parser
+memory bugs; every uploaded image is decoded) → 12.3.0; PyPDF2 3.0.1 (abandoned;
+a crafted PDF loops forever) → replaced by `pypdf` 6.19.0 with the same
+`PdfReader`; requests 2.32.3 → 2.34.2. **Run `pip install -r requirements.txt`
+after updating.**
+
+**Checked and holding:** CSRF (no exemptions), SQL (ORM only, no raw SQL),
+redirects (none built from request data), search highlighting, the spreadsheet
+viewer, the chatbot's model context (scoped to what the asker may open),
+`check --deploy` with production settings (two expected notes: SAMEORIGIN
+frames for the PDF preview, HSTS preload), and 24 tampering attempts by a
+Faculty account — other people's threads, messages, chatbot history and
+notifications; editing, deleting, reprocessing and downloading other areas'
+documents; area ZIPs; administrator-only actions — all refused, database
+unchanged, and "all areas" ZIP held only the Faculty member's own area.
+
+**Open:** Django 4.2 reached end of support in April 2026; moving to 5.2 LTS
+is recommended. Full suite: **982 / 982** (19 skipped by their own conditions).

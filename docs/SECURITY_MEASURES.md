@@ -1,8 +1,11 @@
 # Security measures in the QA Archiving System
 
 Every item below is in the running system and covered by automated tests. File
-paths are given so each one can be shown during a defense. Verified 2026-09-16
-against 153 security-focused tests (part of a 623-test suite, all passing).
+paths are given so each one can be shown during a defense. Re-verified
+2026-09-27 against the full 982-test suite (all passing), a browser crawl of
+every page as Administrator, QA Head and two Faculty accounts, 24 tampering
+attempts by a Faculty account against other users' and areas' data (all
+refused, nothing changed), and a dependency audit (`pip-audit`).
 
 ## A. Accounts and passwords
 
@@ -118,9 +121,14 @@ against 153 security-focused tests (part of a 623-test suite, all passing).
 
 29. **SQL injection** — every query goes through the Django ORM, which
     parameterises values; the application contains no raw SQL.
-30. **Cross-site scripting** — templates auto-escape by default. The one place
-    that marks HTML safe (search-term highlighting) escapes the text first and
-    only then wraps matches (`search/templatetags/search_extras.py`).
+30. **Cross-site scripting** — templates auto-escape by default. Three places
+    output HTML deliberately, and each escapes first: search-term highlighting
+    (`search/templatetags/search_extras.py`), the spreadsheet viewer
+    (`documents/file_converter.py`), and chart data, which reaches page scripts
+    only through Django's `json_script` (AI Processing, Dashboard). The pages'
+    own JavaScript builds messages, chat answers and upload lists with escape
+    helpers that also escape quotes, because that text is placed in attributes
+    too (`qa_archiving_system/tests/test_script_data_escaping.py`).
 31. **Command injection** — external tools (LibreOffice for previews) are invoked
     with an argument list and no shell, under a timeout
     (`documents/preview_converters.py`).
@@ -153,6 +161,14 @@ against 153 security-focused tests (part of a 623-test suite, all passing).
     it as a formula — `=HYPERLINK("http://evil...")` in a title stays a title
     (`documents/excel_export.py`).
 
+## J. Dependencies
+
+38. **Known-vulnerability audit.** The pinned libraries are checked with
+    `pip-audit -r requirements.txt -r requirements-prod.txt`. On 2026-09-27 this
+    moved Pillow to 12.3.0 (image-parser memory bugs), requests to 2.34.2, and
+    replaced PyPDF2 — abandoned, with an unfixed infinite-loop bug on crafted
+    PDFs — by its maintained successor `pypdf`.
+
 ## How each measure is verified
 
 Nothing on this list rests on reading the code alone. Each one is held in place
@@ -179,12 +195,13 @@ against a running server on an isolated copy of the data.
 | 25 | `test_security_posture.py` (`StoredFileNameTests`) |
 | 26, 29, 31 | `test_security_posture.py` (`SourceGuardTests`) — the source is scanned for shell calls, raw SQL and interpreters |
 | 27, 28 | `qa_archiving_system/tests/test_rate_limit.py` + live 429 responses |
-| 30 | `test_security_posture.py` (`OutputEscapingTests`) |
+| 30 | `test_security_posture.py` (`OutputEscapingTests`), `test_script_data_escaping.py` |
 | 32, 33 | `test_security_posture.py` (`ProductionSettingsTests`) — a real process started with deployment settings |
 | 34 | `qa_archiving_system/tests/test_error_pages.py` |
 | 35 | `accounts/tests/test_audit_log.py` |
 | 36 | `qa_archiving_system/tests/test_check_production.py` |
 | 37 | `dashboard/tests/test_dashboard_fixes.py` (`ExportEscapingTests`) |
+| 38 | `pip-audit` run; the full suite passing on the upgraded libraries |
 
 Live end-to-end scripts (isolated copy, never live data):
 `D:\QA-System-Check\t70_security_hardening.py` (26 checks) and
@@ -198,5 +215,20 @@ Live end-to-end scripts (isolated copy, never live data):
   `nosniff`, and are rendered by the browser's own sandboxed viewer.
 - **Antivirus scanning is not built in.** If the institution requires it, the
   natural place is on the upload path, after validation and before saving.
+- **Django 4.2 is past its end of support (April 2026).** The seven advisories
+  `pip-audit` lists for it concern features this system does not use (page
+  caching, GeoDjango, signed cookies, `DomainNameValidator`), but future
+  Django fixes will not reach 4.2. Moving to Django 5.2 LTS (supported to April
+  2028) is the recommended next step.
+- **The Content-Security-Policy allows inline scripts** (`'unsafe-inline'`),
+  because the templates use inline `<script>` blocks. It still limits where
+  scripts may load from, but it does not stop an injected inline script;
+  protection against that rests on output escaping (item 30). A nonce-based
+  policy is the stricter future step.
+- **Profile photos are public** to anyone who has the link (item 22); documents
+  are not.
+- **The laptop copy runs in development mode** (`DEBUG` on, the development
+  `SECRET_KEY`, plain HTTP). `check_production` refuses exactly this, so it
+  must be changed before real use (see the checklist).
 - **The default `admin` / `admin123` account still exists** for the laptop
   demonstration and must be changed before deployment (see the checklist).
