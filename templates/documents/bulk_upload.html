@@ -1,0 +1,1045 @@
+{% extends 'base.html' %}
+{% block title %}Bulk Upload{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>Bulk Upload Documents</h2>
+        <p>Drag and drop multiple files. Metadata will be extracted automatically from the content. Up to <strong>{{ bulk_upload_max_files }}</strong> files per batch (if you add more, only the first {{ bulk_upload_max_files }} are uploaded).</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if is_faculty_upload %}
+        <a href="{% url 'documents:faculty_upload' %}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-arrow-up"></i> Single file</a>
+        {% endif %}
+        <a href="{% url 'documents:repository' %}" class="btn btn-outline-primary"><i class="bi bi-archive"></i> Repository</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data" id="bulk-upload-form">
+            {% csrf_token %}
+
+            <div id="bulk-cap-alert" class="alert alert-warning py-2 px-3 d-none" role="status" style="font-size:var(--text-sm)"></div>
+
+            {% if is_faculty_upload %}
+            <!-- Faculty: choose which assigned area this whole batch belongs to -->
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Accreditation area <span class="text-danger">*</span></label>
+                {% if faculty_single_area %}
+                <input type="text" class="form-control" value="{{ faculty_single_area }}" readonly style="max-width:480px;">
+                <input type="hidden" name="qa_area" value="{{ faculty_single_area }}">
+                <div class="form-text"><i class="bi bi-lock"></i> All files in this batch will be filed under <strong>{{ faculty_single_area }}</strong>.</div>
+                {% else %}
+                <select name="qa_area" class="form-select" style="max-width:480px;" required>
+                    <option value="">— Select your area —</option>
+                    {% for code in faculty_area_codes %}<option value="{{ code }}">{{ code }}</option>{% endfor %}
+                </select>
+                <div class="form-text">Every file uploaded in this batch will be filed under the selected area.</div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Program selector (optional) -->
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Tag these files as part of (optional)</label>
+                <select name="program" class="form-select" style="max-width:480px;">
+                    <option value="">— No program —</option>
+                    {% for p in programs %}
+                    <option value="{{ p.pk }}">{{ p.code }} — {{ p.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Every file uploaded in this batch will be linked to this QA program.</div>
+            </div>
+
+            <!-- Drag and Drop Zone -->
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-content">
+                    <i class="bi bi-cloud-arrow-up" style="font-size:56px;color:var(--color-brand);opacity:0.7"></i>
+                    <h4 style="margin:16px 0 6px;font-weight:600;color:var(--color-text-primary)">Drag and drop files here</h4>
+                    <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin:0 0 16px">or click to browse files</p>
+                    <label for="file-input" class="btn btn-primary">
+                        <i class="bi bi-folder2-open me-1"></i> Browse Files
+                    </label>
+                    <input type="file" name="files" id="file-input" multiple
+                           accept=".pdf,.docx,.xlsx,.jpg,.jpeg,.png"
+                           style="display:none">
+                    <p style="color:var(--color-text-muted);font-size:var(--text-xs);margin:16px 0 0">
+                        Accepted: PDF, DOCX, XLSX, JPG, PNG (max 25MB each)
+                    </p>
+                </div>
+            </div>
+
+            <!-- File List Preview -->
+            <div id="fileList" style="display:none" class="mt-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 style="margin:0;font-weight:600"><i class="bi bi-files me-2"></i>Selected Files (<span id="fileCount">0</span>)</h6>
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="clearFiles"><i class="bi bi-x-lg me-1"></i>Clear All</button>
+                </div>
+                <div id="fileItems" class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="Selected files for upload"></div>
+            </div>
+
+            <!-- Upload Button -->
+            <div id="uploadActions" style="display:none" class="mt-3 pt-3" >
+                <div class="alert alert-info" style="font-size:var(--text-sm)">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Auto-processing:</strong> Files upload right away; we prepare them in the background so you can keep working.
+                </div>
+                {% comment %}
+                The bar carried role="progressbar" and nothing else: no
+                aria-valuenow, no min or max, no name. A screen reader was told
+                a progress bar existed and never what it read. The phase label
+                is the status message, announced once per change.
+                {% endcomment %}
+                <div id="uploadProgress" class="d-none mb-3 qa-upload-progress">
+                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:var(--text-sm)">
+                        <span id="uploadProgressLabel" class="fw-semibold" role="status" aria-atomic="true"><i class="bi bi-arrow-up-circle me-1"></i>Uploading…</span>
+                        <span id="uploadProgressPct" class="fw-semibold"></span>
+                    </div>
+                    <div class="progress qa-upload-bar" style="height:10px;border-radius:6px">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="uploadProgressBar"
+                             role="progressbar" style="width:0%"
+                             aria-label="Upload progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-1" style="font-size:var(--text-xs)">
+                        <span id="uploadProgressBytes" class="text-muted"></span>
+                        <span id="uploadProgressSpeed" class="text-muted"></span>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg" id="uploadBtn">
+                    <i class="bi bi-cloud-arrow-up me-2"></i>
+                    Upload and Process All Files
+                </button>
+            </div>
+            {% comment %}
+            The batch panel sits after the upload controls, not before them.
+            Above the form it pushed the whole page down: after seven files it
+            was a tall card of results between the top of the page and the drop
+            zone, so uploading again meant scrolling past the last result to
+            reach the thing you came to use. Results belong under the action
+            that produced them.
+            {% endcomment %}
+            <!-- Active background batch (persists when navigating back to this page) -->
+            <div id="activeBatchPanel" class="d-none mt-4">
+                <div class="qa-batch-card" id="activeBatchCard">
+                    <div class="qa-batch-head">
+                        <span class="qa-batch-icon"><i id="activeBatchIcon" class="bi bi-arrow-repeat spin"></i></span>
+                        <div class="qa-batch-headtext">
+                            <div class="qa-batch-title" id="activeBatchTitle">Processing uploaded files…</div>
+                            <div class="qa-batch-sub" id="activeBatchHint">You can navigate away — processing continues in the background.</div>
+                        </div>
+                        <span class="qa-batch-count" id="activeBatchCount">0 / 0</span>
+                        <span class="qa-batch-autohide d-none" id="activeBatchAutohide" aria-hidden="true"></span>
+                        <button type="button" id="activeBatchClose" class="qa-batch-close d-none"
+                                aria-label="Dismiss this batch summary" title="Dismiss">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div class="qa-batch-track">
+                        <div class="qa-batch-fill active" id="activeBatchBar" style="width:0%"></div>
+                    </div>
+                    <div class="qa-batch-files-head"><i class="bi bi-files me-1"></i>Processing Files (<span id="activeBatchFileCount">0</span>)</div>
+                    <div id="activeBatchItems" class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="Files being processed"></div>
+                </div>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<style>
+.drop-zone {
+    border: 2px dashed var(--color-border-strong);
+    border-radius: var(--radius-xl);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--transition-base), background var(--transition-base);
+    background: var(--color-overlay);
+}
+.drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--color-brand);
+    background: var(--color-brand-light);
+}
+.drop-zone.drag-over .drop-zone-content i {
+    transform: scale(1.1);
+    opacity: 1;
+}
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--color-overlay);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+    font-size: var(--text-sm);
+}
+.file-item .file-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+.file-item .file-icon.pdf { background: hsl(0,72%,94%); color: hsl(0,72%,45%); }
+.file-item .file-icon.docx { background: hsl(210,78%,94%); color: hsl(210,78%,40%); }
+.file-item .file-icon.xlsx { background: hsl(142,52%,94%); color: hsl(142,52%,38%); }
+.file-item .file-icon.img { background: hsl(38,92%,94%); color: hsl(38,80%,40%); }
+.file-item .file-info { flex: 1; }
+.file-item .file-name { font-weight: 600; color: var(--color-text-primary); }
+.file-item .file-size { color: var(--color-text-muted); font-size: var(--text-xs); }
+.file-item .file-remove { background: none; border: none; color: var(--color-text-muted); cursor: pointer; padding: 4px; font-size: 16px; }
+.file-item .file-remove:hover { color: var(--color-danger); }
+.file-item.processing { border-color: hsl(215, 70%, 78%); background: hsl(215, 80%, 98%); }
+.file-item.done { opacity: 0.9; }
+.file-item.done .file-status { color: var(--color-success-text); }
+.file-item.failed { border-color: hsl(0, 65%, 80%); background: hsl(0, 70%, 99%); }
+/* A duplicate is neither a success nor a failure -- it is a decision waiting for
+   someone, so it gets its own tone rather than being folded into either. */
+.file-item.duplicate { border-color: hsl(38, 70%, 78%); background: hsl(38, 85%, 98%); }
+/* Deleted after upload: neither success nor failure, so it recedes. */
+.file-item.removed { opacity: .65; }
+.qa-batch-close {
+    background: none; border: none; padding: 4px 6px; margin-left: 8px;
+    color: var(--color-text-muted); cursor: pointer; border-radius: var(--radius-sm);
+    line-height: 1;
+}
+.qa-batch-close:hover { background: var(--color-overlay); color: var(--color-text-primary); }
+.file-item.removed .file-status { color: var(--color-text-muted); }
+.file-item.duplicate .file-status { color: hsl(38, 92%, 30%); }
+/* Stalled: the pipeline stopped reporting progress. Distinct from failed,
+   because nothing has actually errored -- it simply is not moving. */
+.file-item.stalled { border-color: hsl(0, 60%, 75%); background: hsl(0, 60%, 99%); }
+.file-item.stalled .file-status { color: var(--color-danger); font-weight: 600; }
+.file-item.failed .file-status { color: var(--color-danger); }
+.file-item .file-status { font-size: var(--text-xs); color: var(--color-text-muted); }
+/* Spin the active file's status icon */
+.file-item.processing .file-status i { display: inline-block; animation: qa-upload-spin 0.9s linear infinite; }
+@keyframes qa-upload-spin { to { transform: rotate(360deg); } }
+/* Smooth, non-janky progress transitions */
+#uploadProgressBar, #activeBatchBar { transition: width 0.3s ease, background-color 0.3s ease; }
+/* Completion summary banner */
+.qa-batch-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--color-success-light);
+    border: 1px solid var(--color-success-border);
+    color: hsl(142, 52%, 26%);
+    font-size: var(--text-sm);
+}
+.qa-batch-summary.has-errors {
+    background: var(--color-warning-light);
+    border-color: hsl(38, 80%, 70%);
+    color: hsl(38, 70%, 30%);
+}
+.qa-batch-summary a { font-weight: 600; }
+
+/* Redesigned processing panel — clean surface card */
+.qa-batch-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-left: 3px solid var(--color-brand);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    padding: var(--card-pad);
+    transition: border-color 0.3s ease, opacity 0.3s ease;
+}
+/* The last moment before the finished panel hides itself. */
+.qa-batch-card.is-hiding { opacity: 0; }
+.qa-batch-autohide {
+    flex-shrink: 0; font-size: var(--text-xs); color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.qa-batch-card.is-complete { border-left-color: var(--color-success); }
+.qa-batch-card.is-failed { border-left-color: var(--color-danger); }
+.qa-batch-head { display: flex; align-items: center; gap: 14px; }
+.qa-batch-icon {
+    width: 40px; height: 40px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-md); font-size: 18px;
+    background: var(--color-brand-light); color: var(--color-brand);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+.qa-batch-card.is-complete .qa-batch-icon { background: var(--color-success-light); color: var(--color-success); }
+.qa-batch-card.is-failed .qa-batch-icon { background: var(--color-danger-light); color: var(--color-danger); }
+.qa-batch-icon .spin, .qa-batch-icon i.spin { display: inline-block; animation: qa-upload-spin 0.9s linear infinite; }
+.qa-batch-headtext { flex: 1; min-width: 0; }
+.qa-batch-title { font-weight: 600; font-size: var(--text-base); color: var(--color-text-primary); line-height: 1.3; }
+.qa-batch-sub { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; }
+.qa-batch-sub a { font-weight: 600; }
+.qa-batch-count {
+    flex-shrink: 0; font-size: var(--text-xs); font-weight: 700;
+    color: var(--color-text-secondary); background: var(--color-overlay);
+    border: 1px solid var(--color-border); padding: 4px 11px;
+    border-radius: var(--radius-full); font-variant-numeric: tabular-nums;
+}
+.qa-batch-track {
+    height: 6px; background: var(--color-overlay);
+    border-radius: var(--radius-full); overflow: hidden; margin: 14px 0 4px;
+}
+.qa-batch-fill {
+    height: 100%; width: 0%; border-radius: var(--radius-full);
+    background: var(--color-brand);
+    transition: width 0.35s ease, background-color 0.3s ease;
+}
+.qa-batch-card.is-complete .qa-batch-fill { background: var(--color-success); }
+.qa-batch-card.is-failed .qa-batch-fill { background: var(--color-danger); }
+.qa-batch-fill.active {
+    background-image: linear-gradient(45deg, rgba(255,255,255,.28) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.28) 50%, rgba(255,255,255,.28) 75%, transparent 75%, transparent);
+    background-size: 1rem 1rem;
+    animation: qa-batch-stripe 1s linear infinite;
+}
+@keyframes qa-batch-stripe { from { background-position: 1rem 0; } to { background-position: 0 0; } }
+.qa-batch-files-head {
+    font-size: var(--text-xs); font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--color-text-muted); margin: 16px 0 8px;
+}
+/* ===== UPLOAD PROGRESS =====
+   Bootstrap's progress bar and .text-primary are #0d6efd, and nothing in this
+   project overrides --bs-primary, so the bar and the percentage rendered in
+   Bootstrap blue directly above a button in brand teal #1a7b93 -- two different
+   "primary" colours stacked in one panel. `.progress` appears on this page and
+   nowhere else, so the fix is scoped here rather than re-theming Bootstrap. */
+.qa-upload-bar .progress-bar { background-color: var(--color-brand); }
+.qa-upload-bar .progress-bar.bg-success { background-color: var(--color-success) !important; }
+.qa-upload-bar .progress-bar.bg-danger { background-color: var(--color-danger) !important; }
+#uploadProgressPct { color: var(--color-brand) !important; }
+
+/* The bytes are all sent and the server is still working. The bar used to sit
+   at a striped, animated 100%, which claims a measured hundred per cent of
+   something that is no longer being measured -- and the speed readout froze at
+   whatever it last saw ("17.3 MB/s") while nothing was moving. The bar says
+   "still working" without claiming a figure, and the stale numbers are cleared. */
+.qa-upload-bar.is-indeterminate .progress-bar {
+    background-image: linear-gradient(90deg,
+        var(--color-brand) 0%, var(--color-brand) 35%,
+        color-mix(in srgb, var(--color-brand) 55%, #fff) 50%,
+        var(--color-brand) 65%, var(--color-brand) 100%);
+    background-size: 220% 100%;
+    animation: qaUploadSweep 1.4s linear infinite;
+}
+@keyframes qaUploadSweep {
+    from { background-position: 120% 0; }
+    to   { background-position: -120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .qa-upload-bar.is-indeterminate .progress-bar { animation: none; background-image: none; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('file-input');
+const fileList = document.getElementById('fileList');
+const fileItems = document.getElementById('fileItems');
+const fileCount = document.getElementById('fileCount');
+const uploadActions = document.getElementById('uploadActions');
+const clearBtn = document.getElementById('clearFiles');
+const form = document.getElementById('bulk-upload-form');
+const bulkCapAlert = document.getElementById('bulk-cap-alert');
+const uploadBtn = document.getElementById('uploadBtn');
+const uploadProgress = document.getElementById('uploadProgress');
+const uploadProgressBar = document.getElementById('uploadProgressBar');
+const uploadProgressLabel = document.getElementById('uploadProgressLabel');
+const uploadProgressPct = document.getElementById('uploadProgressPct');
+const activeBatchPanel = document.getElementById('activeBatchPanel');
+const activeBatchTitle = document.getElementById('activeBatchTitle');
+const activeBatchCount = document.getElementById('activeBatchCount');
+const activeBatchBar = document.getElementById('activeBatchBar');
+const activeBatchItems = document.getElementById('activeBatchItems');
+const activeBatchClose = document.getElementById('activeBatchClose');
+const activeBatchFileCount = document.getElementById('activeBatchFileCount');
+const activeBatchCard = document.getElementById('activeBatchCard');
+const activeBatchIcon = document.getElementById('activeBatchIcon');
+const activeBatchHint = document.getElementById('activeBatchHint');
+const activeBatchAutohide = document.getElementById('activeBatchAutohide');
+const uploadProgressBytes = document.getElementById('uploadProgressBytes');
+const uploadProgressSpeed = document.getElementById('uploadProgressSpeed');
+const JOB_STATUS_URL = '{% url "documents:job_status" 0 %}'.replace('/0/', '/');
+const REPO_URL = '{% url "documents:repository" %}';
+const BULK_MAX = {{ bulk_upload_max_files|default:100 }};
+
+let selectedFiles = [];
+
+function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+}
+
+function formatBytes(b) {
+    if (b == null || isNaN(b)) return '';
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+    return (b / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function fileIconMeta(name) {
+    const ext = (name || '').split('.').pop().toLowerCase();
+    let iconClass = 'bi-file-earmark';
+    let colorClass = 'img';
+    if (ext === 'pdf') { iconClass = 'bi-file-earmark-pdf'; colorClass = 'pdf'; }
+    else if (ext === 'docx') { iconClass = 'bi-file-earmark-word'; colorClass = 'docx'; }
+    else if (ext === 'xlsx') { iconClass = 'bi-file-earmark-excel'; colorClass = 'xlsx'; }
+    else if (['jpg', 'jpeg', 'png'].includes(ext)) { iconClass = 'bi-file-earmark-image'; colorClass = 'img'; }
+    return { iconClass, colorClass };
+}
+
+function errorMapForJob(job) {
+    const map = {};
+    (job.errors || []).forEach(function(err) {
+        const idx = String(err).indexOf(':');
+        const name = idx >= 0 ? String(err).slice(0, idx).trim() : String(err);
+        map[name] = idx >= 0 ? String(err).slice(idx + 1).trim() : 'Failed';
+    });
+    return map;
+}
+
+/* ------------------------------------------------------------------------
+   Batch progress, read from the server.
+
+   Every state below comes from `/documents/upload-batches/`, which derives it
+   from the batch job and the documents it produced. Nothing is inferred from
+   browser memory, so a reload, a new tab, another device or a fresh login all
+   show the same thing.
+
+   The old version guessed per-file state from a single counter -- files before
+   the counter were "Processed", the one at it was "Processing", the rest
+   "Waiting" -- which was a display of the count, not of the files. A file that
+   failed or was flagged as a duplicate still showed as processed.
+   ------------------------------------------------------------------------ */
+const BATCHES_URL = '{% url "documents:upload_batches" %}';
+const BATCH_STATE = {
+    completed:  { cls: 'done',       icon: 'bi-check-circle',        label: 'Completed' },
+    duplicate:  { cls: 'duplicate',  icon: 'bi-files',               label: 'Duplicate' },
+    failed:     { cls: 'failed',     icon: 'bi-x-circle',            label: 'Failed' },
+    processing: { cls: 'processing', icon: 'bi-arrow-repeat spin',   label: 'Processing…' },
+    queued:     { cls: '',           icon: 'bi-clock',               label: 'Queued' },
+    removed:    { cls: 'removed',    icon: 'bi-dash-circle',         label: 'Removed' }
+};
+
+function renderActiveBatchPanel(batch) {
+    if (!activeBatchPanel || !batch) return;
+    const c = batch.counts || {};
+    const failedState = batch.status === 'failed';
+    const done = batch.finished && !failedState;
+
+    activeBatchPanel.classList.remove('d-none');
+    if (activeBatchFileCount) activeBatchFileCount.textContent = String(batch.total || 0);
+    if (activeBatchCount) activeBatchCount.textContent = batch.settled + ' / ' + batch.total;
+    if (activeBatchBar) {
+        activeBatchBar.style.width = (batch.percent || 0) + '%';
+        activeBatchBar.classList.toggle('active', !batch.finished);
+    }
+    if (activeBatchCard) {
+        activeBatchCard.classList.toggle('is-complete', done);
+        activeBatchCard.classList.toggle('is-failed', failedState);
+    }
+    if (activeBatchTitle) {
+        activeBatchTitle.textContent =
+            failedState ? 'Upload failed'
+            : batch.stalled ? 'Processing appears stalled'
+            : done ? 'Processing complete'
+            : 'Processing uploaded files…';
+    }
+    if (activeBatchIcon) {
+        activeBatchIcon.className = 'bi ' + (
+            failedState ? 'bi-x-circle'
+            : batch.stalled ? 'bi-exclamation-triangle'
+            : done ? 'bi-check-circle'
+            : 'bi-arrow-repeat spin'
+        );
+    }
+    if (activeBatchHint) {
+        // The summary always names every state, so "nothing is happening" and
+        // "everything succeeded" can never look the same.
+        const parts = [];
+        if (c.completed) { parts.push(c.completed + ' completed'); }
+        if (c.duplicate) { parts.push(c.duplicate + ' duplicate'); }
+        if (c.processing) { parts.push(c.processing + ' processing'); }
+        if (c.queued) { parts.push(c.queued + ' queued'); }
+        if (c.failed) { parts.push(c.failed + ' failed'); }
+        if (c.removed) { parts.push(c.removed + ' removed since'); }
+        let text = escapeHtml(parts.join(' · ') || 'Preparing…');
+        if (batch.stalled) {
+            text += ' — <strong>no progress for several minutes.</strong> ' +
+                    'Open AI Processing to re-run analysis.';
+        } else if (batch.finished) {
+            text += ' — <a href="' + REPO_URL + '">View in Repository</a>';
+        } else {
+            text += ' — you can navigate away, this keeps running.';
+        }
+        activeBatchHint.innerHTML = text;
+    }
+    if (activeBatchClose) {
+        activeBatchClose.classList.toggle('d-none', !batch.finished);
+        activeBatchClose.onclick = function () {
+            rememberDismissed(batch.job_id);
+            hideActiveBatchPanel();
+        };
+    }
+
+    // A batch that settled with nothing to act on takes itself off the page.
+    // Anything failed or stalled stays until it is closed by hand: those are
+    // the two cases where the list under the drop zone is still work.
+    if (done && !batch.stalled && !c.failed) {
+        startAutoHide(batch);
+    } else {
+        clearAutoHide();
+    }
+
+    if (!activeBatchItems) return;
+    activeBatchItems.innerHTML = '';
+    (batch.files || []).forEach(function (f) {
+        const meta = fileIconMeta(f.name);
+        const st = BATCH_STATE[f.state] || BATCH_STATE.queued;
+        let status = f.detail ? f.detail : st.label;
+        if (f.stalled) { status = 'Stalled — ' + status; }
+        const name = f.url
+            ? '<a href="' + f.url + '" target="_blank" rel="noopener">' + escapeHtml(f.name) + '</a>'
+            : escapeHtml(f.name);
+        const div = document.createElement('div');
+        div.className = 'file-item ' + st.cls + (f.stalled ? ' stalled' : '');
+        div.innerHTML =
+            '<div class="file-icon ' + meta.colorClass + '"><i class="bi ' + meta.iconClass + '"></i></div>' +
+            '<div class="file-info">' +
+            '<div class="file-name">' + name + '</div>' +
+            '<div class="file-status"><i class="bi ' + st.icon + ' me-1"></i>' + escapeHtml(status) + '</div>' +
+            '</div>';
+        activeBatchItems.appendChild(div);
+    });
+}
+
+/* ------------------------------------------------------------------------
+   Taking a finished batch off the page.
+
+   The panel used to wait to be closed by hand, so the file list sat under the
+   drop zone long after it was news. It now clears itself ten seconds after the
+   batch settles -- but never silently, which was the reason the old auto-hide
+   was removed in the first place: a panel that vanished on its own looked the
+   same as one that had failed. The countdown is on screen while it runs, so
+   the panel going is plainly its own doing, and pointing at the card or tabbing
+   into it stops the clock for as long as it is being read.
+   ------------------------------------------------------------------------ */
+const AUTO_HIDE_SECONDS = 10;
+let autoHideTimer = null;
+let autoHideLeft = 0;
+let autoHideBatchId = null;
+
+function paintAutoHideLabel(text) {
+    if (!activeBatchAutohide) return;
+    activeBatchAutohide.textContent = text;
+    activeBatchAutohide.classList.remove('d-none');
+}
+
+function clearAutoHide() {
+    clearInterval(autoHideTimer);
+    autoHideTimer = null;
+    autoHideBatchId = null;
+    if (activeBatchAutohide) activeBatchAutohide.classList.add('d-none');
+    if (activeBatchCard) activeBatchCard.classList.remove('is-hiding');
+}
+
+function tickAutoHide() {
+    autoHideLeft -= 1;
+    if (autoHideLeft > 0) {
+        paintAutoHideLabel('Hiding in ' + autoHideLeft + 's');
+        return;
+    }
+    clearInterval(autoHideTimer);
+    autoHideTimer = null;
+    // Remembered, so neither the next refresh of the batch state nor the next
+    // visit to this page brings the same finished panel back.
+    rememberDismissed(autoHideBatchId);
+    if (activeBatchCard) activeBatchCard.classList.add('is-hiding');
+    setTimeout(function () { clearAutoHide(); hideActiveBatchPanel(); }, 320);
+}
+
+function startAutoHide(batch) {
+    clearAutoHide();
+    autoHideBatchId = batch.job_id;
+    autoHideLeft = AUTO_HIDE_SECONDS;
+    paintAutoHideLabel('Hiding in ' + autoHideLeft + 's');
+    autoHideTimer = setInterval(tickAutoHide, 1000);
+}
+
+function pauseAutoHide() {
+    if (!autoHideTimer) return;
+    clearInterval(autoHideTimer);
+    autoHideTimer = null;
+    paintAutoHideLabel('Paused while you read it');
+}
+
+function resumeAutoHide() {
+    if (autoHideTimer || !autoHideBatchId) return;
+    autoHideLeft = AUTO_HIDE_SECONDS;
+    paintAutoHideLabel('Hiding in ' + autoHideLeft + 's');
+    autoHideTimer = setInterval(tickAutoHide, 1000);
+}
+
+if (activeBatchCard) {
+    activeBatchCard.addEventListener('mouseenter', pauseAutoHide);
+    activeBatchCard.addEventListener('mouseleave', resumeAutoHide);
+    activeBatchCard.addEventListener('focusin', pauseAutoHide);
+    activeBatchCard.addEventListener('focusout', resumeAutoHide);
+}
+
+function hideActiveBatchPanel() {
+    clearAutoHide();
+    if (activeBatchPanel) activeBatchPanel.classList.add('d-none');
+    if (activeBatchItems) activeBatchItems.innerHTML = '';
+}
+
+let batchPollTimer = null;
+/* The last finished batch that was closed -- by hand, or by the countdown.
+
+   Kept in localStorage rather than in the tab, because a summary that has
+   already been read and dismissed should not reappear on the next visit to this
+   page; coming back to find it again is the lingering this was meant to end.
+   Job ids only ever increase, so one number is enough: anything at or below it
+   has been seen.
+
+   Only ever honoured for a *finished* batch. Dismissing must never hide work in
+   progress, whatever is in storage. */
+const DISMISSED_KEY = 'qaDismissedBatch';
+let dismissedBatch = null;
+
+function rememberDismissed(jobId) {
+    dismissedBatch = jobId;
+    try {
+        localStorage.setItem(DISMISSED_KEY, String(jobId));
+    } catch (e) { /* private mode, or storage blocked: the tab still remembers */ }
+}
+
+function wasDismissed(jobId) {
+    if (dismissedBatch !== null && jobId <= dismissedBatch) { return true; }
+    try {
+        const stored = parseInt(localStorage.getItem(DISMISSED_KEY), 10);
+        return !isNaN(stored) && jobId <= stored;
+    } catch (e) {
+        return false;
+    }
+}
+/* One request at a time. Several things ask for a refresh -- the timer, the
+   navbar job poller, the tab coming back into view -- and while the server was
+   busy those requests queued up behind one another. A refresh asked for while
+   one is already on its way is folded into a single follow-up instead. */
+let batchFetchInFlight = false;
+let batchFetchAgain = false;
+/* What the panel last drew, so an unchanged answer does not rebuild every row. */
+let lastBatchJson = '';
+
+/* Ask the server what the most recent batch is doing. Called on every page
+   load, so navigating away and back restores the real state rather than
+   whatever the tab happened to remember. */
+function hydrateBatches() {
+    if (batchFetchInFlight) { batchFetchAgain = true; return; }
+    batchFetchInFlight = true;
+    clearTimeout(batchPollTimer);
+    const baseHeaders = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+    fetch(BATCHES_URL, {
+        headers: window.qaActivity ? window.qaActivity.headers(baseHeaders) : baseHeaders,
+        credentials: 'same-origin'
+    })
+    .then(function (r) {
+        if (window.qaActivity && window.qaActivity.expired(r)) { return null; }
+        return r.ok ? r.json() : null;
+    })
+    .then(function (d) {
+        // The newest batch worth showing: still running, or finished recently
+        // enough to be news. Without this the panel showed yesterday's batch on
+        // every visit -- including one whose documents had all been deleted.
+        const batches = (d && d.batches) || [];
+        const batch = batches.find(function (b) { return b.is_current && b.total; });
+        if (!batch) { lastBatchJson = ''; hideActiveBatchPanel(); return; }
+        if (batch.finished && wasDismissed(batch.job_id)) {
+            lastBatchJson = '';
+            hideActiveBatchPanel();
+            return;
+        }
+        const json = JSON.stringify(batch);
+        if (json !== lastBatchJson) {
+            lastBatchJson = json;
+            renderActiveBatchPanel(batch);
+        }
+        // Keep polling until every file has reached a terminal state. The panel
+        // stays on screen when finished rather than hiding itself after a few
+        // seconds -- disappearing was indistinguishable from having failed.
+        if (!batch.finished && batch.status !== 'failed') {
+            batchPollTimer = setTimeout(hydrateBatches, 3000);
+        }
+    })
+    .catch(function () {})
+    .then(function () {
+        batchFetchInFlight = false;
+        if (batchFetchAgain) { batchFetchAgain = false; hydrateBatches(); }
+    });
+}
+
+/* The navbar job poller fires this when the file-saving job ends; it prompts
+   one re-read of the server's batch state. Progress in between comes from the
+   panel's own poll above -- it used to re-read on every one of the poller's
+   2.5-second ticks as well, doubling the requests for the same answer. */
+function onJobEvent(e) {
+    const job = e.detail && e.detail.job;
+    if (!job || job.job_type !== 'bulk_upload_process') return;
+    hydrateBatches();
+}
+document.addEventListener('qaJobStatusFinished', onJobEvent);
+
+hydrateBatches();
+document.addEventListener('visibilitychange', function () { if (!document.hidden) { hydrateBatches(); } });
+
+// Click to browse
+dropZone.addEventListener('click', function(e) {
+    if (e.target.tagName !== 'LABEL' && e.target.tagName !== 'INPUT') {
+        fileInput.click();
+    }
+});
+
+// Drag events
+dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', function() {
+    dropZone.classList.remove('drag-over');
+});
+dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    addFiles(e.dataTransfer.files);
+});
+
+// File input change
+fileInput.addEventListener('change', function() {
+    addFiles(fileInput.files);
+});
+
+function addFiles(newFiles) {
+    for (let f of newFiles) {
+        // Check for duplicates
+        if (!selectedFiles.some(sf => sf.name === f.name && sf.size === f.size)) {
+            selectedFiles.push(f);
+        }
+    }
+    const before = selectedFiles.length;
+    if (selectedFiles.length > BULK_MAX) {
+        selectedFiles = selectedFiles.slice(0, BULK_MAX);
+        const dropped = before - BULK_MAX;
+        if (bulkCapAlert) {
+            bulkCapAlert.textContent = 'A maximum of ' + BULK_MAX + ' files can be uploaded per batch. ' + dropped + ' file(s) were not added to this batch.';
+            bulkCapAlert.classList.remove('d-none');
+        }
+    }
+    renderFileList();
+}
+
+function renderFileList() {
+    if (selectedFiles.length === 0) {
+        fileList.style.display = 'none';
+        uploadActions.style.display = 'none';
+        return;
+    }
+
+    fileList.style.display = 'block';
+    uploadActions.style.display = 'block';
+    fileCount.textContent = selectedFiles.length;
+    fileItems.innerHTML = '';
+
+    selectedFiles.forEach(function(f, idx) {
+        const ext = f.name.split('.').pop().toLowerCase();
+        let iconClass = 'bi-file-earmark';
+        let colorClass = 'img';
+        if (ext === 'pdf') { iconClass = 'bi-file-earmark-pdf'; colorClass = 'pdf'; }
+        else if (ext === 'docx') { iconClass = 'bi-file-earmark-word'; colorClass = 'docx'; }
+        else if (ext === 'xlsx') { iconClass = 'bi-file-earmark-excel'; colorClass = 'xlsx'; }
+        else if (['jpg','jpeg','png'].includes(ext)) { iconClass = 'bi-file-earmark-image'; colorClass = 'img'; }
+
+        const size = f.size < 1024*1024
+            ? (f.size / 1024).toFixed(1) + ' KB'
+            : (f.size / (1024*1024)).toFixed(1) + ' MB';
+
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        div.innerHTML = `
+            <div class="file-icon ${colorClass}"><i class="bi ${iconClass}"></i></div>
+            <div class="file-info">
+                <div class="file-name">${escapeHtml(f.name)}</div>
+                <div class="file-size">${size}</div>
+            </div>
+            <button type="button" class="file-remove" data-idx="${idx}" title="Remove"><i class="bi bi-x-lg"></i></button>
+        `;
+        fileItems.appendChild(div);
+    });
+
+    // Remove individual file
+    fileItems.querySelectorAll('.file-remove').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            selectedFiles.splice(parseInt(btn.dataset.idx), 1);
+            renderFileList();
+        });
+    });
+
+    // Update the actual file input with selected files
+    updateFileInput();
+}
+
+function updateFileInput() {
+    const dt = new DataTransfer();
+    selectedFiles.forEach(f => dt.items.add(f));
+    fileInput.files = dt.files;
+}
+
+function parseFilenamesFromErrors(errors) {
+    return (errors || []).map(function(err) {
+        const idx = String(err).indexOf(':');
+        return idx >= 0 ? String(err).slice(0, idx).trim() : String(err).trim();
+    }).filter(Boolean);
+}
+
+function removeRejectedFromSelection(rejectedNames, reasonLabel) {
+    const names = rejectedNames || [];
+    if (!names.length) return 0;
+    const nameSet = new Set(names.map(function(n) { return n.toLowerCase(); }));
+    const before = selectedFiles.length;
+    selectedFiles = selectedFiles.filter(function(f) {
+        return !nameSet.has(f.name.toLowerCase());
+    });
+    updateFileInput();
+    renderFileList();
+    if (bulkCapAlert && before !== selectedFiles.length) {
+        bulkCapAlert.textContent = (before - selectedFiles.length) + ' file(s) removed from selection'
+            + (reasonLabel ? ' (' + reasonLabel + ').' : '.');
+        bulkCapAlert.classList.remove('d-none');
+    }
+    return before - selectedFiles.length;
+}
+
+function handleUploadRejections(data) {
+    const rejected = (data && data.rejected_filenames && data.rejected_filenames.length)
+        ? data.rejected_filenames
+        : parseFilenamesFromErrors(data && data.errors);
+    if (!rejected.length) return;
+    const hasDuplicate = (data.errors || []).some(function(e) {
+        return /duplicate/i.test(String(e));
+    });
+    removeRejectedFromSelection(rejected, hasDuplicate ? 'duplicates or invalid files' : 'could not be uploaded');
+}
+
+// Clear all
+clearBtn.addEventListener('click', function() {
+    selectedFiles = [];
+    fileInput.value = '';
+    if (bulkCapAlert) {
+        bulkCapAlert.classList.add('d-none');
+        bulkCapAlert.textContent = '';
+    }
+    renderFileList();
+});
+
+// Async upload on submit — real-time progress, no full-screen blocker
+function resetUploadBar() {
+    if (!uploadProgressBar) return;
+    uploadProgressBar.style.width = '0%';
+    uploadProgressBar.classList.remove('bg-success', 'bg-danger');
+    uploadProgressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
+    uploadProgressBar.setAttribute('aria-valuenow', '0');
+    uploadProgressBar.removeAttribute('aria-busy');
+    if (uploadProgressBar.parentElement) {
+        uploadProgressBar.parentElement.classList.remove('is-indeterminate');
+    }
+}
+
+// The button is disabled for the whole upload and its label never changed, so
+// "Upload and Process All Files" sat greyed out beside a bar reading 100% with
+// nothing saying which of the two states the page was in.
+const uploadBtnIdleHtml = uploadBtn ? uploadBtn.innerHTML : '';
+function setUploadBtnPhase(html) {
+    if (uploadBtn) uploadBtn.innerHTML = html;
+}
+
+form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    if (selectedFiles.length === 0) return;
+    if (selectedFiles.length > BULK_MAX) {
+        selectedFiles = selectedFiles.slice(0, BULK_MAX);
+        updateFileInput();
+    }
+
+    const formData = new FormData(form);
+    const csrf = form.querySelector('[name=csrfmiddlewaretoken]');
+    const totalFiles = selectedFiles.length;
+    const startTime = Date.now();
+    uploadBtn.disabled = true;
+
+    if (uploadProgress) {
+        uploadProgress.classList.remove('d-none');
+        resetUploadBar();
+        uploadProgressLabel.innerHTML = '<i class="bi bi-arrow-up-circle me-1"></i>Uploading ' + totalFiles + ' file(s)…';
+        setUploadBtnPhase('<i class="bi bi-arrow-up-circle me-2"></i>Uploading ' + totalFiles + ' file(s)…');
+        uploadProgressPct.textContent = '0%';
+        if (uploadProgressBytes) uploadProgressBytes.textContent = '';
+        if (uploadProgressSpeed) uploadProgressSpeed.textContent = '';
+    }
+
+    function finishUpload() {
+        uploadBtn.disabled = false;
+        setUploadBtnPhase(uploadBtnIdleHtml);
+        if (uploadProgressBar) {
+            uploadProgressBar.removeAttribute('aria-busy');
+            if (uploadProgressBar.parentElement) {
+                uploadProgressBar.parentElement.classList.remove('is-indeterminate');
+            }
+        }
+        if (uploadProgress) {
+            setTimeout(function() {
+                uploadProgress.classList.add('d-none');
+                resetUploadBar();
+            }, 1600);
+        }
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', form.action, true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.setRequestHeader('Accept', 'application/json');
+    if (csrf) xhr.setRequestHeader('X-CSRFToken', csrf.value);
+    xhr.withCredentials = true;
+
+    // Real byte-level upload progress
+    xhr.upload.addEventListener('progress', function(ev) {
+        if (!ev.lengthComputable || !uploadProgressBar) return;
+        const pct = Math.round((ev.loaded / ev.total) * 100);
+        uploadProgressBar.style.width = pct + '%';
+        if (uploadProgressPct) uploadProgressPct.textContent = pct + '%';
+        if (uploadProgressBytes) uploadProgressBytes.textContent = formatBytes(ev.loaded) + ' / ' + formatBytes(ev.total);
+        const elapsed = (Date.now() - startTime) / 1000;
+        if (elapsed > 0 && uploadProgressSpeed) {
+            uploadProgressSpeed.textContent = formatBytes(ev.loaded / elapsed) + '/s';
+        }
+        uploadProgressBar.setAttribute('aria-valuenow', String(pct));
+        if (pct >= 100) {
+            // Every byte is sent; what is left is server work with no measure.
+            // Keeping the striped 100% bar and the last speed reading claimed a
+            // rate for a transfer that had finished.
+            // Not "Finalizing on server": the server is still deciding. Each
+            // file is size- and type-checked, hashed against the archive for an
+            // exact copy and compared by picture for a visual one, and any of
+            // those can refuse it -- so a label promising a wrap-up was followed
+            // by "3 file(s) not uploaded". "on server" was ours, not theirs.
+            if (uploadProgressLabel) {
+                uploadProgressLabel.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Checking and saving your files…';
+            }
+            if (uploadProgressSpeed) uploadProgressSpeed.textContent = '';
+            if (uploadProgressBytes) uploadProgressBytes.textContent = formatBytes(ev.total) + ' sent';
+            uploadProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            uploadProgressBar.setAttribute('aria-busy', 'true');
+            uploadProgressBar.removeAttribute('aria-valuenow');
+            if (uploadProgressBar.parentElement) {
+                uploadProgressBar.parentElement.classList.add('is-indeterminate');
+            }
+            setUploadBtnPhase('<i class="bi bi-hourglass-split me-2"></i>Checking…');
+        }
+    });
+
+    xhr.addEventListener('load', function() {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText || '{}'); } catch (err) { data = {}; }
+        const ok = xhr.status >= 200 && xhr.status < 300 && data.ok;
+
+        if (!ok) {
+            handleUploadRejections(data);
+            const rejected = (data.rejected_filenames || []).length;
+            // Say why: every refused file used to be called a duplicate, even an
+            // unsupported, oversized or empty one.
+            const reasons = (data.errors || []).map(function(e) {
+                const s = String(e); const i = s.indexOf(':');
+                return i >= 0 ? s.slice(i + 1).trim() : s;
+            });
+            const allDuplicates = reasons.length > 0 && reasons.every(function(r) { return /duplicate|similar/i.test(r); });
+            const errMsg = rejected
+                ? (allDuplicates ? rejected + ' duplicate file(s) removed'
+                                 : rejected + ' file(s) not uploaded: ' + (reasons[0] || 'see the file list'))
+                : (data.error || 'Upload failed.');
+            if (uploadProgressBar) {
+                uploadProgressBar.style.width = '100%';
+                uploadProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                uploadProgressBar.classList.add('bg-danger');
+                uploadProgressBar.setAttribute('aria-valuenow', '100');
+            }
+            if (uploadProgressLabel) uploadProgressLabel.innerHTML = '<i class="bi bi-x-circle me-1"></i>Upload failed';
+            if (window.qaToast) window.qaToast(errMsg, 'error');
+            else alert(errMsg);
+            finishUpload();
+            return;
+        }
+
+        if (uploadProgressBar) {
+            uploadProgressBar.style.width = '100%';
+            uploadProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            uploadProgressBar.classList.add('bg-success');
+            uploadProgressBar.setAttribute('aria-valuenow', '100');
+        }
+        if (uploadProgressPct) uploadProgressPct.textContent = '100%';
+        if (uploadProgressLabel) uploadProgressLabel.innerHTML = '<i class="bi bi-check-circle me-1"></i>Uploaded — preparing your files…';
+        if (window.qaToast) window.qaToast((data.uploaded_count || 0) + ' file(s) uploaded — we will notify you when ready', 'info');
+
+        if (data.job_id) {
+            // Every saved file is listed straight away as Processing, drawn by
+            // the same renderer the server's answer uses, and then replaced by
+            // that answer. This used to hand the renderer a *job* rather than a
+            // batch, which showed "undefined / undefined" and no files until the
+            // next poll.
+            const names = data.filenames || selectedFiles.map(function(f) { return f.name; });
+            renderActiveBatchPanel({
+                job_id: data.job_id, status: 'running', total: names.length,
+                settled: 0, percent: 0, finished: false, stalled: false,
+                counts: { processing: names.length },
+                files: names.map(function(n) { return { name: n, state: 'processing', detail: '' }; })
+            });
+            lastBatchJson = '';
+            hydrateBatches();
+            if (window.qaJobStatus) {
+                window.qaJobStatus.trackJob(data.job_id, { filenames: names });
+            }
+        }
+        if (data.errors && data.errors.length && window.qaToast) {
+            window.qaToast(data.errors.length + ' file(s) skipped', 'warning');
+        }
+        handleUploadRejections(data);
+        selectedFiles = selectedFiles.filter(function(f) {
+            return !(data.filenames || []).some(function(name) {
+                return name.toLowerCase() === f.name.toLowerCase();
+            });
+        });
+        updateFileInput();
+        renderFileList();
+        finishUpload();
+    });
+
+    xhr.addEventListener('error', function() {
+        if (uploadProgressBar) {
+            uploadProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            uploadProgressBar.classList.add('bg-danger');
+        }
+        if (uploadProgressLabel) uploadProgressLabel.innerHTML = '<i class="bi bi-x-circle me-1"></i>Upload failed';
+        if (window.qaToast) window.qaToast('Upload failed. Please try again.', 'error');
+        else alert('Upload failed. Please try again.');
+        finishUpload();
+    });
+
+    xhr.send(formData);
+});
+</script>
+{% endblock %}

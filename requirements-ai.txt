@@ -1,0 +1,12 @@
+# Optional: semantic document clustering.
+#
+# Install AFTER requirements.txt:
+#     pip install -r requirements.txt
+#     pip install -r requirements-ai.txt
+#
+# This pulls torch (~500 MB) and transformers (~90 MB). Once installed, embeddings
+# are enabled automatically; set AI_CLUSTER_USE_EMBEDDINGS=0 to force the lighter
+# TF-IDF + metadata backend without uninstalling.
+sentence-transformers==5.6.0
+torch==2.12.1
+transformers==5.12.1

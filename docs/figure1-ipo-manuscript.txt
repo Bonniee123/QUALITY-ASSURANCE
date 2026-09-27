@@ -1,0 +1,25 @@
+================================================================================
+FIGURE 1 — IPO DIAGRAM (COPY INTO WORD)
+================================================================================
+
+Figure 1. Input-Process-Output (IPO) Model of the QA Archiving System
+
+[Insert image from: docs/figure1-ipo-diagram.drawio — export as PNG for Word]
+
+--------------------------------------------------------------------------------
+FIGURE 1 — EXPLANATORY PARAGRAPH (paste under the figure in Chapter 3)
+--------------------------------------------------------------------------------
+
+Figure 1 presents the Input-Process-Output (IPO) model of the QA Archiving System. The input stage consists of QA documents and scanned files in supported formats (PDF, DOCX, XLSX, and images), together with document metadata such as title, document type, year, and accreditation area. It also includes user credentials and role assignments for the Administrator, QA Head, and Faculty, as well as the accreditation area(s) assigned to Faculty accounts.
+
+In the process stage, the system performs user authentication and role-based access control to ensure that each user can access only the functions and documents permitted by their role. Uploaded files undergo validation and are stored in a centralized repository. The system then extracts text from documents and applies OCR when needed. AI-based processing is performed to support keyword extraction, document clustering, and duplicate detection. Finally, the system provides smart search, cluster-based retrieval, dashboard monitoring, in-app notifications, and chatbot assistance for authorized users.
+
+The output stage produces an organized document repository with complete metadata, clustered document groups, and duplicate or similar-file alerts. Users receive smart search results and cluster-based retrieval outputs that support faster document access. The system also generates dashboard summaries, notifications, and chatbot responses that assist the QA Head and Administrator in managing accreditation evidence.
+
+--------------------------------------------------------------------------------
+OPTIONAL SHORT VERSION (if your adviser wants 1 paragraph only)
+--------------------------------------------------------------------------------
+
+Figure 1 illustrates the Input-Process-Output (IPO) model of the QA Archiving System. The system accepts QA documents, metadata, and user role information as input. These inputs are processed through authentication, document management, text extraction, OCR, AI-based analysis, smart search, and system monitoring. As output, the system produces an organized repository, clustered document groups, duplicate alerts, search results, dashboard summaries, notifications, and chatbot assistance for authorized users.
+
+================================================================================

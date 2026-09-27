@@ -1,0 +1,182 @@
+<mxfile host="app.diagrams.net" agent="QA Capstone" background="#ffffff">
+  <diagram name="Web Deployment" id="fig6-deployment">
+    <mxGraphModel dx="981" dy="593" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" background="#FFFFFF" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=none;" value="" vertex="1">
+          <mxGeometry height="1169" width="827" as="geometry" />
+        </mxCell>
+        <mxCell id="title" parent="1" style="text;html=1;align=center;strokeColor=none;fillColor=none;fontColor=#000000;fontSize=14;fontFamily=Helvetica;fontStyle=1;" value="&lt;b&gt;Figure 6. Web-Based System Deployment Diagram of the System&lt;/b&gt;" vertex="1">
+          <mxGeometry height="26" width="700" x="64" y="12" as="geometry" />
+        </mxCell>
+        <mxCell id="L1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#23445d;fontSize=9;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="1&lt;br&gt;Client" vertex="1">
+          <mxGeometry height="80" width="58" x="8" y="48" as="geometry" />
+        </mxCell>
+        <mxCell id="L2" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#d79b00;fontSize=8;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="2&lt;br&gt;Web Server" vertex="1">
+          <mxGeometry height="76" width="58" x="8" y="144" as="geometry" />
+        </mxCell>
+        <mxCell id="L3" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#23445d;fontSize=8;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="3&lt;br&gt;App Server" vertex="1">
+          <mxGeometry height="192" width="58" x="8" y="236" as="geometry" />
+        </mxCell>
+        <mxCell id="L4" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#9673a6;fontSize=8;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="4&lt;br&gt;Processing" vertex="1">
+          <mxGeometry height="92" width="58" x="8" y="444" as="geometry" />
+        </mxCell>
+        <mxCell id="L5" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#2D7600;fontSize=9;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="5&lt;br&gt;Data" vertex="1">
+          <mxGeometry height="84" width="58" x="8" y="552" as="geometry" />
+        </mxCell>
+        <mxCell id="L6" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#666666;fontSize=8;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" value="6&lt;br&gt;External" vertex="1">
+          <mxGeometry height="68" width="58" x="8" y="652" as="geometry" />
+        </mxCell>
+        <mxCell id="t1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#23445d;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="80" width="676" x="72" y="48" as="geometry" />
+        </mxCell>
+        <mxCell id="u1" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#6c8ebf;strokeColor=#23445d;fontColor=#000000;fontSize=9;fontFamily=Helvetica;" value="QA Head" vertex="1">
+          <mxGeometry height="48" width="24" x="118" y="58" as="geometry" />
+        </mxCell>
+        <mxCell id="u2" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#6c8ebf;strokeColor=#23445d;fontColor=#000000;fontSize=9;fontFamily=Helvetica;" value="Administrator" vertex="1">
+          <mxGeometry height="48" width="24" x="678" y="58" as="geometry" />
+        </mxCell>
+        <mxCell id="u3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#23445d;strokeWidth=2;fontColor=#000000;fontSize=10;fontFamily=Helvetica;" value="Web Browser Client&#xa;(HTML5 · HTTPS)" vertex="1">
+          <mxGeometry height="52" width="200" x="310" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="t2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF8E8;strokeColor=#d79b00;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="76" width="676" x="72" y="144" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe599;strokeColor=#d6b656;strokeWidth=2;fontColor=#000000;fontSize=9;fontFamily=Helvetica;" value="nginx Reverse Proxy&#xa;(HTTPS :443 · TLS)" vertex="1">
+          <mxGeometry height="44" width="204" x="88" y="162" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe599;strokeColor=#d6b656;strokeWidth=2;fontColor=#000000;fontSize=9;fontFamily=Helvetica;" value="Static Files&#xa;(/static/ · collectstatic)" vertex="1">
+          <mxGeometry height="44" width="204" x="308" y="162" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe599;strokeColor=#d6b656;strokeWidth=2;fontColor=#000000;fontSize=9;fontFamily=Helvetica;" value="App Upstream&#xa;(proxy to Gunicorn)" vertex="1">
+          <mxGeometry height="44" width="204" x="528" y="162" as="geometry" />
+        </mxCell>
+        <mxCell id="t3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EEF6FF;strokeColor=#23445d;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="192" width="676" x="72" y="236" as="geometry" />
+        </mxCell>
+        <mxCell id="t3hdr" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#23445d;fontSize=9;fontStyle=1;fontFamily=Helvetica;align=center;" value="Production Application Server Host" vertex="1">
+          <mxGeometry height="16" width="340" x="150" y="244" as="geometry" />
+        </mxCell>
+        <mxCell id="app" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#6c8ebf;strokeColor=#23445d;strokeWidth=2;fontColor=#FFFFFF;fontSize=9;fontFamily=Helvetica;align=center;" value="&lt;b&gt;Gunicorn + Django 4.2&lt;/b&gt;&#xa;WSGI server · Python venv · QA Archiving System" vertex="1">
+          <mxGeometry height="48" width="644" x="88" y="272" as="geometry" />
+        </mxCell>
+        <mxCell id="devnote" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;strokeWidth=1;dashed=1;dashPattern=6 4;" value="" vertex="1">
+          <mxGeometry height="80" width="644" x="88" y="334" as="geometry" />
+        </mxCell>
+        <mxCell id="devlbl" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#666666;fontSize=8;fontStyle=2;fontFamily=Helvetica;align=left;" value="Local development alternative (HTTP · port 8000)" vertex="1">
+          <mxGeometry height="14" width="280" x="96" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="runserver" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EEEEEE;strokeColor=#999999;strokeWidth=1;fontColor=#333333;fontSize=9;fontFamily=Helvetica;" value="runserver&#xa;127.0.0.1:8000" vertex="1">
+          <mxGeometry height="40" width="196" x="96" y="364" as="geometry" />
+        </mxCell>
+        <mxCell id="sqlite" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EEEEEE;strokeColor=#999999;strokeWidth=1;fontColor=#333333;fontSize=9;fontFamily=Helvetica;" value="SQLite&#xa;db.sqlite3" vertex="1">
+          <mxGeometry height="40" width="196" x="312" y="364" as="geometry" />
+        </mxCell>
+        <mxCell id="localmedia" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EEEEEE;strokeColor=#999999;strokeWidth=1;fontColor=#333333;fontSize=9;fontFamily=Helvetica;" value="Local media/&#xa;folder" vertex="1">
+          <mxGeometry height="40" width="196" x="528" y="364" as="geometry" />
+        </mxCell>
+        <mxCell id="t4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F3EAF7;strokeColor=#9673a6;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="92" width="676" x="72" y="444" as="geometry" />
+        </mxCell>
+        <mxCell id="proc" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;verticalAlign=middle;spacingTop=4;spacingBottom=4;" value="&lt;b&gt;AI &amp; Processing Services&lt;/b&gt; (same host as Django)&#xa;Text Extraction · OCR · Background Jobs · TF-IDF · K-Means · Duplicate Detection" vertex="1">
+          <mxGeometry height="64" width="644" x="88" y="464" as="geometry" />
+        </mxCell>
+        <mxCell id="t5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF7EA;strokeColor=#2D7600;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="84" width="676" x="72" y="552" as="geometry" />
+        </mxCell>
+        <mxCell id="db" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#97d077;strokeColor=#2D7600;strokeWidth=2;fontColor=#000000;fontSize=9;fontFamily=Helvetica;" value="MySQL Database Server&#xa;PyMySQL · production metadata" vertex="1">
+          <mxGeometry height="58" width="220" x="148" y="566" as="geometry" />
+        </mxCell>
+        <mxCell id="fs" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#97d077;strokeColor=#2D7600;strokeWidth=2;fontColor=#000000;fontSize=9;fontFamily=Helvetica;" value="Media File Storage&#xa;/media/uploaded_documents/" vertex="1">
+          <mxGeometry height="58" width="220" x="452" y="566" as="geometry" />
+        </mxCell>
+        <mxCell id="t6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#666666;strokeWidth=1;dashed=1;dashPattern=6 4;" value="" vertex="1">
+          <mxGeometry height="68" width="676" x="72" y="652" as="geometry" />
+        </mxCell>
+        <mxCell id="t6lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#666666;fontSize=8;fontStyle=2;fontFamily=Helvetica;align=left;" value="Third-Party Libraries &amp; Tools (host / network)" vertex="1">
+          <mxGeometry height="12" width="240" x="88" y="658" as="geometry" />
+        </mxCell>
+        <mxCell id="x1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;strokeWidth=1;fontColor=#000000;fontSize=8;fontFamily=Helvetica;" value="Tesseract" vertex="1">
+          <mxGeometry height="34" width="100" x="88" y="674" as="geometry" />
+        </mxCell>
+        <mxCell id="x2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;strokeWidth=1;fontColor=#000000;fontSize=8;fontFamily=Helvetica;" value="PyMuPDF" vertex="1">
+          <mxGeometry height="34" width="100" x="204" y="674" as="geometry" />
+        </mxCell>
+        <mxCell id="x3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;strokeWidth=1;fontColor=#000000;fontSize=8;fontFamily=Helvetica;" value="scikit-learn" vertex="1">
+          <mxGeometry height="34" width="100" x="320" y="674" as="geometry" />
+        </mxCell>
+        <mxCell id="x4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;strokeWidth=1;fontColor=#000000;fontSize=8;fontFamily=Helvetica;" value="python-docx" vertex="1">
+          <mxGeometry height="34" width="100" x="436" y="674" as="geometry" />
+        </mxCell>
+        <mxCell id="x5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;strokeWidth=1;fontColor=#000000;fontSize=8;fontFamily=Helvetica;" value="openpyxl" vertex="1">
+          <mxGeometry height="34" width="100" x="552" y="674" as="geometry" />
+        </mxCell>
+        <mxCell id="x6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;strokeWidth=1;dashed=1;fontColor=#000000;fontSize=8;fontFamily=Helvetica;" value="Ollama (opt.)" vertex="1">
+          <mxGeometry height="34" width="72" x="668" y="674" as="geometry" />
+        </mxCell>
+        <mxCell id="uA1" edge="1" parent="1" source="u1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#AAAAAA;strokeWidth=1;dashed=1;endArrow=none;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="u3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="82" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="uA2" edge="1" parent="1" source="u2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#AAAAAA;strokeWidth=1;dashed=1;endArrow=none;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" target="u3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="678" y="88" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v1" edge="1" parent="1" source="u3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;fontSize=8;fontColor=#23445d;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="d2" value="HTTPS">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="v2" edge="1" parent="1" source="d2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="app">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="v4" edge="1" parent="1" source="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;fontSize=8;fontColor=#23445d;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="db" value="SQL">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="410" y="536" />
+              <mxPoint x="258" y="536" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v5" edge="1" parent="1" source="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2D7600;strokeWidth=2;endArrow=block;endFill=1;fontSize=8;fontColor=#2D7600;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="fs" value="files">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="410" y="536" />
+              <mxPoint x="562" y="536" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v3" edge="1" parent="1" source="app" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;" target="proc">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="770" y="296" />
+              <mxPoint x="770" y="496" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v6" edge="1" parent="1" source="u3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#999999;strokeWidth=1;endArrow=open;endFill=0;fontSize=7;fontColor=#666666;labelBackgroundColor=#FFFFFF;dashed=1;exitX=1;exitY=0.5;entryX=0.954;entryY=0.023;entryDx=0;entryDy=0;entryPerimeter=0;" target="runserver" value="HTTP">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="70" />
+              <mxPoint x="740" y="70" />
+              <mxPoint x="740" y="350" />
+              <mxPoint x="283" y="350" />
+            </Array>
+            <mxPoint x="292" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v7" edge="1" parent="1" source="runserver" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#999999;strokeWidth=1;endArrow=block;endFill=1;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="sqlite">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="v8" edge="1" parent="1" source="sqlite" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#999999;strokeWidth=1;endArrow=block;endFill=1;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="localmedia">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

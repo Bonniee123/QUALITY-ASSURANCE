@@ -1,0 +1,288 @@
+{% load dict_extras %}
+<div class="qa-doc-detail-panel">
+    <!-- Quick actions -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3 p-3 rounded-3" style="background:white;border:1px solid hsl(220,12%,92%);">
+        <div class="me-auto min-w-0">
+            <div class="fw-semibold text-truncate" style="font-size:14px;">{{ document.title }}</div>
+            <div class="text-muted text-truncate" style="font-size:12px;"><i class="bi bi-paperclip me-1"></i>{{ document.filename }}</div>
+        </div>
+        <a href="{% url 'documents:view' document.pk %}" class="btn btn-sm btn-primary" target="_blank" rel="noopener">
+            <i class="bi bi-eye me-1"></i> View File
+        </a>
+        <a href="{% url 'documents:download' document.pk %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-download me-1"></i> Download
+        </a>
+        {% comment %}
+        The same condition the row menu carries. This button had none, so a
+        Faculty member opening a colleague's document in their own area was
+        offered Edit on it -- the server refuses the save, but the offer should
+        not have been there. Copied verbatim from documents/_row_actions.html so
+        the two cannot drift.
+        {% endcomment %}
+        {% if not rbac_is_faculty or document.uploaded_by_id == user.id %}
+        <a href="#" class="btn btn-sm btn-outline-secondary js-qa-doc-edit"
+           data-doc-id="{{ document.pk }}"
+           data-doc-title="{{ document.title|truncatechars:80 }}"
+           data-doc-download="{% url 'documents:download' document.pk %}">
+            <i class="bi bi-pencil me-1"></i> Edit
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card h-100 mb-0" style="border-radius: 12px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                <div class="card-header py-2" style="background: white; border-bottom: 2px solid hsl(220,10%,95%); font-weight: 600; font-size: 14px;"><i class="bi bi-info-circle me-2 text-primary"></i>Metadata</div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush" style="font-size: 13px;">
+                        {% if document.program %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-3 py-2">
+                            <span class="text-muted">QA Program</span>
+                            <span class="badge" style="background:{{ document.program.color }};color:{{ document.program.color|readable_ink }};font-size:10px;" title="{{ document.program.name }}">{{ document.program.code }}</span>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-3 py-2">
+                            <span class="text-muted">File Type</span>
+                            <span class="badge" style="background:hsl(220,20%,20%)">{{ document.file_type|upper }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-3 py-2">
+                            <span class="text-muted">Year</span>
+                            <strong>{{ document.year }}</strong>
+                        </li>
+                        <li class="list-group-item px-3 py-2">
+                            <span class="text-muted d-block" style="font-size:11px">Document Type</span>
+                            <strong>{{ document.document_type }}</strong>
+                        </li>
+                        <li class="list-group-item px-3 py-2">
+                            <span class="text-muted d-block" style="font-size:11px">QA Area / Criterion</span>
+                            <strong>{{ document.qa_area|default:"-" }}</strong>
+                            {% if document.criterion %}<br><span style="font-size:11px">{{ document.criterion }}</span>{% endif %}
+                        </li>
+                        {% comment %}
+                        The Clusters page is QA staff only, so for a Faculty
+                        member this label named a grouping they cannot open --
+                        the reason the Document Clusters card left their
+                        dashboard as well.
+                        {% endcomment %}
+                        {% if document.cluster_label is not None and not rbac_is_faculty %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-3 py-2">
+                            <span class="text-muted">AI Cluster</span>
+                            <span class="badge badge-suggested">Cluster {{ document.cluster_label }}</span>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-3 py-2">
+                            <span class="text-muted">Uploaded By</span>
+                            {% comment %}Guarded: a deleted uploader leaves uploaded_by empty, and a missing variable inside a filter argument is an error, not blank.{% endcomment %}
+                            {% if document.uploaded_by %}<span>{{ document.uploaded_by.get_full_name|default:document.uploaded_by.username }}</span>{% else %}<span class="text-muted">-</span>{% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-3 py-2">
+                            <span class="text-muted">Date</span>
+                            <span>{{ document.uploaded_at|date:"M d, Y" }}</span>
+                        </li>
+                        {% if document.description %}
+                        <li class="list-group-item px-3 py-2">
+                            <span class="text-muted d-block" style="font-size:11px">Description</span>
+                            <span style="font-size:12px;line-height:1.45;">{{ document.description|truncatechars:280 }}</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100 mb-0" style="border-radius: 12px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                <div class="card-header py-2" style="background: white; border-bottom: 2px solid hsl(220,10%,95%); font-weight: 600; font-size: 14px;"><i class="bi bi-cpu me-2 text-primary"></i>AI Processing</div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush" style="font-size: 13px;">
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-3 py-2">
+                            <span class="text-muted">Processing</span>
+                            {% if document.processing_in_progress %}
+                                <span class="badge bg-warning text-dark">In progress</span>
+                            {% elif document.processing_error %}
+                                <span class="badge bg-danger">Failed</span>
+                            {% else %}
+                                <span class="badge bg-success">Complete</span>
+                            {% endif %}
+                        </li>
+                        {% comment %}
+                        Everything below is for whoever runs the archive. An
+                        uploader needs to know their file finished -- the badge
+                        above says that -- not the duplicate verdict, which only
+                        Admin and QA Head can act on, nor whether OCR ran, nor
+                        the raw text of a pipeline error. The Repository already
+                        hides its Duplicate column from Faculty; this panel was
+                        still showing the same field to the same people.
+                        {% endcomment %}
+                        {% if not rbac_is_faculty %}
+                        {% if document.processing_error %}
+                        <li class="list-group-item px-3 py-2">
+                            <span class="text-muted d-block" style="font-size:11px">Processing Error</span>
+                            <small class="text-danger">{{ document.processing_error }}</small>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-3 py-2">
+                            <span class="text-muted">Duplicate Check</span>
+                            {% include 'documents/_duplicate_status_badge.html' with status=document.duplicate_status %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-3 py-2">
+                            <span class="text-muted">OCR Status</span>
+                            {% if document.ocr_status == 'success' %}
+                                <span class="badge bg-success">Success</span>
+                            {% elif document.ocr_status == 'retrying' %}
+                                <span class="badge bg-warning text-dark">Retrying</span>
+                            {% elif document.ocr_status == 'failed' %}
+                                <span class="badge bg-danger">Failed</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Not Run</span>
+                            {% endif %}
+                        </li>
+                        {% if document.ocr_error %}
+                        <li class="list-group-item px-3 py-2">
+                            <span class="text-muted d-block" style="font-size:11px">{% if document.ocr_status == 'success' %}OCR Notice{% else %}OCR Error{% endif %}</span>
+                            <small class="text-danger">{{ document.ocr_error }}</small>
+                        </li>
+                        {% endif %}
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if similar_docs %}
+    <div class="card mt-3 mb-0" style="border-radius: 12px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+        <div class="card-header py-2 d-flex align-items-center justify-content-between" style="background: white; border-bottom: 2px solid hsl(220,10%,95%); font-weight: 600; font-size: 14px;">
+            <span><i class="bi bi-files me-2 text-primary"></i>Similar Documents</span>
+            {% comment %}
+            The list is capped at five. With nine drafts of one manuscript the
+            reader saw five rows and no hint that four more existed.
+            {% endcomment %}
+            {% if similar_total > similar_docs|length %}
+            <span class="text-muted" style="font-weight:500;font-size:11px;">Closest {{ similar_docs|length }} of {{ similar_total }}</span>
+            {% endif %}
+        </div>
+        {% comment %}
+        The answer, before the evidence for it. Seven rows each repeating "99%
+        of the wording matches" said one thing seven times and never said
+        whether the decision those rows exist for had been taken -- so a list
+        that had been reviewed looked exactly like one that had not, and
+        clicking Mark as clear appeared to do nothing.
+
+        Once a decision exists the rows are folded away: they are the record
+        behind a stated outcome, not the outcome.
+        {% endcomment %}
+        {% if similar_summary %}
+        <div class="px-3 py-2 d-flex align-items-center justify-content-between flex-wrap gap-2"
+             style="border-bottom:1px solid hsl(220,10%,95%);font-size:12px;">
+            <span class="text-muted">
+                <strong class="text-body">{{ similar_summary.count }}</strong>
+                similar document{{ similar_summary.count|pluralize }} ·
+                {{ similar_summary.band }} {{ similar_summary.measure }}
+            </span>
+            {% if similar_summary.state %}
+            <span class="text-{{ similar_summary.tone }}" style="font-weight:600;">
+                {{ similar_summary.state }}{% if similar_summary.when %} · {{ similar_summary.when }}{% endif %}
+            </span>
+            {% endif %}
+        </div>
+        {% endif %}
+        <div class="card-body p-0">
+            {% if similar_summary.settled %}
+            <details class="px-3 py-2">
+                <summary style="font-size:12px;cursor:pointer;color:var(--color-text-secondary);">
+                    Show the {{ similar_total }} document{{ similar_total|pluralize }} this was compared against
+                </summary>
+            {% endif %}
+            <div class="list-group list-group-flush">
+                {% for sdoc in similar_docs %}
+                <a href="#" class="list-group-item list-group-item-action px-3 py-2 js-qa-doc-detail"
+                   data-doc-id="{{ sdoc.document.pk }}"
+                   data-doc-title="{{ sdoc.document.title|truncatechars:80 }}"
+                   data-doc-download="{% url 'documents:download' sdoc.document.pk %}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:58%;">
+                            <i class="bi bi-file-earmark-text me-1"></i>{{ sdoc.document.title }}
+                        </div>
+                        <span class="d-flex align-items-center gap-1">
+                            {% if sdoc.match_type == 'text' %}
+                            <span class="badge bg-secondary" title="Compared by wording"><i class="bi bi-fonts me-1"></i>{{ sdoc.match_label }}</span>
+                            {% else %}
+                            <span class="badge bg-info text-dark" title="Compared by the picture itself"><i class="bi bi-image me-1"></i>{{ sdoc.match_label }}</span>
+                            {% endif %}
+                            {% if sdoc.identical %}
+                            <span class="badge bg-danger">identical file</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">{{ sdoc.similarity|floatformat:0 }}%</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% comment %}
+                    A bare "100% match" said nothing about what had been compared
+                    or why the file is in the archive at all -- and it was a
+                    rounding of 99.75%. Each row names the measure behind the
+                    number and what follows from it.
+
+                    The line below it identifies the document. Several drafts of
+                    one manuscript share a title long enough to be cut off at the
+                    same word, so the rows were indistinguishable: the same name,
+                    the same badge, the same sentence, and -- uploaded in one
+                    batch by one person -- the same date and uploader too. The
+                    file name is what actually tells them apart, which is how
+                    their author already tells them apart:
+                    Chapter_1_2_3_QA_FINAL_AUTOMATIC_TOC_FINAL.docx is not
+                    Chapter_1_2_3_QA_FIXED_3.docx. It comes first for that reason.
+                    {% endcomment %}
+                    <div class="text-muted" style="font-size:11px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                         title="{{ sdoc.document.filename }}">
+                        {% if sdoc.document.filename %}{{ sdoc.document.filename }} · {% endif %}{{ sdoc.document.uploaded_at|date:"M d, Y" }}{% if sdoc.document.uploaded_by %} · {{ sdoc.document.uploaded_by.get_full_name|default:sdoc.document.uploaded_by.username }}{% endif %}
+                    </div>
+                    <div class="text-muted" style="font-size:11px;margin-top:2px;">
+                        {% if not sdoc.identical %}{{ sdoc.similarity|floatformat:0 }}% {{ sdoc.measure }} · {% endif %}{{ sdoc.note }}{% if sdoc.decision %} <span class="text-success">{{ sdoc.decision }}</span>{% endif %}
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% if similar_summary.settled %}
+            </details>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if rbac_is_qa_staff_or_admin %}
+    {% if document.duplicate_status == 'possible' or document.duplicate_status == 'confirmed_dup' %}
+    <div class="card mt-3 mb-0" style="border-radius: 12px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+        <div class="card-header py-2" style="background: white; border-bottom: 2px solid hsl(220,10%,95%); font-weight: 600; font-size: 14px;"><i class="bi bi-shield-check me-2 text-primary"></i>Duplicate review</div>
+        <div class="card-body px-3 py-3">
+            <p class="text-muted mb-3" style="font-size:12px;line-height:1.5;margin-bottom:12px;">
+                An identical file never reaches the archive: the upload is refused before anything is
+                saved. This one is <em>not</em> identical to any of the files above, so it was archived
+                and flagged for a person to decide — keep both as separate versions, or mark this one a
+                duplicate.
+            </p>
+            <div class="d-flex flex-wrap gap-2">
+                {% if document.duplicate_status == 'possible' or document.duplicate_status == 'confirmed_dup' %}
+                <form method="post" action="{% url 'documents:duplicate_dismiss' document.pk %}"
+                      class="d-inline js-qa-duplicate-decision" data-doc-id="{{ document.pk }}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-check-circle me-1"></i>Mark as clear
+                    </button>
+                </form>
+                {% endif %}
+                {% if document.duplicate_status == 'possible' %}
+                <form method="post" action="{% url 'documents:duplicate_confirm' document.pk %}"
+                      class="d-inline js-qa-duplicate-decision" data-doc-id="{{ document.pk }}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-exclamation-octagon me-1"></i>Confirm duplicate
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>

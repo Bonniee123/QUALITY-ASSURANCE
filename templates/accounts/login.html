@@ -1,0 +1,742 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sign In{% endblock %}
+
+{% block content_unauth %}
+<div class="qa-login">
+
+    <!-- LEFT: Image / brand panel -->
+    <aside class="qa-login-brand-panel" aria-label="QA Archive imagery">
+        <img
+            src="{% static 'images/login-archive.jpg' %}"
+            alt="Quality assurance team reviewing audit documents"
+            class="qa-brand-image"
+            loading="eager"
+            decoding="async"
+        >
+        <div class="qa-brand-overlay" aria-hidden="true"></div>
+        <div class="qa-brand-texture" aria-hidden="true"></div>
+
+        <div class="qa-brand-caption">
+            <span class="qa-brand-overline">
+                <span class="qa-brand-mark" aria-hidden="true">
+                    <i class="bi bi-shield-check"></i>
+                </span>
+                <span>Quality Assurance Office</span>
+            </span>
+
+            <h2 class="qa-brand-headline">
+                Where every accreditation
+                <em class="qa-brand-headline-em">document belongs.</em>
+            </h2>
+
+            <p class="qa-brand-tagline">
+                A unified archive for ISO audits, BAICS reviews, institutional
+                accreditation, and Philippine Quality Award submissions.
+                Mapped, searched, and audit&#8209;ready in seconds.
+            </p>
+
+            <ul class="qa-brand-features" aria-label="Platform highlights">
+                <li>
+                    <span class="qa-brand-feature-icon" aria-hidden="true"><i class="bi bi-search"></i></span>
+                    <span>Find any evidence file in seconds with smart search</span>
+                </li>
+                <li>
+                    <span class="qa-brand-feature-icon" aria-hidden="true"><i class="bi bi-diagram-3"></i></span>
+                    <span>Map documents to accreditation requirements automatically</span>
+                </li>
+                <li>
+                    <span class="qa-brand-feature-icon" aria-hidden="true"><i class="bi bi-shield-lock"></i></span>
+                    <span>Role-based access with a full activity audit trail</span>
+                </li>
+            </ul>
+
+            <div class="qa-brand-rule" aria-hidden="true"></div>
+
+            <ul class="qa-brand-programs" aria-label="Supported QA programs">
+                <li>Accreditation</li>
+                <li>ISO</li>
+                <li>BAICS</li>
+                <li>IA</li>
+                <li>PQA</li>
+            </ul>
+        </div>
+    </aside>
+
+    <!-- RIGHT: Sign-in form -->
+    <section class="qa-login-form-panel" aria-label="Sign in form">
+        <div class="qa-login-form-inner">
+
+            <!-- Brand block -->
+            <a href="{% url 'accounts:login' %}" class="qa-brand-row" aria-label="QA Archive home">
+                {% include 'includes/qa_archive_logo_lockup_inline.html' %}
+            </a>
+
+            <!-- Heading -->
+            <header class="qa-login-heading-block">
+                <h1 class="qa-login-heading">Welcome Back</h1>
+                <p class="qa-login-subheading">
+                    Sign in to access your dashboard and manage the institution's quality assurance evidence.
+                </p>
+            </header>
+
+            <!-- Messages -->
+            {% if messages %}
+                <div class="qa-messages">
+                {% for message in messages %}
+                    <div class="qa-message qa-message-{{ message.tags|default:'info' }}">
+                        {% if message.tags == 'success' %}<i class="bi bi-check-circle"></i>
+                        {% elif message.tags == 'error' %}<i class="bi bi-exclamation-triangle"></i>
+                        {% elif message.tags == 'warning' %}<i class="bi bi-exclamation-circle"></i>
+                        {% else %}<i class="bi bi-info-circle"></i>{% endif %}
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Form -->
+            <form method="post" id="login-form" class="qa-form" novalidate>
+                {% csrf_token %}
+                {% if request.GET.next %}
+                <input type="hidden" name="next" value="{{ request.GET.next }}">
+                {% endif %}
+
+                <div class="qa-field">
+                    <label for="login-username" class="qa-field-label">Username</label>
+                    <div class="qa-field-input">
+                        <span class="qa-field-icon" aria-hidden="true"><i class="bi bi-person"></i></span>
+                        {{ form.username }}
+                    </div>
+                    {% if form.username.errors %}<div class="qa-field-error">{{ form.username.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div class="qa-field">
+                    <label for="login-password" class="qa-field-label">Password</label>
+                    <div class="qa-field-input">
+                        <span class="qa-field-icon" aria-hidden="true"><i class="bi bi-lock"></i></span>
+                        {{ form.password }}
+                    </div>
+                    {% if form.password.errors %}<div class="qa-field-error">{{ form.password.errors.0 }}</div>{% endif %}
+                    {% comment %}
+                    A labelled checkbox rather than an eye button inside the
+                    field. The eye had to state its meaning through an icon and
+                    a hover tooltip, and its two states looked alike at a
+                    glance; a checkbox says what it does in words and shows
+                    whether it is on.
+                    {% endcomment %}
+                    <label class="qa-show-pw">
+                        <input type="checkbox" id="showPw">
+                        <span>Show password</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="qa-submit-btn" id="login-submit">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    <span>Sign In</span>
+                </button>
+
+                <p class="qa-secure-note">
+                    <i class="bi bi-lock" aria-hidden="true"></i>
+                    <span>Encrypted session &middot; your credentials are never shared</span>
+                </p>
+            </form>
+
+            <!-- Footer -->
+            <footer class="qa-login-footer">
+                <p>Access is restricted to authorized personnel. Contact your administrator for an account.</p>
+                <p class="qa-login-copy">&copy; {% now "Y" %} QA Archiving System &middot; Quality Assurance Office</p>
+            </footer>
+
+        </div>
+    </section>
+
+</div>
+
+<style>
+/* ============================================================
+   LOGIN: Token-driven, policy-compliant, no-scroll layout
+   60% white canvas / 30% deep blue panel / 10% brand accent
+   Image column left, sign-in form right (wide viewports).
+   ============================================================ */
+
+.qa-login {
+    /* Local brand override aligned with system blue palette. */
+    --login-brand:        #1D4ED8;
+    --login-brand-deep:   #1E3A8A;
+    --login-brand-tint:   #DBEAFE;
+    --login-brand-line:   #93C5FD;
+    --login-panel-grid:   rgba(255, 255, 255, 0.05);
+
+    min-height: 100vh;
+    height: 100vh;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    background: var(--color-canvas);
+    overflow: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Allow scroll only on small viewports */
+@media (max-height: 720px), (max-width: 991px) {
+    .qa-login { height: auto; min-height: 100vh; overflow: auto; }
+}
+@media (max-width: 991px) {
+    .qa-login { grid-template-columns: 1fr; }
+    .qa-login-brand-panel { display: none; }
+}
+
+/* ============================================================
+   RIGHT: Sign-in form panel
+   ============================================================ */
+.qa-login-form-panel {
+    background: var(--color-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 28px;
+    overflow-y: auto;
+}
+.qa-login-form-inner {
+    width: 100%;
+    max-width: 400px;
+}
+
+/* Brand row -- holds the SVG logo lockup */
+.qa-brand-row {
+    display: inline-flex;
+    align-items: center;
+    margin-bottom: 24px;
+    text-decoration: none;
+    transition: opacity var(--transition-base);
+}
+.qa-brand-row:hover { opacity: 0.85; }
+.qa-brand-logo {
+    height: 96px;
+    width: auto;
+    aspect-ratio: 760 / 358;
+    display: block;
+    flex-shrink: 0;
+}
+
+/* Heading */
+.qa-login-heading-block { margin-bottom: 18px; }
+.qa-login-heading {
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    letter-spacing: -0.5px;
+    margin: 0 0 6px;
+    line-height: 1.15;
+}
+.qa-login-subheading {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Messages */
+.qa-messages { margin-bottom: 12px; }
+.qa-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    margin-bottom: 8px;
+    border: 1px solid var(--color-border);
+}
+.qa-message i { font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+.qa-message-error,
+.qa-message-danger {
+    background: var(--color-danger-light);
+    border-color: hsl(0, 60%, 80%);
+    color: hsl(0, 60%, 35%);
+}
+.qa-message-success {
+    background: var(--color-success-light);
+    border-color: var(--color-success-border);
+    color: hsl(142, 52%, 28%);
+}
+.qa-message-warning {
+    background: var(--color-warning-light);
+    border-color: hsl(38, 80%, 70%);
+    color: hsl(38, 70%, 32%);
+}
+.qa-message-info {
+    background: var(--login-brand-tint);
+    border-color: var(--login-brand-line);
+    color: var(--login-brand-deep);
+}
+
+/* Form */
+.qa-form { margin-bottom: 18px; }
+.qa-field { margin-bottom: 14px; }
+.qa-field-label {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 6px;
+}
+.qa-field-input {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    transition: border-color var(--transition-base),
+                box-shadow var(--transition-base),
+                background var(--transition-base);
+}
+.qa-field-input:hover { border-color: var(--color-border-strong); }
+.qa-field-input:focus-within {
+    border-color: var(--login-brand);
+    box-shadow: 0 0 0 3px var(--login-brand-tint);
+}
+.qa-field-icon {
+    color: var(--color-text-muted);
+    padding-left: 12px;
+    font-size: 15px;
+    flex-shrink: 0;
+    display: inline-flex;
+}
+.qa-field-input input {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 11px 12px !important;
+    font-size: var(--text-sm) !important;
+    color: var(--color-text-primary) !important;
+    width: 100%;
+    outline: none;
+}
+.qa-field-input input::placeholder { color: var(--color-text-muted); }
+.qa-show-pw {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 9px;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+.qa-show-pw input {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--login-brand);
+    cursor: pointer;
+}
+.qa-show-pw:hover { color: var(--color-text-primary); }
+.qa-field-error {
+    color: var(--color-danger);
+    font-size: var(--text-xs);
+    margin-top: 5px;
+    padding-left: 4px;
+}
+
+/* Submit button */
+.qa-submit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    /* Carries the space the removed help row used to hold, so the button
+       keeps its distance from the password field. */
+    margin-top: 18px;
+    background: var(--login-brand);
+    color: var(--color-surface);
+    border: 0;
+    border-radius: var(--radius-sm);
+    padding: 11px;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.2px;
+    transition: background var(--transition-base),
+                box-shadow var(--transition-base),
+                transform var(--transition-fast);
+}
+.qa-submit-btn {
+    background: var(--login-brand);
+    box-shadow: 0 1px 2px rgba(30, 58, 138, 0.20);
+}
+.qa-submit-btn:hover {
+    box-shadow: 0 8px 20px rgba(30, 58, 138, 0.30);
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+}
+.qa-submit-btn:active { transform: translateY(0); filter: none; }
+.qa-submit-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Security trust line below the form */
+.qa-secure-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin: 14px 0 0;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+}
+.qa-secure-note i { font-size: 12px; color: var(--color-success-text); }
+
+/* Footer */
+.qa-login-footer { margin-top: 12px; text-align: center; }
+.qa-login-footer p {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin: 0 0 4px;
+    line-height: 1.5;
+}
+.qa-login-copy {
+    color: var(--color-text-muted);
+    opacity: 0.85;
+    margin-top: 6px !important;
+}
+
+/* ============================================================
+   LEFT: Image panel (photo of stacked documents + dark overlay)
+   ============================================================ */
+.qa-login-brand-panel {
+    position: relative;
+    overflow: hidden;
+    background: var(--login-brand-deep);
+    color: var(--color-surface);
+    isolation: isolate;
+}
+
+/* The photo fills the panel */
+.qa-brand-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    z-index: 0;
+    /* Subtle teal tint for brand cohesion (single hue, 10% opacity max) */
+    filter: saturate(0.92) contrast(1.02);
+}
+
+/* Flat slate overlay — cohered with the app sidebar (#0F172A) for a single,
+   professional brand identity across the product. One tone, no blend. */
+.qa-brand-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: hsla(222, 47%, 11%, 0.82);
+    pointer-events: none;
+}
+
+/* Subtle dot-grid texture for depth (very low opacity, single hue). */
+.qa-brand-texture {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background-image: radial-gradient(var(--login-panel-grid) 1px, transparent 1px);
+    background-size: 22px 22px;
+    opacity: 0.5;
+    pointer-events: none;
+    mask-image: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 60%);
+    -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 60%);
+}
+
+/* Caption sits at the bottom over the darkest part of the gradient */
+.qa-brand-caption {
+    position: relative;
+    z-index: 2;
+    margin-top: auto;
+    padding: 48px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    height: 100%;
+}
+
+/* Overline (replaces the generic "AI-Driven" pill) */
+.qa-brand-overline {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.72);
+    margin-bottom: 22px;
+}
+.qa-brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-xs);
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: hsl(210, 55%, 90%);
+    font-size: 11px;
+}
+
+/* Headline: confident, single sentence, italic emphasis instead
+   of a saturated cyan accent. Reads as "library / archive", not
+   "tech demo". */
+.qa-brand-headline {
+    font-size: 38px;
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.6px;
+    margin: 0 0 16px;
+    color: var(--color-surface);
+    max-width: 480px;
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.40);
+}
+.qa-brand-headline-em {
+    display: block;
+    font-style: italic;
+    font-weight: 500;
+    /* Warm off-white (paper / cream) for an editorial, archival feel */
+    color: hsl(40, 30%, 90%);
+}
+
+/* Tagline */
+.qa-brand-tagline {
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.80);
+    max-width: 480px;
+    margin: 0 0 22px;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
+
+/* Feature highlights — concrete trust signals with icons */
+.qa-brand-features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 440px;
+}
+.qa-brand-features li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: var(--text-sm);
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.86);
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
+.qa-brand-feature-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: hsl(210, 90%, 82%);
+    font-size: 15px;
+    backdrop-filter: blur(2px);
+}
+
+/* Subtle horizontal rule (editorial separator) */
+.qa-brand-rule {
+    width: 56px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.32);
+    margin: 0 0 14px;
+}
+
+/* Program codes row (specific, not abstract) */
+.qa-brand-programs {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.6px;
+    color: rgba(255, 255, 255, 0.58);
+}
+.qa-brand-programs li {
+    position: relative;
+    transition: color var(--transition-base);
+}
+.qa-brand-programs li:hover { color: rgba(255, 255, 255, 0.90); }
+.qa-brand-programs li:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: -13px;
+    top: 50%;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.30);
+    transform: translateY(-50%);
+}
+
+/* Tighter padding on shorter laptops */
+@media (max-height: 800px) {
+    .qa-login-form-panel { padding: 24px 28px; }
+    .qa-brand-caption    { padding: 36px 40px; }
+    .qa-brand-headline   { font-size: 32px; }
+    .qa-brand-overline   { margin-bottom: 16px; }
+    .qa-brand-features   { gap: 9px; margin-bottom: 18px; }
+    .qa-brand-tagline    { margin-bottom: 18px; }
+}
+
+/* On very short screens, drop the feature list to avoid overflow */
+@media (max-height: 680px) {
+    .qa-brand-features { display: none; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    /* The checkbox is the only thing that decides whether the password is
+       visible: checked shows it, unchecked hides it again. Nothing else reads
+       or writes the field, so what is typed and what is submitted are
+       untouched. */
+    var pwInput = document.getElementById('login-password');
+    var showPw = document.getElementById('showPw');
+    if (pwInput && showPw) {
+        showPw.addEventListener('change', function() {
+            pwInput.type = showPw.checked ? 'text' : 'password';
+        });
+    }
+
+    var form = document.getElementById('login-form');
+    var btn = document.getElementById('login-submit');
+    if (!form || !btn) { return; }
+
+    /* The server is the only judge of whether this browser is signed in:
+       /accounts/login/ sends a signed-in visitor straight on to their
+       dashboard. So whenever this page is unsure -- brought back from the
+       browser's cache, or still here after submitting -- it asks, and follows
+       the answer. It never assumes the sign-in worked or failed. */
+    var LOGIN_URL = '{% url "accounts:login" %}';
+    var HOME_URL = '{% url "dashboard:home" %}';
+    var IDLE_HTML = btn.innerHTML;
+    var BUSY_HTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="width:14px;height:14px;border-width:2px;"></span><span>Signing in</span>';
+    // A sign-in answers in well under a second here, and under two while a large
+    // upload is processing. Still on this page after this long means the answer
+    // went somewhere else, or never came.
+    var SETTLE_AFTER_MS = 8000;
+
+    var busy = false;
+    var leaving = false;
+    var settleTimer = null;
+
+    var flow = window.qaLoginFlow = {
+        go: function (url) { window.location.replace(url); },
+        /* Signed in? A fetch that does not follow redirects sees the login
+           page's redirect as an "opaque redirect" instead of loading the
+           dashboard. Any failure counts as "not signed in", which only ever
+           hands the button back. */
+        isSignedIn: function () {
+            return fetch(LOGIN_URL, { credentials: 'same-origin', redirect: 'manual', cache: 'no-store' })
+                .then(function (r) { return r.type === 'opaqueredirect' || (r.status >= 300 && r.status < 400); })
+                .catch(function () { return false; });
+        }
+    };
+
+    function showBusy() {
+        busy = true;
+        btn.disabled = true;
+        btn.innerHTML = BUSY_HTML;
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(settle, SETTLE_AFTER_MS);
+    }
+
+    function showIdle() {
+        busy = false;
+        clearTimeout(settleTimer);
+        btn.disabled = false;
+        btn.innerHTML = IDLE_HTML;
+    }
+
+    /* Submitted, and still on this page. Either the sign-in finished somewhere
+       this page cannot see -- another tab or window, or a sign-in whose next
+       stop was a file download -- or it never went through. Signed in: go to
+       the dashboard. Not signed in: stop showing "Signing in". */
+    function settle() {
+        if (!busy || leaving) { return; }
+        flow.isSignedIn().then(function (signedIn) {
+            if (leaving || !busy) { return; }
+            if (signedIn) { flow.go(HOME_URL); } else { showIdle(); }
+        });
+    }
+
+    form.addEventListener('submit', showBusy);
+
+    /* Ctrl/Cmd-click or Shift-click on a submit button (or Ctrl/Shift+Enter)
+       sends the form to a new tab or window. This page then shows "Signing in"
+       for a sign-in happening elsewhere, and nothing ever replaces it. Signing
+       in has no reason to open anything new: submit here, in this tab. */
+    var resubmitting = false;
+    btn.addEventListener('click', function (e) {
+        if (!(e.ctrlKey || e.metaKey || e.shiftKey)) { return; }
+        e.preventDefault();
+        if (busy || resubmitting) { return; }
+        resubmitting = true;
+        // Deferred a tick so the submission is not made *during* the modified
+        // click, which the browser could still read as "open in a new tab".
+        setTimeout(function () {
+            resubmitting = false;
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit(btn);
+            } else {
+                showBusy();
+                form.submit();
+            }
+        }, 0);
+    });
+
+    // On the way to the next page: there is nothing left to settle.
+    window.addEventListener('pagehide', function () { leaving = true; });
+
+    /* Chrome's back/forward cache can bring this page back exactly as it was
+       left -- greyed out on "Signing in" -- without asking the server anything.
+       Reset it, and ask. */
+    window.addEventListener('pageshow', function (e) {
+        leaving = false;
+        if (!e.persisted) { return; }
+        showIdle();
+        flow.isSignedIn().then(function (signedIn) { if (signedIn) { flow.go(HOME_URL); } });
+    });
+
+    // Signed in from another tab or window: follow it here too.
+    window.addEventListener('storage', function (e) {
+        if (e.key === 'qaAuthState' && String(e.newValue || '').indexOf('in:') === 0) {
+            flow.go(HOME_URL);
+        }
+    });
+
+    // Back to this tab while it waits: check now rather than wait out the timer.
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && busy) { settle(); }
+    });
+})();
+</script>
+{% endblock %}

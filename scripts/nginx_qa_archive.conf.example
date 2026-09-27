@@ -1,0 +1,54 @@
+# QA Archiving System — example nginx site (Linux production).
+#
+# 1. pip install -r requirements.txt -r requirements-prod.txt
+# 2. Set env vars from .env.production.example
+# 3. python manage.py migrate && python manage.py collectstatic --noinput
+# 4. python manage.py check_production
+# 5. Run gunicorn (see bottom) behind this nginx config.
+#
+# IMPORTANT: Do NOT add a location /media/ block that serves files from disk.
+# Documents are served only through Django after login (RBAC).
+
+upstream qa_archive_app {
+    server 127.0.0.1:8000;
+}
+
+server {
+    listen 80;
+    server_name qa-archive.your-university.edu;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name qa-archive.your-university.edu;
+
+    # ssl_certificate     /etc/ssl/certs/qa-archive.crt;
+    # ssl_certificate_key /etc/ssl/private/qa-archive.key;
+
+    client_max_body_size 26M;
+
+    # Collected static assets only (CSS/JS) — safe to serve publicly.
+    location /static/ {
+        alias /var/www/qa-archive/staticfiles/;
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+
+    # BLOCK direct uploads folder access — return 403 even if misconfigured in Django.
+    location /media/ {
+        return 403;
+    }
+
+    location / {
+        proxy_pass http://qa_archive_app;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+    }
+}
+
+# Example gunicorn (run from project root with venv activated):
+#   gunicorn qa_archiving_system.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120

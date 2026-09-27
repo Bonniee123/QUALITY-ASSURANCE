@@ -1,0 +1,12 @@
+{% load avatar_tags %}{% comment %}
+One person's picture, at whatever size the surrounding class sets.
+
+    {% include 'includes/avatar.html' with avatar_user=doc.uploaded_by avatar_class='nx-uploader-avatar' %}
+
+The class keeps its own size, shape and fallback background: the photo is laid
+inside it and covers it, so adding a picture never changes a layout that was
+built around initials. When the account has no photo the initials render exactly
+as they did before.
+
+Optional: avatar_title, used as the image's alt text.
+{% endcomment %}{% with photo=avatar_user|avatar_url %}<span class="{{ avatar_class }}{% if photo %} has-photo{% endif %}"{% if not photo %} aria-hidden="true"{% endif %}>{% if photo %}<img src="{{ photo }}" alt="{% firstof avatar_title avatar_user.get_full_name avatar_user.username '' %}" loading="lazy" decoding="async">{% else %}{{ avatar_user|avatar_initials }}{% endif %}</span>{% endwith %}

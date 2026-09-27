@@ -1,0 +1,131 @@
+<style>
+/* Full screen blurred overlay */
+.del-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+}
+
+/* Modal Card */
+.del-modal {
+    background: white;
+    width: 100%;
+    max-width: 440px;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    padding: 32px;
+    text-align: center;
+    animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+    0% { transform: scale(0.9); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Icon */
+.del-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: hsl(0, 84%, 95%);
+    color: hsl(0, 72%, 51%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 20px;
+}
+
+/* Typography */
+.del-modal h4 {
+    font-size: 20px;
+    font-weight: 700;
+    color: hsl(220, 20%, 15%);
+    margin-bottom: 12px;
+}
+.del-modal p {
+    font-size: 15px;
+    color: hsl(220, 10%, 40%);
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+.del-modal p strong {
+    color: hsl(220, 20%, 15%);
+}
+
+/* Warning block */
+.del-warning {
+    background: hsl(0, 0%, 96%);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: hsl(220, 10%, 40%);
+    margin-bottom: 24px;
+    text-align: left;
+    display: flex;
+    align-items: flex-start;
+    border: 1px solid hsl(0, 0%, 90%);
+}
+.del-warning i {
+    color: hsl(220, 10%, 60%);
+    margin-top: 2px;
+}
+
+/* Buttons */
+.del-actions {
+    display: flex;
+    gap: 12px;
+    margin: 0;
+}
+.del-btn {
+    flex: 1;
+    height: 44px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    border: none;
+}
+.del-btn.cancel {
+    background: white;
+    color: hsl(220, 15%, 40%);
+    border: 1px solid hsl(220, 15%, 85%);
+}
+.del-btn.cancel:hover {
+    background: hsl(220, 15%, 96%);
+    color: hsl(220, 20%, 20%);
+}
+.del-btn.confirm {
+    background: hsl(0, 72%, 51%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+.del-btn.confirm:hover {
+    background: hsl(0, 72%, 45%);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+/* Hide header/sidebar when modal is active */
+body:has(.del-overlay) .navbar,
+body:has(.del-overlay) .sidebar,
+body:has(.del-overlay) .main-content > *:not(.del-overlay) {
+    filter: blur(2px);
+    pointer-events: none;
+}
+</style>

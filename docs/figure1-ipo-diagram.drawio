@@ -1,0 +1,31 @@
+<mxfile host="app.diagrams.net" agent="QA Capstone" background="#ffffff">
+  <diagram name="Figure 1 IPO" id="fig1-ipo">
+    <mxGraphModel dx="1084" dy="656" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="520" background="#FFFFFF" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=none;" value="" vertex="1">
+          <mxGeometry height="520" width="1100" as="geometry" />
+        </mxCell>
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=14;fontStyle=1;fontFamily=Helvetica;fontColor=#23445d;" value="Figure 1. Input-Process-Output (IPO) Model of the QA Archiving System" vertex="1">
+          <mxGeometry height="30" width="760" x="170" y="24" as="geometry" />
+        </mxCell>
+        <mxCell id="box_in" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f8fc;strokeColor=#23445d;strokeWidth=2;fontFamily=Helvetica;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fontSize=11;fontColor=#23445d;" value="&lt;b&gt;INPUT&lt;/b&gt;&lt;br&gt;&lt;br&gt;• QA documents and scanned files&lt;br&gt;(PDF, DOCX, XLSX, images)&lt;br&gt;&lt;br&gt;• Document metadata&lt;br&gt;(title, type, year, accreditation area)&lt;br&gt;&lt;br&gt;• User credentials and role&lt;br&gt;(Administrator, QA Head, Faculty)&lt;br&gt;&lt;br&gt;• Assigned accreditation area(s)&lt;br&gt;for Faculty accounts" vertex="1">
+          <mxGeometry height="360" width="280" x="80" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="box_proc" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eef3f8;strokeColor=#23445d;strokeWidth=2;fontFamily=Helvetica;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fontSize=11;fontColor=#23445d;" value="&lt;b&gt;PROCESS&lt;/b&gt;&lt;br&gt;&lt;br&gt;• User authentication and&lt;br&gt;role-based access control&lt;br&gt;&lt;br&gt;• Document upload, validation,&lt;br&gt;and repository management&lt;br&gt;&lt;br&gt;• Text extraction, OCR, and&lt;br&gt;AI-based document analysis&lt;br&gt;&lt;br&gt;• Smart search, clustering,&lt;br&gt;duplicate detection, and monitoring" vertex="1">
+          <mxGeometry height="360" width="280" x="410" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="box_out" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f8fc;strokeColor=#23445d;strokeWidth=2;fontFamily=Helvetica;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fontSize=11;fontColor=#23445d;" value="&lt;b&gt;OUTPUT&lt;/b&gt;&lt;br&gt;&lt;br&gt;• Organized document repository&lt;br&gt;with metadata&lt;br&gt;&lt;br&gt;• Clustered document groups&lt;br&gt;and duplicate alerts&lt;br&gt;&lt;br&gt;• Smart search and cluster-based&lt;br&gt;retrieval results&lt;br&gt;&lt;br&gt;• Dashboard summaries, notifications,&lt;br&gt;and chatbot assistance" vertex="1">
+          <mxGeometry height="360" width="280" x="740" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="arr1" edge="1" parent="1" source="box_in" target="box_proc" style="endArrow=block;html=1;strokeColor=#23445d;strokeWidth=2;endFill=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr2" edge="1" parent="1" source="box_proc" target="box_out" style="endArrow=block;html=1;strokeColor=#23445d;strokeWidth=2;endFill=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

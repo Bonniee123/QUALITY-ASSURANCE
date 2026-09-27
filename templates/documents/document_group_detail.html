@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load dict_extras %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>
+            {% if program %}<span class="group-code me-2" style="background:{{ program.color }};">{{ program.code }}</span>{% endif %}{{ heading }}
+        </h2>
+        <p class="text-muted mb-0" style="font-size:13px;">{{ subtitle }}</p>
+    </div>
+    <div class="page-header-actions d-flex gap-2">
+        <a href="{% url 'documents:groups' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> All groups</a>
+        {% if program %}
+        <a href="{% url 'documents:repository' %}?program={{ program.pk }}" class="btn btn-outline-primary">
+            <i class="bi bi-search"></i> Search within this group
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="group-summary">
+    <span><strong>{{ total_count }}</strong> document{{ total_count|pluralize }}</span>
+    {% comment %}QA work, not Faculty work -- see the Review column below.{% endcomment %}
+    {% if needs_review_count and not rbac_is_faculty %}<span class="badge repo-status-review">{{ needs_review_count }} to review</span>{% endif %}
+    {% if pending_count %}<span class="badge badge-suggested">{{ pending_count }} still processing</span>{% endif %}
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table" id="group-table">
+            <thead><tr>
+                <th class="repo-col-title">Title</th>
+                <th class="repo-col-status">Status</th>
+                <th>Type</th>
+                <th>Area</th>
+                {% comment %}
+                The Repository hides its Duplicate column from Faculty for the
+                same reason: only Admin and QA Head can confirm or dismiss a
+                duplicate, so for a Faculty member the badge is a status they
+                can neither change nor act on.
+                {% endcomment %}
+                {% if not rbac_is_faculty %}<th>Review</th>{% endif %}
+                <th>Uploaded</th>
+                <th class="repo-col-user">Uploaded by</th>
+                <th class="repo-col-actions text-end">Actions</th>
+            </tr></thead>
+            <tbody>
+            {% for doc in documents %}
+                <tr class="doc-row" data-doc-id="{{ doc.pk }}">
+                    <td class="repo-col-title">
+                        <div class="repo-title">
+                            <a href="#" class="js-qa-doc-detail repo-title-link" title="{{ doc.title }}"
+                               data-doc-id="{{ doc.pk }}"
+                               data-doc-title="{{ doc.title|truncatechars:80 }}"
+                               data-doc-download="{% url 'documents:download' doc.pk %}">{{ doc.title }}</a>
+                        </div>
+                    </td>
+                    <td class="repo-col-status">
+                        {% if doc.processing_in_progress %}<span class="badge badge-suggested">Processing…</span>
+                        {% elif doc.is_processed %}<span class="badge repo-status-done">Processed</span>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
+                    </td>
+                    <td>{% include '_file_type.html' with ft=doc.file_type %}</td>
+                    <td>{% include 'documents/_area_badge.html' with doc=doc %}</td>
+                    {% if not rbac_is_faculty %}<td data-qa-dup-badge="{{ doc.pk }}">{% include 'documents/_duplicate_status_badge.html' with status=doc.duplicate_status %}</td>{% endif %}
+                    <td>{{ doc.uploaded_at|date:"M d, Y" }}</td>
+                    <td class="repo-col-user">
+                        {% if doc.uploaded_by %}<span class="text-nowrap">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}</span>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
+                    </td>
+                    {% comment %}
+                    The same partial the Repository uses, so a group page offers
+                    exactly what the Repository offers and the two cannot drift
+                    apart. The permission conditions live inside it.
+                    {% endcomment %}
+                    <td class="repo-col-actions text-end">{% include 'documents/_row_actions.html' with doc=doc %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="{% if rbac_is_faculty %}7{% else %}8{% endif %}">
+                    {% include 'includes/empty_state.html' with empty_icon='bi-folder2-open' empty_title='Nothing filed here yet' empty_text='Documents tagged with this group will appear here.' %}
+                </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.group-summary { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; font-size: var(--text-sm); }
+.group-code {
+    color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .4px;
+    padding: 3px 10px; border-radius: var(--radius-full); vertical-align: middle;
+}
+.repo-status-review { background: var(--color-warning-light); color: var(--color-warning-text); font-weight: 600; }
+.repo-status-done { background: var(--color-success-light); color: var(--color-success-text); font-weight: 600; }
+#group-table tbody td { white-space: nowrap; vertical-align: middle; }
+#group-table .repo-col-title { width: 100%; max-width: 0; min-width: 260px; }
+#group-table .repo-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#group-table .repo-title-link {
+    color: var(--color-text-primary); cursor: pointer; text-decoration: none; font-weight: 600;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#group-table .repo-title-link:hover, #group-table .repo-title-link:focus-visible {
+    color: var(--color-brand); text-decoration: underline; text-underline-offset: 2px;
+}
+</style>
+{% endblock %}

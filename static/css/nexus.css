@@ -1,0 +1,1205 @@
+/* ============================================================
+   NEXUS-STYLE DASHBOARD
+   Anti-overlap: 0 collisions with existing Bootstrap utility classes
+   All selectors prefixed with .nx- or scoped under .nexus-dashboard
+   ============================================================ */
+
+/* The --nx-* names are kept as ALIASES of the canonical tokens in style.css.
+   They used to be an independent palette (teal accent, hue-220 greys) declared
+   here AND again inside dashboard.html, which is why the dashboard rendered teal
+   while every button rendered brand blue. Aliasing keeps all existing
+   var(--nx-*) references working while collapsing the system to one palette. */
+.nexus-dashboard {
+    --nx-text: var(--color-text-primary);
+    --nx-text-mute: var(--color-text-secondary);
+    --nx-text-dim: var(--color-text-muted);
+    --nx-border: var(--color-border);
+    /* Was --color-overlay, which is a fill for table headers and row hovers,
+       not an edge. Cards take the border colour every other card in the system
+       takes. */
+    --nx-border-soft: var(--card-border);
+    --nx-bg: var(--color-canvas);
+    --nx-card: var(--color-surface);
+    --nx-up: var(--color-success);
+    --nx-up-bg: var(--color-success-light);
+    --nx-down: var(--color-danger);
+    --nx-down-bg: var(--color-danger-light);
+    /* The warn alias is used as TEXT on a warning tint, where the vivid fill
+       value measures 1.94:1. Text takes the readable variant; --nx-warn-bg
+       below keeps the light tint it sits on. */
+    --nx-warn: var(--color-warning-text);
+    --nx-warn-bg: var(--color-warning-light);
+    --nx-flat: var(--color-text-secondary);
+    --nx-flat-bg: var(--color-overlay);
+    --nx-accent: var(--color-brand);
+    --nx-radius: var(--card-radius);
+    --nx-shadow: var(--card-shadow);
+    color: var(--nx-text);
+    font-family: var(--font-sans, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
+}
+
+/* ============================================================
+   Dashboard rules promoted out of templates/dashboard/dashboard.html.
+   They were inlined there while this file held a strict subset of the
+   same selectors, so every page downloaded a stylesheet only the
+   dashboard used, and the dashboard ignored it. One copy now.
+   ============================================================ */
+
+
+/* === ACTION BAR === */
+.nx-actionbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 22px;
+}
+.nx-page-title {
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin: 0;
+    /* Was a teal-to-purple gradient text fill, the only gradient heading in the
+       system and unreadable against the brand. Single heading colour now. */
+    color: var(--color-text-primary);
+}
+.nx-page-sub {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin: 4px 0 0 0;
+}
+.nx-page-sub strong { color: var(--color-text-primary); font-weight: 600; }
+.nx-section-title {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 12px 0 9px;
+}
+.nx-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+/* Status readouts, not controls.
+   Measured before this change, the two of them and the three controls beside
+   them were pixel-identical: background rgb(255,255,255), border
+   rgb(203,225,236), radius 10px, padding 8px 14px, 13px/500. A reader had only
+   the presence of a caret to tell "Updated 12:41 PM", which does nothing, from
+   "Monthly", which opens a menu. Stripping the pill removes the false
+   affordance, and the row -- which wrapped onto a second line at 1440px, by a
+   single pixel -- gets back the 56px of padding and border the two shells cost. */
+.nx-readout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 2px;
+    font-size: 12.5px;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+}
+.nx-readout i { font-size: 13px; }
+
+/* Read on the left, press on the right. */
+.nx-actions-rule {
+    /* A span is inline, and width/height do not apply to an inline box -- it
+       measured 0x0 and drew nothing. */
+    display: block;
+    width: 1px;
+    height: 18px;
+    margin: 0 2px;
+    background: var(--nx-border);
+    flex-shrink: 0;
+}
+.nx-menu {
+    border-radius: 10px;
+    font-size: 13px;
+}
+.nx-menu-period { min-width: 160px; }
+.nx-menu-program {
+    min-width: 240px;
+    max-height: 340px;
+    overflow-y: auto;
+}
+.nx-menu-header {
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+.nx-program-meta { flex: 1; }
+.nx-program-code { font-size: 12.5px; }
+.nx-program-name { font-size: 11px; }
+.nx-menu-empty { font-size: 12px; }
+.nx-menu-note {
+    font-size: 11px;
+    white-space: normal;
+    line-height: 1.35;
+    max-width: 260px;
+}
+.nx-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    border: 1px solid var(--nx-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--nx-text);
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.nx-btn:hover {
+    background: var(--color-overlay);
+    border-color: var(--color-border-strong);
+    color: var(--nx-text);
+}
+/* A finger is not a cursor. These sit at 38px, over the 24px WCAG minimum for
+   a web target but under the 44px a touch screen wants, and they are the only
+   controls on the page a reader has to hit before anything else works. */
+@media (max-width: 767px) {
+    .nx-btn { min-height: 44px; padding: 10px 16px; }
+    .nx-actions-rule { display: none; }
+    .nx-readout { padding: 4px 2px; }
+}
+
+.nx-btn-primary {
+    background: var(--color-brand);
+    color: #fff !important;
+    border-color: transparent;
+    box-shadow: var(--shadow-sm);
+}
+/* Must override .nx-btn:hover background; otherwise white text sits on near-white. */
+.nx-btn.nx-btn-primary:hover {
+    background: var(--color-brand-hover);
+    color: #fff !important;
+    border-color: transparent;
+    box-shadow: var(--shadow-md);
+    filter: none;
+}
+
+/* === KPI CARDS === */
+.nx-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.nx-kpi-row-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1200px) { .nx-kpi-row-4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 991px) { .nx-kpi-row { grid-template-columns: 1fr; } }
+
+/* Auto-fit KPI row — wraps cards gracefully (used for the "At a glance" row) */
+/* 180px lets all five 'At a glance' cards share one row at 1280px wide;
+   204px pushed the fifth onto a row of its own. */
+.nx-kpi-row-auto { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+@media (max-width: 575px) { .nx-kpi-row-auto { grid-template-columns: 1fr; } }
+
+/* Clickable KPI cards keep text color + reveal an arrow on hover */
+.nx-kpi-link { text-decoration: none; color: var(--nx-text); }
+.nx-kpi-link:hover { color: var(--nx-text); }
+/* Four of the five tiles are links, and the arrow that said so was
+   opacity:0 until :hover. A touch screen has no hover, so on a phone or tablet
+   nothing on the card indicated it could be opened at all -- and a control that
+   only exists on hover is unusable for anyone who does not use a mouse. It is
+   now always present, quietly, and comes forward on hover or keyboard focus. */
+.nx-kpi-go {
+    /* Quiet, but solid. Fading it instead (opacity .4 over the tints) measured
+       1.76:1 against the card, under the 3:1 WCAG asks of a non-text control;
+       no opacity that still read as "quiet" reached 3:1. This colour measures
+       3.33:1 on the blue tile, 3.44:1 on amber, 3.41:1 on green and 3.67:1 on
+       white, and takes the card's own accent on hover and keyboard focus. */
+    color: #6b8a99;
+    font-size: 14px;
+    opacity: 1;
+    transform: none;
+    transition: color 0.16s ease, transform 0.16s ease;
+}
+.nx-kpi-link:hover .nx-kpi-go,
+.nx-kpi-link:focus-visible .nx-kpi-go {
+    color: var(--nx-tone-accent, var(--color-brand));
+    transform: translateX(2px);
+}
+.nx-kpi-link:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+}
+
+/* Tiny KPI sparkline / progress strip */
+.nx-kpi-spark { height: 34px; margin-top: 2px; }
+.nx-kpi-spark canvas { width: 100% !important; height: 34px !important; display: block; }
+.nx-kpi-spark .nx-bar-track { margin-top: 13px; }
+.nx-bar-fill-green { background: hsl(150, 60%, 45%); }
+@media (prefers-reduced-motion: reduce) {
+    .nx-kpi-go { transition: none !important; transform: none !important; }
+}
+
+.nx-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+/* Nothing moves on hover. Eleven cards that each rose two pixels as the pointer
+   crossed them made the whole page feel unsteady, and the 28px shadow they rose
+   into was heavier than anything else in the system. */
+.nx-card:hover {
+    border-color: var(--color-border-strong);
+    box-shadow: var(--card-shadow-hover);
+}
+
+/* ============================================================
+   COLORED ICON BADGES — used by KPI labels & card titles
+   .nx-i  = base 28px rounded badge with the icon centered
+   .nx-i-* = color theme variants
+   ============================================================ */
+.nx-i {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    flex-shrink: 0;
+    padding: 0 !important;
+    line-height: 1 !important;
+}
+.nx-i-blue   { background: hsl(215, 100%, 95%) !important; color: hsl(215, 80%, 50%) !important; }
+.nx-i-green  { background: hsl(150, 70%, 92%) !important;  color: hsl(150, 60%, 35%) !important; }
+.nx-i-teal   { background: hsl(180, 60%, 92%) !important;  color: hsl(180, 60%, 30%) !important; }
+.nx-i-amber  { background: hsl(35, 95%, 92%) !important;   color: hsl(30, 90%, 45%) !important; }
+.nx-i-red    { background: hsl(0, 85%, 95%) !important;    color: hsl(0, 70%, 50%) !important; }
+.nx-i-purple { background: hsl(265, 85%, 95%) !important;  color: hsl(265, 65%, 55%) !important; }
+.nx-i-indigo { background: hsl(235, 90%, 95%) !important;  color: hsl(235, 70%, 55%) !important; }
+.nx-i-orange { background: hsl(20, 95%, 93%) !important;   color: hsl(18, 85%, 50%) !important; }
+.nx-i-pink   { background: hsl(330, 80%, 94%) !important;  color: hsl(330, 65%, 50%) !important; }
+.nx-i-cyan   { background: hsl(195, 85%, 93%) !important;  color: hsl(195, 75%, 40%) !important; }
+
+/* Subtle colored icon colors (no background) — for icons in chips/buttons */
+.nx-i-text-teal   { color: hsl(180, 60%, 35%) !important; }
+.nx-i-text-blue   { color: hsl(215, 80%, 50%) !important; }
+.nx-i-text-green  { color: hsl(150, 60%, 35%) !important; }
+.nx-i-text-amber  { color: hsl(30, 90%, 45%) !important; }
+.nx-i-text-purple { color: hsl(265, 65%, 55%) !important; }
+
+/* The corner icon is positioned against this. */
+.nx-kpi { position: relative; overflow: hidden; }
+
+.nx-kpi { padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; }
+.nx-kpi-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.nx-kpi-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--nx-text-mute);
+    font-size: 13px;
+    font-weight: 500;
+}
+.nx-kpi-label i:not(.nx-i) {
+    color: var(--nx-text-mute);
+    font-size: 15px;
+    background: hsl(220, 20%, 96%);
+    padding: 5px;
+    border-radius: 6px;
+}
+.nx-kpi-info {
+    color: var(--nx-text-dim);
+    font-size: 13px;
+    cursor: help;
+}
+.nx-kpi-body {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 4px;
+}
+.nx-kpi-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--nx-text);
+    line-height: 1;
+    letter-spacing: -0.5px;
+}
+.nx-kpi-unit {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--nx-text-mute);
+    margin-left: 2px;
+}
+.nx-kpi-foot {
+    font-size: 12px;
+    color: var(--nx-text-mute);
+    margin-top: 4px;
+}
+.nx-kpi-foot strong { color: var(--nx-text); font-weight: 600; }
+
+/* ============================================================
+   KPI TILES
+   ------------------------------------------------------------
+   Each tile used to be a tinted panel: a blue surface with a blue border and a
+   blue uppercase label for three of them, amber for one, green for one. Five
+   coloured slabs in a row is the first thing the eye lands on when opening the
+   system, and none of that colour carried information -- the number did.
+
+   These are now plain cards, identical to every other card in the system, and
+   the colour has moved to the one element small enough to be read as a signal:
+   the icon tile. Three meanings, and nothing else is tinted:
+
+       brand   informational count -- most tiles
+       amber   something is waiting to be dealt with
+       green   a healthy or completed proportion
+
+   The accent class names in the templates are unchanged, so no dashboard
+   markup moves.
+   ============================================================ */
+.nx-kpi {
+    padding: 16px 18px 15px;
+    /* Reserve the corner so a long label never runs under the icon. */
+    padding-right: 56px;
+    border-radius: var(--card-radius);
+    min-height: 118px;
+}
+
+/* The icon sits in the top-right corner in a tinted tile. It is the only
+   coloured thing on the card, which is what lets it mean something. */
+.nx-kpi .nx-kpi-label .nx-i {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 9px !important;
+    font-size: 15px !important;
+    background: var(--nx-tone-bg, var(--color-brand-light)) !important;
+    color: var(--nx-tone-accent, var(--color-brand)) !important;
+    box-shadow: none;
+}
+
+/* Sentence case, in ordinary label ink. The uppercase tracked-out version in
+   the tone's own colour was a second coloured element competing with the
+   number it was supposed to introduce. */
+.nx-kpi .nx-kpi-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--nx-text-mute);
+    gap: 0;
+}
+.nx-kpi .nx-kpi-value {
+    font-size: 28px;
+    letter-spacing: -.6px;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+}
+/* The footer sits on the floor of the tile, not wherever the content above it
+   happened to stop. Tiles with a sparkline pushed their footer down and tiles
+   without one left theirs halfway up, so the bottom line of the row read as a
+   ragged staircase. `auto` on a column flex child pins it; the padding keeps it
+   clear of the sparkline, and of the corner arrow on the tiles that link. */
+.nx-kpi .nx-kpi-foot { font-size: 12px; margin-top: auto; padding-top: 5px; line-height: 1.45; }
+.nx-kpi-link .nx-kpi-foot { padding-right: 22px; }
+
+/* The hover arrow shared the top-right corner with the icon. */
+.nx-kpi .nx-kpi-go { position: absolute; right: 14px; bottom: 14px; }
+
+/* Tones. They now set two things -- the icon tile's background and its ink --
+   and never the card surface or its border. */
+.nx-kpi-accent-blue,
+.nx-kpi-accent-teal,
+.nx-kpi-accent-purple {
+    --nx-tone-accent: var(--color-brand);
+    --nx-tone-bg: var(--color-brand-light);
+}
+.nx-kpi-accent-amber {
+    --nx-tone-accent: var(--color-warning-text);
+    --nx-tone-bg: var(--color-warning-light);
+}
+.nx-kpi-accent-green {
+    --nx-tone-accent: var(--color-success-text);
+    --nx-tone-bg: var(--color-success-light);
+}
+/* Reserved for a figure that genuinely means something is wrong. No tile on the
+   dashboard currently qualifies: a cluster count is not a problem, and marking
+   it red said it was. */
+.nx-kpi-accent-danger {
+    --nx-tone-accent: var(--color-danger);
+    --nx-tone-bg: var(--color-danger-light);
+}
+
+/* === DELTA BADGES === */
+.nx-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.nx-delta i { font-size: 11px; }
+.nx-delta-up { background: var(--nx-up-bg); color: var(--nx-up); }
+.nx-delta-down { background: var(--nx-down-bg); color: var(--nx-down); }
+.nx-delta-flat { background: var(--nx-flat-bg); color: var(--nx-flat); }
+.nx-delta-warn { background: var(--nx-warn-bg) !important; color: var(--nx-warn) !important; }
+/* "New": the previous period was empty, so there is no percentage to show.
+   Neutral on purpose -- it reports that a comparison cannot be made, which is
+   not the same as reporting growth. */
+.nx-delta-new { background: var(--nx-flat-bg); color: var(--nx-flat); }
+.nx-delta-sm { font-size: 11.5px; padding: 3px 7px; }
+
+/* === GRID ROWS === */
+.nx-grid-row {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.nx-kpi-row-2 { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 768px) { .nx-kpi-row-2 { grid-template-columns: 1fr; } }
+.nx-grid-overview {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 0.9fr);
+    align-items: stretch;
+}
+.nx-insight-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 380px;
+}
+.nx-insight-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.nx-format-body {
+    align-items: center;
+    justify-content: center;
+    padding-top: 8px;
+    padding-bottom: 16px;
+}
+.nx-donut-shell-compact {
+    max-width: 200px;
+    height: 200px;
+}
+@media (max-width: 1199px) {
+    .nx-grid-overview { grid-template-columns: 1fr 1fr; }
+    .nx-grid-overview .nx-insight-card:first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 991px) {
+    .nx-grid-overview { grid-template-columns: 1fr !important; }
+    .nx-grid-overview .nx-insight-card:first-child { grid-column: auto; }
+    .nx-insight-card { min-height: 0; }
+}
+.nx-kpi-row-3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 991px) { .nx-kpi-row-3 { grid-template-columns: 1fr; } }
+.nx-grid-insights { grid-template-columns: 1.55fr 1fr; }
+.nx-grid-breakdown { grid-template-columns: minmax(280px, 420px); }
+.nx-calendar-body { padding-top: 8px; }
+.nx-calendar-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.nx-cal-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--nx-border);
+    color: var(--nx-text-mute);
+    text-decoration: none;
+    background: white;
+    transition: background 0.15s, color 0.15s;
+}
+.nx-cal-nav-btn:hover { background: hsl(220, 20%, 97%); color: var(--nx-text); }
+.nx-cal-month-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--nx-text);
+    min-width: 100px;
+    text-align: center;
+}
+.nx-cal-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--nx-text-dim);
+    text-align: center;
+}
+.nx-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+}
+.nx-cal-day {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--nx-text);
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    transition: background 0.12s, border-color 0.12s;
+}
+.nx-cal-day:hover { background: hsl(220, 25%, 97%); border-color: var(--nx-border-soft); }
+.nx-cal-day.is-outside { opacity: 0.35; pointer-events: none; }
+.nx-cal-day.has-uploads { background: hsl(180, 45%, 96%); }
+.nx-cal-day.has-uploads:hover { background: hsl(180, 45%, 92%); }
+.nx-cal-day.is-selected {
+    border-color: hsl(180, 55%, 40%);
+    background: hsl(180, 50%, 94%);
+    box-shadow: 0 0 0 1px hsl(180, 55%, 40%);
+}
+.nx-cal-day-num { line-height: 1.2; }
+.nx-cal-dot {
+    font-size: 9px;
+    font-weight: 700;
+    /* 9px on the selected day's tint measured 4.37:1; this step clears 4.5. */
+    color: hsl(180, 58%, 26%);
+    line-height: 1;
+    margin-top: 1px;
+}
+.nx-cal-day-detail {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--nx-border-soft);
+    min-height: 72px;
+}
+.nx-cal-detail-head { font-size: 13px; margin-bottom: 8px; }
+.nx-cal-doc-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 12.5px;
+}
+.nx-cal-doc-list li { padding: 3px 0; }
+.nx-grid-attn { grid-template-columns: 1fr 1fr; }
+.nx-grid-recent { grid-template-columns: 1.6fr 1fr; }
+.nx-grid-advanced { grid-template-columns: 1fr 1fr; }
+@media (max-width: 991px) {
+    .nx-grid-row { grid-template-columns: 1fr !important; }
+}
+.nx-chart-shell {
+    position: relative;
+    height: 240px;
+}
+.nx-donut-shell {
+    position: relative;
+    width: 100%;
+    max-width: 240px;
+    height: 240px;
+    margin: 0 auto;
+}
+.nx-alert-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--nx-border-soft);
+    font-size: 13px;
+}
+.nx-alert-line:last-child { border-bottom: none; }
+.nx-advanced-wrap {
+    margin-top: 14px;
+    background: var(--nx-card);
+    border: 1px solid var(--nx-border-soft);
+    border-radius: var(--nx-radius);
+    box-shadow: var(--nx-shadow);
+    padding: 12px 16px;
+}
+.nx-advanced-wrap > summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: hsl(210, 60%, 36%);
+    padding: 2px 4px;
+    border-radius: 8px;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+.nx-advanced-wrap > summary:hover {
+    background: hsl(210, 40%, 96%);
+    color: hsl(210, 62%, 30%);
+}
+
+/* === CARD HEAD/BODY === */
+.nx-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px 8px;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.nx-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--nx-text);
+}
+.nx-card-title i:not(.nx-i) {
+    color: var(--nx-text-mute);
+    font-size: 15px;
+    background: hsl(220, 20%, 96%);
+    padding: 5px;
+    border-radius: 6px;
+}
+.nx-card-actions { display: flex; gap: 6px; }
+.nx-mini-btn {
+    background: white;
+    border: 1px solid var(--nx-border);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: var(--nx-text-mute);
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+}
+.nx-mini-btn:hover { background: hsl(220, 20%, 97%); color: var(--nx-text); }
+.nx-pill-mini {
+    background: hsl(220, 20%, 96%);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    color: var(--nx-text-mute);
+    font-weight: 500;
+}
+.nx-card-body { padding: 12px 20px 20px; }
+.nx-card-body-flush { padding: 0; }
+.nx-card-body-centered {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.nx-activity-panel { padding: 14px 18px; }
+.nx-bignum {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--nx-text);
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+}
+
+.nx-link {
+    color: var(--nx-accent);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.15s ease;
+}
+.nx-link:hover { color: hsl(180, 60%, 22%); text-decoration: underline; }
+.nx-link-sm { font-size: 12.5px; }
+.nx-doc-link {
+    text-decoration: none;
+    color: hsl(220, 25%, 15%);
+    font-weight: 500;
+    font-size: 13px;
+    transition: color 0.15s ease;
+}
+.nx-doc-link:hover { color: hsl(205, 70%, 40%); }
+.nx-cell-muted {
+    font-size: 12.5px;
+    color: hsl(220, 10%, 45%);
+}
+.nx-cell-empty {
+    color: hsl(220, 10%, 65%);
+    font-size: 12px;
+}
+.nx-cell-date {
+    font-size: 12px;
+    /* Was hsl(220,10%,55%) = 3.55:1 on white, under the 4.5:1 minimum, and these
+       are dates the user actually reads. Uses the token now. */
+    color: var(--color-text-secondary);
+}
+.nx-empty-text { font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .nx-card,
+    .nx-link,
+    .nx-doc-link,
+    .nx-advanced-wrap > summary {
+        transition: none !important;
+    }
+    .nx-card:hover {
+        transform: none !important;
+    }
+}
+
+/* === CHART LEGEND === */
+.nx-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 12px;
+    font-size: 11.5px;
+    color: var(--nx-text-mute);
+}
+.nx-legend-center {
+    margin-top: 14px;
+    justify-content: center;
+}
+.nx-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.nx-legend-swatch {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+.nx-legend-swatch-dash {
+    width: 16px;
+    height: 0;
+    border-radius: 0;
+    border-top: 2px dashed hsl(220, 12%, 58%);
+}
+
+/* === TABLE STYLE === */
+.nx-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    font-size: 13px;
+}
+.nx-table thead th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--nx-text-mute);
+    font-weight: 600;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--nx-border-soft);
+    background: hsl(220, 20%, 99%);
+}
+.nx-table tbody td {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--nx-border-soft);
+    vertical-align: middle;
+}
+.nx-table tbody tr:last-child td { border-bottom: none; }
+.nx-table tbody tr { transition: background 0.12s; }
+.nx-table tbody tr:hover { background: hsl(220, 25%, 99%); }
+
+.nx-program-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--nx-text);
+}
+.nx-program-link:hover { color: var(--nx-accent); }
+.nx-program-link strong { font-size: 13px; font-weight: 600; }
+.nx-prog-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.nx-doc-count {
+    font-size: 13px;
+    color: var(--nx-text);
+    font-weight: 600;
+}
+
+/* === BAR / PROGRESS === */
+.nx-bar-track {
+    height: 6px;
+    background: hsl(220, 20%, 94%);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.nx-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.6s ease;
+}
+.nx-bar-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--nx-text);
+    min-width: 36px;
+    text-align: right;
+}
+
+/* === STATUS PILLS === */
+.nx-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+}
+.nx-status-pill i { font-size: 10px; }
+.nx-status-done { background: var(--nx-up-bg); color: var(--nx-up); }
+.nx-status-progress { background: hsl(220, 80%, 96%); color: hsl(220, 70%, 50%); }
+.nx-status-early { background: var(--nx-warn-bg); color: var(--nx-warn); }
+.nx-status-pending { background: var(--nx-flat-bg); color: var(--nx-flat); }
+
+/* === TINY BADGES === */
+.nx-tiny-badge {
+    display: inline-block;
+    background: hsl(220, 70%, 95%);
+    color: hsl(220, 75%, 45%);
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.4px;
+}
+.nx-badge-cluster { background: hsl(265, 65%, 95%); color: hsl(265, 60%, 50%); }
+
+/* === AREA GRID === */
+.nx-area-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+}
+.nx-area-cell {
+    border: 1px solid var(--nx-border-soft);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: white;
+}
+.nx-area-pct {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--nx-text);
+    background: hsl(220, 20%, 96%);
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+/* === ACTIVITY FEED === */
+.nx-activity {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--nx-border-soft);
+}
+.nx-activity:last-child { border-bottom: none; }
+.nx-activity-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 8px;
+    flex-shrink: 0;
+    background: hsl(220, 10%, 60%);
+}
+.nx-activity-dot.upload { background: hsl(220, 70%, 55%); }
+.nx-activity-dot.ai { background: hsl(265, 60%, 60%); }
+.nx-activity-dot.map { background: hsl(150, 60%, 45%); }
+.nx-activity-text { font-size: 13px; color: var(--nx-text); line-height: 1.45; }
+.nx-activity-time { font-size: 11px; color: var(--nx-text-mute); margin-top: 2px; }
+
+/* === ACTIVE FILTER CHIP === */
+.nx-active-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: hsl(180, 50%, 96%);
+    border: 1px solid hsl(180, 40%, 85%);
+    border-radius: 999px;
+    padding: 5px 12px 5px 10px;
+    font-size: 12px;
+    color: hsl(180, 40%, 25%);
+    margin-top: 8px;
+}
+.nx-active-filter strong { color: hsl(180, 50%, 22%); font-weight: 600; }
+.nx-active-filter-neutral {
+    background: hsl(220, 25%, 97%);
+    border-color: var(--color-border);
+    color: hsl(220, 20%, 35%);
+}
+.nx-active-filter-neutral strong { color: hsl(220, 25%, 20%); }
+.nx-clear-filter {
+    color: hsl(180, 40%, 35%);
+    text-decoration: none;
+    font-size: 14px;
+    line-height: 1;
+    display: inline-flex;
+    transition: color 0.15s;
+}
+.nx-clear-filter:hover { color: hsl(0, 70%, 50%); }
+
+/* === ACCREDITATION BLOCK (structure KPIs + charts) === */
+.nx-acc-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: hsl(220, 15%, 35%);
+    letter-spacing: 0.02em;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+.nx-acc-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.nx-acc-kpi-row .nx-kpi {
+    padding: 14px 16px;
+}
+.nx-acc-kpi-row .nx-kpi-value {
+    font-size: 26px;
+}
+.nx-acc-stat-warn {
+    color: hsl(0, 65%, 48%) !important;
+}
+.nx-acc-stat-review {
+    color: hsl(32, 88%, 44%) !important;
+}
+.nx-acc-charts-row {
+    grid-template-columns: 1fr 1fr;
+}
+.nx-acc-chart-body {
+    padding-top: 2px;
+    padding-bottom: 18px;
+}
+.nx-acc-chart-frame {
+    position: relative;
+    height: 260px;
+    width: 100%;
+}
+.nx-acc-chart-frame canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+.nx-acc-chart-empty {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--nx-text-mute);
+    background: hsl(220, 25%, 99%);
+    border-radius: 10px;
+    border: 1px dashed var(--nx-border-soft);
+}
+.nx-acc-chart-empty strong {
+    color: var(--nx-text);
+    font-weight: 600;
+}
+.nx-acc-chart-frame.is-empty .nx-acc-chart-empty {
+    display: flex;
+}
+.nx-acc-chart-frame.is-empty canvas {
+    display: none !important;
+}
+
+/* === EMPTY STATE === */
+.nx-empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--nx-text-mute);
+    text-align: center;
+    background: hsl(220, 25%, 99%);
+    border-radius: 8px;
+    pointer-events: auto;
+}
+.nx-empty-state i {
+    font-size: 32px;
+    color: hsl(220, 15%, 75%);
+    margin-bottom: 8px;
+}
+.nx-empty-state p {
+    font-size: 13px;
+    margin: 0 0 8px;
+}
+
+/* === ACTIVE STATE FOR DROPDOWN ITEMS === */
+.dropdown-menu .dropdown-item.active,
+.dropdown-menu .dropdown-item:active {
+    background: hsl(180, 50%, 95%);
+    color: hsl(180, 60%, 22%);
+}
+
+/* === STICKY ACTION BAR === */
+@media (min-width: 992px) {
+    .nx-actionbar {
+        position: sticky;
+        /* Pins below the navbar, not under it. The navbar is also sticky at
+           top:0 and sits at z-index 1020 against this bar's 30, so pinning at 0
+           put 64 of these 79 pixels behind it: scrolling the dashboard hid the
+           title and the whole toolbar, which is the one thing a sticky bar is
+           supposed to prevent. */
+        top: var(--navbar-height, 64px);
+        z-index: 30;
+        /* The page behind this is plain white. A translucent cool-grey wash with
+           a saturating blur on top of it read as a dark band across the top of
+           the dashboard -- the only place in the system with one.
+
+           It still has to be opaque: this bar is sticky, and content scrolling
+           underneath would otherwise show through it. So it is the page's own
+           white, which makes it invisible at rest and still a solid mask when
+           the page moves. The blur did nothing once the background stopped
+           being see-through. */
+        background: var(--color-surface, #fff);
+        /* This bar is sticky, so its height is not paid once -- it is taken out
+           of the viewport for as long as the page is open. Trimmed from 14/12
+           to 8/10; together with dropping the redundant filter chip the first
+           row of figures moves up by about a fifth of the fold. */
+        padding: 8px 0 10px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid var(--nx-border-soft);
+    }
+}
+
+/* === 'LAST UPDATED' CHIP === */
+.nx-readout-live i { color: hsl(150, 55%, 42%) !important; }
+.nx-btn-print i { color: var(--nx-text-mute); }
+
+/* === DONUT CENTER TOTAL === */
+.nx-donut-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    text-align: center;
+}
+.nx-donut-center-num {
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--nx-text);
+    line-height: 1;
+    letter-spacing: -0.5px;
+}
+.nx-donut-center-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--nx-text-mute);
+    margin-top: 4px;
+}
+
+/* === RICH RECENT-UPLOADS TABLE === */
+.nx-doc-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.nx-ft { font-size: 20px; flex-shrink: 0; }
+.nx-ft-pdf { color: hsl(4, 75%, 55%); }
+.nx-ft-doc { color: hsl(212, 75%, 52%); }
+.nx-ft-xls { color: hsl(150, 60%, 40%); }
+.nx-ft-img { color: hsl(265, 60%, 58%); }
+.nx-ft-other { color: hsl(220, 10%, 55%); }
+.nx-doc-cell-text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.nx-doc-cell-type { font-size: 10.5px; font-weight: 600; letter-spacing: 0.4px; color: var(--nx-text-dim); }
+.nx-uploader { display: inline-flex; align-items: center; gap: 8px; }
+.nx-uploader-avatar {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    /* Was a blue-to-purple gradient left over from the pre-migration palette. It
+       put white 11px initials on hsl(210,60%,55%) at 3.54:1, under the 4.5
+       minimum. This is the brand gradient used by the Messages avatars, so the
+       two now match and the lighter end measures 4.89:1. */
+    background: var(--color-brand);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.nx-uploader-name { font-size: 12.5px; color: var(--nx-text); }
+.nx-th-actions, .nx-td-actions { width: 1%; white-space: nowrap; text-align: right; }
+.nx-row-actions { display: inline-flex; gap: 4px; opacity: 0; transition: opacity 0.15s ease; }
+.nx-table-rich tbody tr:hover .nx-row-actions { opacity: 1; }
+.nx-row-act {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    border: 1px solid var(--nx-border);
+    color: var(--nx-text-mute);
+    background: white;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.nx-row-act:hover { background: hsl(210, 45%, 97%); color: hsl(210, 70%, 42%); border-color: hsl(205, 40%, 82%); }
+@media (max-width: 768px) { .nx-row-actions { opacity: 1; } }
+
+/* === ACTIVITY FEED ICON BADGES === */
+.nx-activity { align-items: flex-start; }
+.nx-activity-icon {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+    background: hsl(220, 15%, 95%);
+    color: hsl(220, 10%, 45%);
+}
+.nx-activity-icon.upload { background: hsl(215, 100%, 95%); color: hsl(215, 75%, 50%); }
+.nx-activity-icon.ai { background: hsl(265, 85%, 96%); color: hsl(265, 60%, 55%); }
+.nx-activity-icon.delete { background: hsl(0, 85%, 96%); color: hsl(0, 68%, 52%); }
+.nx-activity-icon.edit { background: hsl(35, 95%, 93%); color: hsl(30, 85%, 46%); }
+.nx-activity-icon.auth { background: hsl(150, 65%, 93%); color: hsl(150, 55%, 38%); }
+.nx-activity-user { font-weight: 600; color: var(--nx-text-mute); }
+
+/* === PRINT === */
+@media print {
+    .sidebar, .top-navbar, .qa-dock-fab, .qa-dock,
+    .qa-toast-container, .sidebar-overlay, .messages-container,
+    .nx-actions, .nx-active-filter, .nx-kpi-go, .nx-row-actions { display: none !important; }
+    .main-wrapper, .main-content { margin: 0 !important; padding: 0 !important; }
+    body { background: #fff !important; }
+    .nexus-dashboard { color: #000; }
+    .nx-actionbar { position: static !important; background: none !important; border: none !important; }
+    .nx-card { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; }
+    .nx-card:hover { transform: none !important; }
+    .nx-page-title { -webkit-text-fill-color: initial; color: #111 !important; }
+}
+
+/* === RESPONSIVE TWEAKS === */
+@media (max-width: 768px) {
+    .nx-page-title { font-size: 22px; }
+    .nx-kpi-value { font-size: 26px; }
+    .nx-bignum { font-size: 24px; }
+    .nx-card-head, .nx-card-body { padding-left: 14px; padding-right: 14px; }
+    .nx-table thead th, .nx-table tbody td { padding-left: 14px; padding-right: 14px; }
+}

@@ -1,0 +1,68 @@
+<div class="qa-doc-edit-panel">
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger py-2 mb-3" style="font-size:13px;">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="d-flex align-items-start gap-3 mb-3 p-3 rounded-3" style="background:white;border:1px solid hsl(220,12%,92%);">
+        <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-3 text-primary" style="width:42px;height:42px;background:hsl(220,15%,96%);">
+            <i class="bi bi-file-earmark-text" style="font-size:20px;"></i>
+        </div>
+        <div class="min-w-0 flex-grow-1">
+            <div class="text-muted mb-1" style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Editing metadata</div>
+            <div class="fw-semibold text-truncate" style="font-size:14px;">{{ document.filename|default:document.title }}</div>
+            <div class="text-muted mt-1" style="font-size:12px;">
+                <span class="badge me-1" style="background:hsl(220,20%,20%);font-size:10px;">{{ document.file_type|upper }}</span>
+                Uploaded {{ document.uploaded_at|date:"M d, Y" }}
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="qaDocEditForm" action="{% url 'documents:edit' document.pk %}" novalidate>
+        {% csrf_token %}
+
+        <div class="card mb-3" style="border-radius:12px;border:none;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+            <div class="card-header py-2" style="background:white;border-bottom:2px solid hsl(220,10%,95%);font-weight:600;font-size:13px;">
+                <i class="bi bi-card-text me-2 text-primary"></i>Basic information
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label" for="{{ form.title.id_for_label }}">Document title <span class="text-danger">*</span></label>
+                        {{ form.title }}
+                        {% if form.title.errors %}<div class="invalid-feedback d-block" style="font-size:12px;">{{ form.title.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="{{ form.year.id_for_label }}">Year <span class="text-danger">*</span></label>
+                        {{ form.year }}
+                        {% if form.year.errors %}<div class="invalid-feedback d-block" style="font-size:12px;">{{ form.year.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="{{ form.program.id_for_label }}">QA program <span class="text-muted fw-normal">(optional)</span></label>
+                        {{ form.program }}
+                        {% if form.program.errors %}<div class="invalid-feedback d-block" style="font-size:12px;">{{ form.program.errors }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3" style="border-radius:12px;border:none;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+            <div class="card-header py-2" style="background:white;border-bottom:2px solid hsl(220,10%,95%);font-weight:600;font-size:13px;">
+                <i class="bi bi-text-paragraph me-2 text-primary"></i>Description
+            </div>
+            <div class="card-body">
+                <label class="form-label visually-hidden" for="{{ form.description.id_for_label }}">Description</label>
+                {{ form.description }}
+                {% if form.description.errors %}<div class="invalid-feedback d-block" style="font-size:12px;">{{ form.description.errors }}</div>{% endif %}
+                <div class="form-text" style="font-size:11px;">Brief summary shown in search and document details.</div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center gap-2 mt-4 pt-3 border-top">
+            <button type="submit" class="btn btn-primary" id="qaDocEditSubmit">
+                <span class="qa-edit-submit-label"><i class="bi bi-check-lg me-1"></i>Save changes</span>
+                <span class="qa-edit-submit-spinner d-none"><span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving…</span>
+            </button>
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        </div>
+    </form>
+</div>

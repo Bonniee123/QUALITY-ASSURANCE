@@ -1,0 +1,713 @@
+:root {
+    /* Force light rendering of native controls (select popups, date pickers, scrollbars)
+       so they stay readable even when the OS/browser is in dark mode. */
+    color-scheme: light;
+    --color-brand: #1a7b93;
+    --color-brand-light: #e9f6fb;
+    --color-brand-dark: #023047;
+    /* Brand tone for *text* sitting on --color-overlay. The plain brand is tuned
+       for white: on the tinted table header it falls to 4.04:1, under the 4.5
+       minimum for 12px text. This darkened step measures 5.65:1 there and stays
+       recognisably brand rather than collapsing into body ink. */
+    --color-brand-on-overlay: #156376;
+    --color-brand-hover: #12657b;
+    --color-sidebar: #ffffff;
+    --color-sidebar-hover: #bed8e4;
+    --color-sidebar-active: #e9f6fb;
+    --color-sidebar-text: #2f576a;
+    --color-sidebar-text-active: #023047;
+    --color-sidebar-accent: #1a7b93;
+    --color-sidebar-border: #cbe1ec;
+    /* The page is white, the same as the card and the sidebar's content area.
+       It used to be a 97% tint, which separated page from card by lightness at
+       1.07:1 - fainter than the 1.11:1 another system in this codebase family
+       rejected as "a fill nobody can see". Separation is now carried by
+       --color-border and the shadow, which is why both were strengthened. */
+    --color-canvas: #ffffff;
+    --color-surface: #ffffff;
+    /* RECESSED tint: table headers, row hovers, inset panels. On a white card
+       this is the only banding available, so it is deepened from 1.09:1
+       (invisible) to 1.20:1. */
+    --color-overlay: #deecf2;
+    /* --color-success / --color-warning stay at their vivid values because they
+       are fills (bars, dots, accent strips) where nothing sits on top. As TEXT
+       on white they measure 2.94:1 and 2.13:1, so text uses the -text variants. */
+    --color-success: #12784a;
+    --color-success-text: #0e5f3a;
+    --color-success-light: #e6f5ed;
+    --color-success-border: hsl(142,40%,72%);
+    --color-danger: #b02a21;
+    --color-danger-light: #fdecea;
+    --color-warning: #8a6300;
+    /* 32% clears 4.5:1 on white but only 4.41:1 on --color-warning-light, which
+       is exactly where warning text is usually placed. 30% clears both:
+       5.41:1 on white, 4.93:1 on the tint. */
+    --color-warning-text: #6d4e00;
+    --color-warning-light: #fdf4e0;
+    --color-text-primary: #023047;
+    /* 44% cleared 4.5:1 on white but only 4.31:1 once --color-overlay was
+       deepened for banding, and this colour labels table headers that sit ON
+       that band. 42% clears both: 5.57:1 on white, 4.64:1 on the band. */
+    --color-text-secondary: #2f576a;
+    /* Was hsl(215,8%,62%) = 2.74:1 on white - under the 4.5:1 body-text minimum,
+       and it carries real content in 154 .text-muted usages. Now 4.79:1. */
+    --color-text-muted: #4a6978;
+    /* Card and table boundaries. With the page white this is the only thing
+       saying where a card ends, so it is no longer decoration: 1.40 -> 1.56:1. */
+    --color-border: #cbe1ec;
+    /* FORM CONTROL boundaries. WCAG 1.4.11 wants 3:1 for the edge of an input;
+       the old value managed 2.05:1 and a tinted page merely hid the problem.
+       On a white page an input with an invisible border is simply not there. */
+    --color-border-strong: #7299ac;
+    --shadow-xs: 0 1px 2px rgba(2,32,48,.04);
+    --shadow-sm: 0 1px 2px rgba(2,32,48,.05),0 1px 3px rgba(2,32,48,.04);
+    --shadow: 0 1px 2px rgba(2,32,48,.05),0 6px 18px rgba(2,32,48,.06);
+    --shadow-md: 0 2px 4px rgba(2,32,48,.05),0 12px 30px rgba(2,32,48,.09);
+    --shadow-lg: 0 4px 8px rgba(2,32,48,.06),0 24px 52px rgba(2,32,48,.12);
+    --radius-xs: 6px; --radius-sm: 9px; --radius-md: 13px;
+    --radius-lg: 18px; --radius-xl: 18px; --radius-full: 9999px;
+    --transition-fast: 100ms ease;
+    --transition-base: 180ms ease;
+    --transition-slow: 320ms ease;
+    --text-xs: 11px; --text-sm: 13px; --text-base: 15px; --text-md: 17px;
+    --text-lg: 20px; --text-xl: 24px; --text-2xl: 30px; --text-3xl: 40px;
+    --sidebar-width: 244px; --navbar-height: 56px;
+
+    /* ===== CARD SURFACE =====
+       One contract for every card in the system. Before this, a card's
+       appearance depended on which page it was on: four radii (8, 10, 13 and
+       18px), three border colours, shadows ranging from none to a 24px blur,
+       and on the dashboard a tinted surface per metric. The result read as
+       several products stacked on top of each other.
+
+       The rules: a card is a white surface, a one-pixel neutral border, one
+       radius and the lightest shadow that still separates it from the page.
+       Colour belongs to content inside the card -- an icon, a status dot, a
+       delta -- never to the card itself, so that when something IS coloured it
+       means something. */
+    --card-bg: var(--color-surface);
+    --card-border: var(--color-border);
+    --card-radius: 13px;
+    --card-shadow: var(--shadow-xs);
+    /* Hover is a slightly deeper version of the same shadow, not a jump to a
+       different elevation, and nothing moves: cards that lifted on hover made
+       a grid of them twitch as the pointer crossed it. */
+    --card-shadow-hover: 0 1px 2px rgba(2,32,48,.05), 0 6px 16px rgba(2,32,48,.07);
+    --card-pad: 18px 20px;
+    --card-pad-tight: 14px 16px;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:var(--text-base);color:var(--color-text-primary);background:var(--color-canvas);margin:0;padding:0;line-height:1.55;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,a,[role="button"],.btn,.form-control,.form-select{transition:color var(--transition-base),background-color var(--transition-base),border-color var(--transition-base),box-shadow var(--transition-base),transform var(--transition-base),opacity var(--transition-base)}
+
+/* LAYOUT */
+.app-layout{display:flex;min-height:100vh}
+/* min-width:0 is required, not cosmetic: the sidebar is position:fixed and therefore
+   leaves the flex flow, so .main-wrapper is the only flex item. Without this it keeps
+   its automatic minimum size (min-width:auto = intrinsic content width) and refuses to
+   shrink to the 260px-narrower track, pushing every page ~279px past the right edge. */
+.main-wrapper{flex:1;min-width:0;margin-left:var(--sidebar-width);display:flex;flex-direction:column;min-height:100vh}
+/* Top padding trimmed from 24px: with the navbar above it and the page's own
+   heading below, the old value put roughly 50px of nothing between the two. */
+.main-content{flex:1;padding:16px 24px 24px}
+.messages-container{margin-bottom:16px}
+
+/* SIDEBAR */
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-width);background:var(--color-sidebar);border-right:1px solid var(--color-border);display:flex;flex-direction:column;z-index:1040;overflow-y:auto;overflow-x:hidden;transition:width var(--transition-slow)}
+
+/* Header */
+.sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:18px 16px 14px;gap:8px}
+.sidebar-logo{display:flex;align-items:center;gap:12px;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-decoration:none;transition:opacity var(--transition-base)}
+.sidebar-logo:hover{color:var(--color-text-primary);opacity:.92}
+.sidebar-logo-icon{width:38px;height:38px;min-width:38px;border-radius:var(--radius-md);background:var(--color-brand-light);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--color-brand);transition:all var(--transition-base)}
+.sidebar-logo-icon-svg{background:transparent;border:0;padding:0;overflow:hidden}
+.sidebar-logo-icon-svg img{width:38px;height:38px;display:block;object-fit:contain}
+.sidebar-logo-text{display:flex;flex-direction:column;overflow:hidden;transition:opacity var(--transition-base)}
+.sidebar-logo-title{font-size:var(--text-md);font-weight:700;letter-spacing:-.3px;line-height:1.2}
+.sidebar-logo-sub{font-size:var(--text-xs);color:var(--color-sidebar-text);opacity:.6;letter-spacing:.3px;line-height:1.2}
+.sidebar-collapse-btn{background:none;border:1px solid var(--color-sidebar-border);color:var(--color-sidebar-text);font-size:16px;cursor:pointer;padding:4px 6px;border-radius:var(--radius-sm);transition:all var(--transition-base);flex-shrink:0;display:none}
+.sidebar-collapse-btn:hover{background:var(--color-sidebar-hover);color:var(--color-text-primary);border-color:var(--color-border)}
+@media(min-width:992px){.sidebar-collapse-btn{display:flex;align-items:center;justify-content:center}}
+.sidebar-close{background:none;border:none;color:var(--color-sidebar-text);font-size:20px;cursor:pointer;padding:4px}
+
+
+
+/* Navigation */
+.sidebar-nav{flex:1;padding:0 8px}
+.sidebar-menu{list-style:none;padding:0;margin:0}
+.sidebar-menu-item{margin-bottom:1px;position:relative}
+/* Rail metrics taken from the reference system rather than guessed: the entries
+   here were set a size larger and a weight heavier than the rail they were
+   modelled on (13px/600 in 10x14 padding against 14px/500 in 9x11), which is why
+   the list read as loose and shouty next to it. Larger type, less padding and a
+   lighter weight fit more entries on screen and read calmer. */
+.sidebar-link{display:flex;align-items:center;gap:11px;padding:9px 11px;color:var(--color-sidebar-text);text-decoration:none;font-size:14px;font-weight:500;border-radius:var(--radius-sm);position:relative;white-space:nowrap;overflow:hidden}
+.sidebar-link:hover{background:var(--color-sidebar-hover);color:var(--color-text-primary)}
+.sidebar-link:hover i{color:var(--color-text-primary)}
+.sidebar-link-text{transition:opacity var(--transition-base);overflow:hidden}
+.sidebar-link i{font-size:17px;width:20px;text-align:center;flex-shrink:0;opacity:.72}
+.sidebar-menu-item.active .sidebar-link i{opacity:1}
+
+/* Active item: tinted background, bold label, brand icon. The 3px accent bar
+   that used to sit on its left edge was removed on request. */
+.sidebar-menu-item.active .sidebar-link{background:var(--color-sidebar-active);color:var(--color-sidebar-text-active);font-weight:600}
+.sidebar-menu-item.active .sidebar-link i{color:var(--color-sidebar-accent)}
+
+/* Notification Badges */
+.sidebar-badge{font-size:10px;font-weight:700;background:var(--color-brand);color:#fff;padding:2px 7px;border-radius:var(--radius-full);line-height:1.3;margin-left:auto;flex-shrink:0;min-width:20px;text-align:center}
+.sidebar-badge.danger{background:var(--color-danger)}
+
+/* Section Labels & Dividers */
+.sidebar-divider{height:1px;background:var(--color-sidebar-border);margin:12px 14px;list-style:none}
+.sidebar-menu-label{margin:14px 0 5px;padding:0 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;font-weight:700;opacity:1;color:var(--color-text-muted);list-style:none;white-space:nowrap;overflow:hidden;transition:opacity var(--transition-base)}
+.sidebar-menu-label:first-child{margin-top:2px}
+.sidebar-footer{padding:12px 8px 16px;border-top:1px solid var(--color-sidebar-border)}
+/* hsl(0,70%,70%) was a light red for the dark rail; on white it measures 2.74:1.
+   The danger token reads correctly on a light ground at 6.56:1. */
+.sidebar-logout{color:var(--color-danger)!important}
+.sidebar-logout:hover{background:var(--color-danger-light)!important;color:var(--color-danger)!important}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1035;backdrop-filter:blur(2px)}
+.sidebar-overlay.active{display:block}
+
+/* ===== Collapsed Mini Mode ===== */
+.sidebar.collapsed{width:68px}
+.sidebar.collapsed .sidebar-logo-text,
+.sidebar.collapsed .sidebar-link-text,
+.sidebar.collapsed .sidebar-user-info,
+.sidebar.collapsed .sidebar-badge{opacity:0;width:0;overflow:hidden;padding:0;margin:0;display:none}
+.sidebar.collapsed .sidebar-menu-label{opacity:0;height:0;padding:0;margin:0;overflow:hidden;font-size:0;line-height:0}
+.sidebar.collapsed .sidebar-divider{margin:4px 16px}
+.sidebar.collapsed .sidebar-header{padding:16px 0 10px;justify-content:center;flex-direction:column;align-items:center;gap:6px}
+.sidebar.collapsed .sidebar-logo{justify-content:center;gap:0}
+.sidebar.collapsed .sidebar-logo-icon{border:none;background:transparent}
+.sidebar.collapsed .sidebar-collapse-btn{border:none;padding:4px;margin:0}
+.sidebar.collapsed .sidebar-collapse-btn i{transform:rotate(180deg)}
+.sidebar.collapsed .sidebar-nav{padding:0 6px}
+.sidebar.collapsed .sidebar-link{justify-content:center;padding:10px 0;border-radius:var(--radius-sm);width:52px;height:42px;margin:2px auto}
+.sidebar.collapsed .sidebar-link i{margin:0;width:auto}
+.sidebar.collapsed .sidebar-footer{padding:10px 6px 16px}
+.sidebar.collapsed .sidebar-footer .sidebar-link{width:52px;height:42px;margin:0 auto}
+
+/* Tooltip on hover when collapsed */
+.sidebar.collapsed .sidebar-link[data-tooltip]{position:relative}
+.sidebar.collapsed .sidebar-link[data-tooltip]:hover::after{content:attr(data-tooltip);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);background:var(--color-text-primary);color:#fff;font-size:var(--text-xs);font-weight:600;padding:5px 10px;border-radius:var(--radius-sm);white-space:nowrap;z-index:9999;box-shadow:var(--shadow-md);pointer-events:none;animation:tooltipFadeIn .15s ease}
+@keyframes tooltipFadeIn{from{opacity:0;transform:translateY(-50%) translateX(-4px)}to{opacity:1;transform:translateY(-50%) translateX(0)}}
+
+/* Adjust main wrapper when sidebar is collapsed */
+.sidebar.collapsed ~ .main-wrapper{margin-left:68px}
+
+/* NAVBAR */
+.top-navbar{height:var(--navbar-height);display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--color-surface);border-bottom:1px solid var(--color-border);position:sticky;top:0;z-index:1020}
+.navbar-left{display:flex;align-items:center;gap:16px}
+.sidebar-toggle{background:none;border:none;font-size:24px;color:var(--color-text-secondary);cursor:pointer;padding:4px}
+.navbar-title{font-size:var(--text-md);font-weight:700;color:var(--color-text-primary);margin:0;letter-spacing:-.3px}
+.navbar-subtitle{font-size:var(--text-xs);color:var(--color-text-muted);margin:0;line-height:1.2}
+.navbar-right{display:flex;align-items:center;gap:12px}
+.navbar-user-btn{display:flex;align-items:center;gap:8px;background:none;border:1px solid var(--color-border);padding:6px 14px;border-radius:var(--radius-full);color:var(--color-text-primary);font-size:var(--text-sm);font-weight:500;cursor:pointer}
+.navbar-user-btn:hover{background:var(--color-overlay);border-color:var(--color-border-strong)}
+.navbar-user-btn i{font-size:20px;color:var(--color-brand)}
+.navbar-user-btn .navbar-user-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;display:block}
+/* Toasts. The stack sat at bottom:0 right:0 and rose directly over the QA
+   Assistant button (fixed, bottom:28px right:28px, 56x56), so every message
+   covered the control. It now starts above it and shares its right edge. */
+/* Top centre, under the navbar. Bottom-right put every confirmation in the one
+   corner the floating Messages button occupies, and at the far edge of where
+   anyone is looking after clicking something at the top of a page. Centred
+   under the bar it is seen without covering the table, the toolbar or the
+   button that opened it. Position lives here, not in Bootstrap's utilities,
+   which are !important and cannot be overridden from the stylesheet. */
+.qa-toast-container{position:fixed;top:calc(var(--navbar-height) + 14px);left:50%;transform:translateX(-50%);
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+    z-index:10800;max-width:min(420px,calc(100vw - 32px));pointer-events:none}
+.qa-toast-container .qa-toast-item{
+    pointer-events:auto;max-width:420px;font-size:13px;margin-bottom:0!important;
+    animation:qa-toast-drop .22s cubic-bezier(.4,0,.2,1);
+    background:var(--color-surface);color:var(--color-text-primary);
+    border:1px solid var(--color-border)!important;
+    border-left:3px solid var(--qa-toast-accent,var(--color-brand))!important;
+    box-shadow:0 6px 18px rgba(2,48,71,.14);border-radius:var(--radius-sm)!important}
+.qa-toast-container .qa-toast-row{display:flex;align-items:flex-start;gap:8px;padding:9px 8px 9px 11px}
+.qa-toast-container .qa-toast-icon{color:var(--qa-toast-accent,var(--color-brand));font-size:15px;line-height:1.4;flex-shrink:0}
+.qa-toast-container .toast-body{padding:0;line-height:1.4;flex:1;min-width:0}
+/* 23px failed the 24px minimum a pointer target needs. */
+.qa-toast-container .btn-close{width:24px;height:24px;padding:0;margin:0;flex-shrink:0;background-size:10px;opacity:.55;transform:none}
+.qa-toast-container .btn-close:hover{opacity:1}
+/* Meaning is carried by the icon and the words; the colour only agrees. */
+.qa-toast--success{--qa-toast-accent:var(--color-success)}
+.qa-toast--warning{--qa-toast-accent:var(--color-warning)}
+.qa-toast--danger{--qa-toast-accent:var(--color-danger)}
+.qa-toast--info{--qa-toast-accent:var(--color-brand)}
+/* It arrives from the edge it sits against. */
+@keyframes qa-toast-drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.qa-toast-container .qa-toast-item{animation:none}}
+@media (max-width:575px){.qa-toast-container{left:12px;right:12px;transform:none;max-width:none}
+    .qa-toast-container .qa-toast-item{max-width:none;width:100%}}
+.qa-doc-detail-modal .modal-body{max-height:calc(100vh - 140px)}
+.qa-doc-detail-panel .min-w-0{min-width:0}
+.qa-job-status-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius-full);background:hsl(215,80%,96%);color:hsl(215,70%,42%);font-size:var(--text-xs);font-weight:600;text-decoration:none;border:1px solid hsl(215,60%,88%);cursor:pointer;white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}
+.qa-job-status-pill:hover{background:hsl(215,80%,92%);color:hsl(215,70%,35%)}
+.qa-job-status-pill::before{content:'';width:8px;height:8px;border-radius:50%;background:hsl(215,70%,50%);animation:qa-job-pulse 1.2s ease-in-out infinite;flex-shrink:0}
+@keyframes qa-job-pulse{0%,100%{opacity:.4;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}
+
+/* CARDS
+   Every card here takes the shared surface tokens. The old values -- a two-layer
+   6px/18px shadow on a resting card, a 2px lift on hover -- were doing the
+   work the border now does, and doing it loudly. */
+.card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--card-radius);box-shadow:var(--card-shadow);transition:box-shadow var(--transition-base),border-color var(--transition-base)}
+.card:hover{box-shadow:var(--card-shadow-hover)}
+.card-header{background:transparent;border-bottom:1px solid var(--card-border);padding:16px 20px;font-weight:600;font-size:var(--text-base);color:var(--color-text-primary)}
+.card-body{padding:20px 22px}
+.stat-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--card-radius);padding:var(--card-pad);box-shadow:var(--card-shadow);transition:box-shadow var(--transition-base),border-color var(--transition-base);display:flex;align-items:flex-start;gap:14px}
+.stat-card:hover{box-shadow:var(--card-shadow-hover)}
+/* 40px, not 48: the icon is a label for the number beside it, and at 48 it was
+   the largest object on the card. */
+.stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.stat-icon.blue{background:var(--color-brand-light);color:var(--color-brand)}
+.stat-icon.green{background:var(--color-success-light);color:var(--color-success)}
+.stat-icon.orange{background:var(--color-warning-light);color:var(--color-warning)}
+.stat-icon.red{background:var(--color-danger-light);color:var(--color-danger)}
+.stat-info{flex:1}
+.stat-value{font-size:var(--text-2xl);font-weight:700;color:var(--color-text-primary);line-height:1.1;letter-spacing:-.5px}
+.stat-label{font-size:var(--text-sm);color:var(--color-text-secondary);margin-top:2px}
+
+/* FILE-TYPE ICON TAG (shared across repository, reports, AI processing) */
+.ft-tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.4px}
+.ft-ico{font-size:16px;line-height:1;flex-shrink:0}
+.ft-ico--pdf{color:hsl(4,75%,55%)}
+.ft-ico--doc{color:hsl(212,75%,52%)}
+.ft-ico--xls{color:hsl(150,60%,40%)}
+.ft-ico--img{color:hsl(265,60%,58%)}
+.ft-ico--other{color:hsl(220,10%,55%)}
+.ft-tag-label{color:var(--color-text-secondary)}
+
+/* TABLES */
+.table-container{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden}
+.table-container .table{margin-bottom:0}
+.table{font-size:var(--text-sm);color:var(--color-text-primary)}
+.table thead th{background:var(--color-overlay);border-bottom:2px solid var(--color-border);font-weight:600;font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.5px;color:var(--color-text-secondary);padding:12px 16px;white-space:nowrap}
+.table tbody td{padding:12px 16px;vertical-align:middle;border-bottom:1px solid var(--color-border)}
+.table tbody tr:hover{background:hsla(210,78%,46%,.03)}
+.table tbody tr:last-child td{border-bottom:none}
+
+/* Scrollable list/table panel (repository pattern — use site-wide for long lists) */
+.repo-scroll-panel{
+    max-height:min(65vh,calc(100vh - 280px));
+    overflow:auto;
+    background:var(--color-surface);
+    border:1px solid var(--color-border);
+    /* 18px on a full-width data panel read as a soft card wrapped around a
+       dense grid; the reference uses a much tighter corner and the table sits
+       better inside it. */
+    border-radius:10px;
+    box-shadow:var(--shadow-sm);
+    -webkit-overflow-scrolling:touch;
+}
+@supports (height:100dvh){
+    .repo-scroll-panel{max-height:min(65dvh,calc(100dvh - 280px))}
+}
+@media (min-width:992px){
+    .repo-scroll-panel{max-height:min(72vh,calc(100vh - 260px))}
+}
+@media (min-width:1200px){
+    .repo-scroll-panel{max-height:min(78vh,calc(100vh - 240px))}
+}
+.repo-scroll-panel .table{margin-bottom:0}
+/* ---- panels sized to fill the window (see sizeScrollPanels in main.js) ---- */
+/* The container's foot padding is what kept the floating assistant button clear
+   of content. A filled panel reaches the window edge, so the clearance moves
+   inside its scroll area: the last row can still be scrolled out from under the
+   button, and the space is no longer wasted when the table is scrolled to the top. */
+.main-content.has-filled-panel{padding-bottom:24px}
+/* A panel that is the page's main scroll region gets a taller ceiling than one
+   embedded in a card: it is what the page is for, and the old cap left the
+   repository table showing about five rows on a laptop. main.js grows this
+   further when the window has more room than the rule asks for; it never
+   shrinks it. */
+.repo-scroll-panel[data-fill-viewport]{max-height:min(75vh,calc(100vh - 190px))}
+@supports (height:100dvh){
+    .repo-scroll-panel[data-fill-viewport]{max-height:min(75dvh,calc(100dvh - 190px))}
+}
+@media (min-width:992px){
+    .repo-scroll-panel[data-fill-viewport]{max-height:min(82vh,calc(100vh - 170px))}
+}
+@media (min-width:1200px){
+    .repo-scroll-panel[data-fill-viewport]{max-height:min(88vh,calc(100vh - 150px))}
+}
+.repo-scroll-panel.is-filled .table{margin-bottom:56px}
+/* Bootstrap's .table-responsive sets overflow-x:auto, and per spec that makes the
+   used value of overflow-y 'auto' too - which turns the wrapper into a scroll
+   container and steals the sticky containing block from .repo-scroll-panel. The
+   wrapper never scrolls vertically itself, so the header had nothing to stick to
+   and scrolled away with the rows. The panel already scrolls both axes, so the
+   nested scroll context is redundant: neutralise it and sticky resolves against
+   the panel again. */
+.repo-scroll-panel > .table-responsive{overflow:visible}
+.repo-scroll-panel thead th,
+.repo-scroll-panel .mapping-table thead th,
+.repo-scroll-panel .user-table thead th,
+.repo-scroll-panel .nx-table thead th{
+    position:sticky;
+    top:0;
+    z-index:2;
+    box-shadow:0 1px 0 var(--color-border);
+}
+/* --color-overlay (#deecf2) is a tinted brand wash. Behind a header row that
+   spans the full width of a dense table it was the loudest thing on the page --
+   heavier than the data it labels. A near-white grey separates the header
+   without competing; the border underneath does the actual dividing. */
+.repo-scroll-panel .table thead th{background:hsl(205,30%,98%)}
+.repo-scroll-panel .mapping-table thead th{background:hsl(220,20%,98%)}
+.repo-scroll-panel .user-table thead th{background:hsl(220,20%,98%)}
+.repo-scroll-panel .nx-table thead th{background:hsl(220,20%,99%)}
+.repo-scroll-panel--embedded{
+    border:none;
+    border-radius:0;
+    box-shadow:none;
+}
+
+/* BADGES */
+.badge{font-size:var(--text-xs);font-weight:600;padding:4px 10px;border-radius:var(--radius-full);letter-spacing:.3px}
+.badge-complete{background:var(--color-success-light);color:hsl(142,52%,30%);border:1px solid var(--color-success-border)}
+.badge-missing{background:var(--color-danger-light);color:hsl(0,60%,40%);border:1px solid hsl(0,50%,78%)}
+.badge-review{background:var(--color-warning-light);color:hsl(38,60%,30%);border:1px solid hsl(38,50%,72%)}
+.badge-suggested{background:var(--color-brand-light);color:hsl(210,60%,32%);border:1px solid hsl(210,50%,76%)}
+.badge-unmapped{background:var(--color-overlay);color:var(--color-text-secondary);border:1px solid var(--color-border)}
+
+/* BUTTONS */
+.btn{font-size:var(--text-sm);font-weight:600;padding:8px 18px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;gap:6px;letter-spacing:.2px}
+.btn:hover{transform:scale(1.01)}
+.btn-primary{background:var(--color-brand);border-color:var(--color-brand);color:#fff}
+/* Bootstrap's `.btn.disabled, .btn:disabled` sets background-color from
+   --bs-btn-disabled-bg at specificity (0,2,0), which outranks the (0,1,0)
+   rule above. A disabled primary button therefore reverted to Bootstrap
+   blue #0d6efd -- measured on the upload button, which is disabled for the
+   whole of an upload, exactly when the user is watching it. The brand
+   colour holds through the disabled state; the 0.65 opacity Bootstrap
+   applies still marks it as unavailable. */
+.btn.btn-primary.disabled,.btn.btn-primary:disabled{background-color:var(--color-brand);border-color:var(--color-brand);color:#fff}
+.btn-primary:hover{background:var(--color-brand-hover);border-color:var(--color-brand-hover);color:#fff;box-shadow:var(--shadow-xs)}
+.btn-success{background:var(--color-success);border-color:var(--color-success);color:#fff}
+.btn-outline-primary{color:var(--color-brand);border-color:var(--color-brand);background:#fff}
+.btn-outline-primary:hover{background:var(--color-brand);color:#fff}
+.btn-sm{padding:5px 12px;font-size:var(--text-xs)}
+.btn-icon{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-sm)}
+
+/* FORMS */
+.form-control,.form-select{font-size:var(--text-sm);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--color-text-primary);background:var(--color-surface)}
+.form-control:focus,.form-select:focus{border-color:var(--color-brand);box-shadow:0 0 0 3px hsla(210,78%,46%,.12)}
+/* Keep native <option> popups readable (fixes black-on-black dropdowns on dark-mode OSes) */
+.form-select,.form-control,select,input,textarea{color-scheme:light}
+.form-select option,.form-control option,select option{background-color:#fff;color:var(--color-text-primary)}
+.form-label{font-size:var(--text-sm);font-weight:600;color:var(--color-text-primary);margin-bottom:6px}
+
+/* ALERTS */
+.alert{border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:500;padding:12px 18px;border:1px solid}
+.alert-success{background:var(--color-success-light);color:hsl(142,40%,28%);border-color:var(--color-success-border)}
+.alert-error,.alert-danger{background:var(--color-danger-light);color:hsl(0,50%,35%);border-color:hsl(0,50%,78%)}
+.alert-warning{background:var(--color-warning-light);color:hsl(38,50%,28%);border-color:hsl(38,50%,72%)}
+.alert-info{background:var(--color-brand-light);color:hsl(210,50%,30%);border-color:hsl(210,50%,78%)}
+
+/* PAGE HEADERS */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px}
+.page-header h2{font-size:25px;font-weight:700;color:var(--color-text-primary);margin:0;letter-spacing:-.35px}
+.page-header p{font-size:var(--text-sm);color:var(--color-text-secondary);margin:2px 0 0}
+.page-header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* BREADCRUMBS (shared, see includes/breadcrumb usage) */
+.filter-bar{background:var(--color-surface);border:1px solid var(--color-border);border-radius:10px;padding:16px 20px;margin-bottom:14px;box-shadow:var(--shadow-xs)}
+
+/* CHATBOT */
+.chat-container{height:calc(100vh - var(--navbar-height) - 140px);min-height:400px;display:flex;flex-direction:column;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden}
+.chat-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.chat-message{max-width:75%;padding:12px 16px;border-radius:var(--radius-md);font-size:var(--text-sm);line-height:1.5;animation:chatFadeIn .3s ease}
+@keyframes chatFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.chat-message.user{align-self:flex-end;background:var(--color-brand);color:#fff;border-bottom-right-radius:var(--radius-xs)}
+.chat-message.bot{align-self:flex-start;background:var(--color-overlay);color:var(--color-text-primary);border-bottom-left-radius:var(--radius-xs);border:1px solid var(--color-border)}
+.chat-input-bar{display:flex;gap:10px;padding:16px 20px;border-top:1px solid var(--color-border);background:var(--color-overlay)}
+.chat-input-bar input{flex:1}
+
+/* LOGIN */
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#1E3A8A;padding:20px}
+/* The sign-in card is the one deliberate exception to the flat card shadow: it
+   floats on its own over the page rather than sitting in a grid with others. */
+.login-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);padding:40px;width:100%;max-width:420px}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo i{font-size:42px;color:var(--color-brand)}
+.login-logo h2{font-size:var(--text-xl);font-weight:700;color:var(--color-text-primary);margin:10px 0 4px;letter-spacing:-.3px}
+.login-logo p{font-size:var(--text-sm);color:hsl(215,12%,38%)}
+
+/* DROPDOWN & MODAL */
+.dropdown-menu{border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:6px}
+.dropdown-item{border-radius:var(--radius-sm);font-size:var(--text-sm);padding:8px 12px}
+.dropdown-item:hover{background:var(--color-overlay)}
+.modal-content{border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg)}
+.modal-header{border-bottom:1px solid var(--color-border);padding:16px 20px}
+.modal-body{padding:20px}
+.modal-footer{border-top:1px solid var(--color-border);padding:12px 20px}
+
+/* MISC */
+.chart-wrapper{position:relative;padding:12px}
+.empty-state{text-align:center;padding:48px 24px;color:var(--color-text-muted);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.empty-state i{font-size:48px;margin-bottom:16px;opacity:.4}
+.empty-state p{font-size:var(--text-sm)}
+.empty-state .empty-title{font-size:var(--text-md);font-weight:600;color:var(--color-text-secondary);margin:0 0 4px}
+.empty-state .empty-text{font-size:var(--text-sm);color:var(--color-text-muted);margin:0 0 16px;max-width:340px}
+.empty-state .empty-action{display:inline-flex;align-items:center;gap:6px;background:var(--color-brand);color:#fff;text-decoration:none;font-size:var(--text-sm);font-weight:600;padding:8px 16px;border-radius:var(--radius-md);transition:filter .15s,transform .1s}
+.empty-state .empty-action:hover{filter:brightness(1.07);transform:translateY(-1px);color:#fff}
+
+/* GLOBAL ACCESSIBILITY POLISH */
+a:focus-visible,button:focus-visible,.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible,.act:focus-visible,.sidebar-link:focus-visible{outline:2px solid var(--color-brand);outline-offset:2px;border-radius:var(--radius-sm)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important}}
+.mapping-panel{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.skeleton{background:var(--color-overlay);animation:qa-skeleton-pulse 1.4s ease-in-out infinite;border-radius:var(--radius-sm)}
+@keyframes qa-skeleton-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.repo-skeleton-row td{padding:12px;vertical-align:middle;border-color:var(--color-border)}
+.repo-skel-line{display:block;height:11px;border-radius:6px;width:100%;min-width:40px}
+.repo-skeleton-row:nth-child(3n) .repo-skel-line:nth-child(1){max-width:72%}
+.repo-skeleton-row:nth-child(3n+1) .repo-skel-line:nth-child(1){max-width:58%}
+.repo-skeleton-row:nth-child(3n+2) .repo-skel-line:nth-child(1){max-width:65%}
+#tableBody.repo-loading{pointer-events:none;min-height:120px}
+.smart-search-tbody.repo-loading{pointer-events:none;min-height:80px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* The sidebar used to draw a 4px thumb. Class selectors outrank the global
+   *::-webkit-scrollbar rule below, so it has to be hidden explicitly here. */
+.sidebar::-webkit-scrollbar{width:0;height:0;display:none}
+
+/* Bootstrap ships .btn-outline-secondary in its own grey, which measured 3.88:1
+   on white and is the one place its default palette showed through the system's.
+   Mapped onto the token ramp so it matches every other control. */
+.btn-outline-secondary{color:var(--color-text-secondary);border-color:var(--color-border-strong)}
+.btn-outline-secondary:hover{background:var(--color-overlay);color:var(--color-text-primary);border-color:var(--color-border-strong)}
+
+/* ===== ROW ACTIONS (shared) =====
+   One icon-action pattern for every table whose rows carry three or more actions.
+   It used to exist twice: inline in repository.html as .act, and again in
+   user_list.html as .action-btn with different sizes, colours and hover states -
+   two systems doing the same job on two pages.
+
+   Tables with one or two row actions keep the labelled .btn-outline-* button,
+   which is clearer and is already what thirteen other templates use. Icons are
+   for the crowded case: labelling the repository's five actions measured 410px
+   against 176px for the icon row, which would push that table 234px wider than
+   its panel and undo the overflow fix. */
+.action-group {
+    display: flex;
+    gap: 4px;
+}
+.act {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+/* Row actions carry a colour per action type, and each colour means something:
+   blue = read, slate = information, green = take a copy away, amber = modifies
+   stored data, red = destroys it. The glyph is coloured while the chip stays
+   transparent at rest, so 22 rows read as five legible icon columns rather than
+   110 filled pills; the matching tint appears only on hover and focus. */
+.act {
+    color: var(--color-text-secondary);
+    background: transparent;
+}
+.act.view      { color: var(--color-brand); }
+/* Deliberately the ink token, not --color-sidebar. This borrowed the sidebar
+   colour as a 'slate'; when the rail turned white in the design migration the
+   glyph turned white too and vanished on a white card. A text colour must come
+   from a text token. */
+.act.info      { color: var(--color-text-primary); }
+/* The success and warning tokens are tuned for fills and badges, where they sit on a
+   tinted ground. As a 14px glyph on white they measure 2.94:1 and 2.13:1, under the
+   3:1 WCAG minimum for non-text UI, so these two use darkened variants of the same
+   hues - 4.14:1 and 3.91:1. The tokens themselves are untouched. */
+.act.download  { color: hsl(142, 55%, 36%); }
+.act.edit      { color: hsl(38, 95%, 36%); }
+.act.delete    { color: var(--color-danger); }
+
+.act:hover,
+.act:focus-visible          { background: var(--color-overlay); }
+.act.view:hover,
+.act.view:focus-visible     { background: var(--color-brand-light); color: var(--color-brand-dark); }
+.act.info:hover,
+.act.info:focus-visible     { background: var(--color-overlay); color: var(--color-text-primary); }
+.act.download:hover,
+.act.download:focus-visible { background: var(--color-success-light); color: hsl(142, 60%, 28%); }
+.act.edit:hover,
+.act.edit:focus-visible     { background: var(--color-warning-light); color: hsl(38, 95%, 30%); }
+.act.delete:hover,
+.act.delete:focus-visible   { background: var(--color-danger-light); color: var(--color-danger); }
+
+.act:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 1px;
+}
+
+.act::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: hsl(220, 20%, 18%);
+    color: white;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s, transform 0.15s;
+}
+.act:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-4px);
+}
+
+/* ===== ROW ACTION MENU =====
+   The document tables used to end in five 32px chips: ~176px of every row spent
+   on controls, on tables already wide enough to scroll sideways, with each
+   action's meaning carried by a glyph and a hover tooltip. One kebab is 32px
+   and names every action in words when it is opened. The chips above are kept
+   for tables with one or two actions, where a menu would be a click for
+   nothing.
+
+   The toggle reuses .act for size, radius and hover tint -- but not for the
+   tooltip. `.act::after` draws its own pill from `content: attr(title)`, and
+   that pill carries a background, padding and a radius of its own, so with the
+   title removed it still painted an empty dark chip above the button on every
+   hover. The column header says "Actions" in the open now; the toggle draws
+   nothing. `.act` keeps the tooltip for User Management, which still uses the
+   labelled-by-hover chips. */
+.qa-row-menu-toggle::after { content: none; }
+.qa-row-menu { display: inline-block; }
+.qa-row-menu-toggle {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+}
+/* Bootstrap's caret would sit beside the kebab saying the same thing twice. */
+.qa-row-menu-toggle::before { display: none; }
+.dropdown-toggle.qa-row-menu-toggle::after { display: none; }
+.qa-row-menu-toggle.show {
+    background: var(--color-overlay);
+    color: var(--color-text-primary);
+}
+
+.qa-row-menu-list {
+    --bs-dropdown-min-width: 11.5rem;
+    --bs-dropdown-padding-y: 6px;
+    --bs-dropdown-padding-x: 6px;
+    --bs-dropdown-border-color: var(--color-border);
+    --bs-dropdown-border-radius: var(--radius-md);
+    --bs-dropdown-link-hover-bg: var(--color-overlay);
+    --bs-dropdown-link-active-bg: var(--color-overlay);
+    --bs-dropdown-link-active-color: var(--color-text-primary);
+    --bs-dropdown-font-size: var(--text-sm);
+    box-shadow: 0 10px 28px rgba(16, 42, 56, 0.14);
+}
+.qa-row-menu-list .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: var(--radius-xs);
+    font-weight: 500;
+}
+.qa-row-menu-list .dropdown-divider { margin: 5px 4px; border-top-color: var(--color-border); }
+
+/* The same five colours the icon row used, and for the same reason: blue =
+   read, slate = information, green = take a copy away, amber = modifies stored
+   data, red = destroys it. */
+.qa-mi { font-size: 14px; width: 16px; text-align: center; flex: none; }
+.qa-mi-view     { color: var(--color-brand); }
+.qa-mi-info     { color: var(--color-text-primary); }
+.qa-mi-download { color: hsl(142, 55%, 36%); }
+.qa-mi-edit     { color: hsl(38, 95%, 36%); }
+.qa-mi-delete   { color: var(--color-danger); }
+
+/* Destroying a file is the one item that should not look like the others. */
+.qa-row-menu-list .qa-mi-danger { color: var(--color-danger); }
+.qa-row-menu-list .qa-mi-danger:hover,
+.qa-row-menu-list .qa-mi-danger:focus {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+}
+
+/* The column is now one button wide, so it stops competing with the title. */
+.repo-col-actions { width: 1%; white-space: nowrap; }
+
+/* ===== HIDDEN SCROLLBARS =====
+   Every scrollable region still scrolls by wheel, trackpad, touch, keyboard
+   (arrows / PgUp / PgDn / Home / End) and programmatic scrollTo - only the bar
+   itself is not painted. Three declarations are needed because no single one is
+   supported everywhere: ::-webkit-scrollbar for Chrome / Edge / Safari,
+   scrollbar-width for Firefox, -ms-overflow-style for legacy Edge and IE.
+
+   Trade-off worth knowing: the scrollbar is also the cue that tells a user more
+   content exists below or to the right. Hiding it removes that affordance, so
+   long panels rely on the content itself to imply there is more. */
+*,
+*::before,
+*::after{scrollbar-width:none;-ms-overflow-style:none}
+*::-webkit-scrollbar{width:0;height:0;display:none}
+
+html,
+body{scrollbar-width:none;-ms-overflow-style:none}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar{width:0;height:0;display:none}
+
+/* RESPONSIVE */
+@media(max-width:991.98px){
+    .sidebar{transform:translateX(-100%);transition:transform var(--transition-slow)}
+    .sidebar.open{transform:translateX(0)}
+    .main-wrapper{margin-left:0}
+    .main-content{padding:16px}
+    .mapping-panel{grid-template-columns:1fr}
+}
+@media(max-width:575.98px){
+    .stat-card{padding:14px}
+    .stat-value{font-size:var(--text-xl)}
+    .page-header{flex-direction:column;align-items:flex-start}
+}
+
+/* PRINT */
+@media print{
+    .sidebar,.top-navbar,.sidebar-overlay,.btn,.filter-bar{display:none!important}
+    .main-wrapper{margin-left:0!important}
+    .main-content{padding:0!important}
+    .card{box-shadow:none!important;border:1px solid #ddd!important}
+}
+
+/* ============================================================
+   PROFILE PHOTOS
+   ------------------------------------------------------------
+   Every avatar in the system is a fixed-size, round element that
+   shows initials on a coloured ground. A photo is laid inside
+   that same element rather than replacing it, so a surface built
+   around initials keeps its exact size, shape and alignment once
+   a picture exists. `.has-photo` drops the coloured ground so it
+   cannot show through a transparent image.
+   ============================================================ */
+/* A compact avatar for list rows that previously showed a name alone --
+   same family as the Messages and dashboard avatars, one size down. */
+.qa-row-avatar {
+    width: 22px; height: 22px; border-radius: var(--radius-full); flex-shrink: 0;
+    display: grid; place-items: center;
+    font-size: 9.5px; font-weight: 700; color: #fff; line-height: 1;
+    background: var(--color-brand);
+}
+
+.has-photo { background: var(--color-overlay) !important; padding: 0 !important; overflow: hidden; }
+.has-photo > img {
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center;
+    border-radius: inherit; display: block;
+}

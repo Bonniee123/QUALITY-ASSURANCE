@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}{{ action }} QA Program{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>{{ action }} QA Program</h2>
+        <p class="text-muted mt-1">Define a top-level audit program (e.g. ISO Internal Quality Audit).</p>
+    </div>
+    <a href="{% url 'qa_mapping:program_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+
+<div class="card" style="border:none;border-radius:14px;box-shadow:0 4px 16px rgba(0,0,0,0.05);max-width:760px;">
+    <div class="card-body p-4">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Program name</label>
+                {{ form.name }}
+                {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">Code</label>
+                    {{ form.code }}
+                    <div class="form-text">Short identifier (e.g. ISO-IQA, ACCRED).</div>
+                    {% if form.code.errors %}<div class="text-danger small mt-1">{{ form.code.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">Color</label>
+                    {{ form.color }}
+                    <div class="form-text">CSS color used for badges &amp; progress bars.</div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Description</label>
+                {{ form.description }}
+            </div>
+            <div class="form-check mb-4">
+                {{ form.is_active }}
+                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Active</label>
+            </div>
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Save Program</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

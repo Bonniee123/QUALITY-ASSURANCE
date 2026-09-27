@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Delete Document{% endblock %}
+{% block content %}
+<div class="del-overlay">
+    <div class="del-modal">
+        <div class="del-icon"><i class="bi bi-exclamation-triangle"></i></div>
+        <h4>Delete Document</h4>
+        <p>Are you sure you want to delete <strong>{{ document.title }}</strong>?</p>
+        <div class="del-warning">
+            <i class="bi bi-info-circle me-1"></i>This will permanently remove the file from storage. This action cannot be undone.
+        </div>
+        <form method="post" class="del-actions">
+            {% csrf_token %}
+            <a href="{% url 'documents:repository' %}" class="del-btn cancel">Cancel</a>
+            <button type="submit" class="del-btn confirm"><i class="bi bi-trash me-1"></i>Delete</button>
+        </form>
+    </div>
+</div>
+{% include 'includes/delete_modal_css.html' %}
+{% endblock %}

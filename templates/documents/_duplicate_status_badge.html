@@ -1,0 +1,9 @@
+{% if status == 'possible' %}
+<span class="badge badge-review">Needs review</span>
+{% elif status == 'pending_check' %}
+<span class="badge bg-secondary">Checking…</span>
+{% elif status == 'confirmed_dup' %}
+<span class="badge bg-danger">Confirmed duplicate</span>
+{% else %}
+<span class="badge badge-complete">Clear</span>
+{% endif %}

@@ -1,0 +1,593 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}QA Assistant{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ---------------------------------------------------------------------------
+   QA Assistant workspace.
+
+   A two-pane messaging layout on the system's own tokens: white surfaces, the
+   shared border and shadow, the same radii. It reads as part of the archive
+   rather than as an embedded consumer chat widget, which is the distinction the
+   brief asked for.
+   --------------------------------------------------------------------------- */
+
+.qa-agent {
+    display: grid;
+    grid-template-columns: 288px 1fr;
+    gap: 16px;
+    /* Fill the viewport below the navbar so only the panes scroll, never the page. */
+    height: calc(100vh - var(--navbar-height) - 128px);
+    min-height: 460px;
+}
+
+/* ------------------------------------------------------------------ threads */
+
+.qa-threads {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+.qa-threads-head {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--color-border);
+}
+.qa-threads-title {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; font-weight: 700; color: var(--color-text-primary);
+    letter-spacing: .2px; margin-bottom: 10px;
+}
+.qa-new-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; font-size: 12px; font-weight: 600;
+    border-radius: var(--radius-sm); border: 1px solid var(--color-border-strong);
+    background: var(--color-surface); color: var(--color-brand); cursor: pointer;
+}
+.qa-new-btn:hover { background: var(--color-brand-light); }
+.qa-thread-search {
+    width: 100%; padding: 8px 11px; font-size: 13px;
+    border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm);
+    background: var(--color-surface); color: var(--color-text-primary);
+}
+.qa-thread-list { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; }
+
+.qa-thread {
+    position: relative;
+    display: block; width: 100%; text-align: left;
+    padding: 10px 34px 10px 12px; margin-bottom: 3px;
+    border: 0; border-radius: var(--radius-sm);
+    background: transparent; cursor: pointer;
+}
+.qa-thread:hover { background: var(--color-overlay); }
+.qa-thread.is-active { background: var(--color-brand-light); }
+.qa-thread.is-active::before {
+    content: ''; position: absolute; left: 0; top: 8px; bottom: 8px;
+    width: 3px; border-radius: 0 3px 3px 0; background: var(--color-brand);
+}
+.qa-thread-name {
+    display: block; font-size: 13px; font-weight: 600;
+    color: var(--color-text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.qa-thread-preview {
+    display: block; font-size: 12px; color: var(--color-text-secondary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;
+}
+.qa-thread-time { font-size: 11px; color: var(--color-text-muted); }
+.qa-thread-del {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    width: 24px; height: 24px; border: 0; border-radius: var(--radius-xs);
+    background: transparent; color: var(--color-text-muted); cursor: pointer;
+    opacity: 0; display: flex; align-items: center; justify-content: center;
+}
+.qa-thread:hover .qa-thread-del { opacity: 1; }
+.qa-thread-del:hover { background: var(--color-danger-light); color: var(--color-danger); }
+.qa-threads-empty { padding: 24px 16px; text-align: center; font-size: 12.5px;
+    color: var(--color-text-secondary); }
+
+/* --------------------------------------------------------------------- chat */
+
+.qa-chat {
+    display: flex; flex-direction: column; min-height: 0; min-width: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+.qa-chat-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px; border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+}
+.qa-avatar {
+    position: relative; width: 42px; height: 42px; border-radius: var(--radius-full);
+    display: grid; place-items: center; flex-shrink: 0; color: #fff; font-size: 19px;
+    background: var(--color-brand);
+}
+/* The dot sits on the avatar rather than beside the name: it is a property of
+   the assistant, and next to the name it competes with the role line. */
+.qa-avatar-dot {
+    position: absolute; right: -1px; bottom: -1px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--color-success); border: 2px solid var(--color-surface);
+}
+.qa-head-name { font-size: 14.5px; font-weight: 700; color: var(--color-text-primary); }
+.qa-head-role { font-size: 12px; color: var(--color-text-secondary); }
+.qa-head-status { display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; color: var(--color-success-text); font-weight: 600; }
+
+.qa-messages {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 20px 22px 26px; display: flex; flex-direction: column; gap: 14px;
+}
+
+.qa-row { display: flex; gap: 10px; max-width: 82%; }
+.qa-row.is-user { margin-left: auto; flex-direction: row-reverse; }
+.qa-bubble {
+    padding: 10px 14px; border-radius: 16px; font-size: 13.5px; line-height: 1.55;
+    white-space: pre-wrap; word-break: break-word;
+}
+.qa-row.is-agent .qa-bubble {
+    background: var(--color-overlay); color: var(--color-text-primary);
+    border-bottom-left-radius: 5px;
+}
+.qa-row.is-user .qa-bubble {
+    background: var(--color-brand); color: #fff; border-bottom-right-radius: 5px;
+}
+.qa-bubble strong { font-weight: 700; }
+.qa-msg-meta { font-size: 10.5px; color: var(--color-text-muted); margin-top: 4px; }
+.qa-row.is-user .qa-msg-meta { text-align: right; }
+.qa-mini-avatar {
+    width: 28px; height: 28px; border-radius: var(--radius-full); flex-shrink: 0;
+    display: grid; place-items: center; font-size: 13px; color: #fff;
+    background: var(--color-brand);
+}
+.qa-row.is-user .qa-mini-avatar {
+    background: var(--color-overlay); color: var(--color-text-secondary);
+}
+
+/* The provenance line. Every agent answer states where its facts came from. */
+.qa-note {
+    font-size: 11px; color: var(--color-text-muted); margin-top: 5px;
+    display: flex; align-items: center; gap: 5px;
+}
+
+/* ------------------------------------------------------------ result cards */
+
+.qa-cards { display: grid; gap: 8px; margin-top: 10px; }
+.qa-card {
+    border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+    padding: 11px 13px; background: var(--color-surface);
+}
+.qa-card-title {
+    font-size: 13px; font-weight: 650; color: var(--color-text-primary);
+    margin-bottom: 5px; line-height: 1.35;
+}
+.qa-card-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 9px; }
+.qa-chip {
+    font-size: 10.5px; font-weight: 600; padding: 2px 8px;
+    border-radius: var(--radius-full); background: var(--color-overlay);
+    color: var(--color-text-secondary);
+}
+.qa-chip.is-available { background: var(--color-success-light); color: var(--color-success-text); }
+.qa-chip.is-archived { background: var(--color-warning-light); color: var(--color-warning-text); }
+.qa-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.qa-card-btn {
+    font-size: 11.5px; font-weight: 600; padding: 4px 10px; text-decoration: none;
+    border-radius: var(--radius-xs); border: 1px solid var(--color-border-strong);
+    color: var(--color-brand); background: var(--color-surface);
+}
+.qa-card-btn:hover { background: var(--color-brand-light); color: var(--color-brand-dark); }
+
+.qa-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.qa-action {
+    font-size: 12px; font-weight: 600; padding: 6px 12px; text-decoration: none;
+    border-radius: var(--radius-sm); border: 1px solid var(--color-border-strong);
+    color: var(--color-text-secondary); background: var(--color-surface); cursor: pointer;
+}
+.qa-action:hover { background: var(--color-overlay); color: var(--color-text-primary); }
+
+/* ------------------------------------------------------------------- typing */
+
+.qa-typing { display: flex; gap: 4px; padding: 12px 15px; }
+.qa-typing span {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--color-text-muted);
+    animation: qaBounce 1.3s infinite;
+}
+.qa-typing span:nth-child(2) { animation-delay: .18s; }
+.qa-typing span:nth-child(3) { animation-delay: .36s; }
+@keyframes qaBounce { 0%,70%,100% { transform: translateY(0); opacity:.45 }
+                      35% { transform: translateY(-5px); opacity:1 } }
+@media (prefers-reduced-motion: reduce) { .qa-typing span { animation: none } }
+
+/* -------------------------------------------------------------------- input */
+
+.qa-composer {
+    display: flex; gap: 9px; padding: 12px 16px;
+    border-top: 1px solid var(--color-border); flex-shrink: 0;
+}
+.qa-input {
+    flex: 1; padding: 10px 14px; font-size: 13.5px;
+    border: 1px solid var(--color-border-strong); border-radius: var(--radius-full);
+    background: var(--color-surface); color: var(--color-text-primary);
+}
+.qa-input:focus { outline: 2px solid var(--color-brand); outline-offset: 1px; }
+.qa-send {
+    width: 40px; height: 40px; flex-shrink: 0; border: 0;
+    border-radius: var(--radius-full); background: var(--color-brand); color: #fff;
+    display: grid; place-items: center; cursor: pointer; font-size: 15px;
+}
+.qa-send:hover { background: var(--color-brand-hover); }
+.qa-send:disabled { opacity: .5; cursor: not-allowed; }
+
+.qa-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.qa-suggestion {
+    font-size: 12px; padding: 6px 12px; cursor: pointer;
+    border: 1px solid var(--color-border); border-radius: var(--radius-full);
+    background: var(--color-surface); color: var(--color-text-secondary);
+}
+.qa-suggestion:hover { border-color: var(--color-brand); color: var(--color-brand); }
+
+.qa-empty { margin: auto; text-align: center; max-width: 430px; padding: 20px; }
+.qa-empty-icon {
+    width: 54px; height: 54px; margin: 0 auto 14px; border-radius: var(--radius-full);
+    display: grid; place-items: center; font-size: 24px; color: #fff;
+    background: var(--color-brand);
+}
+
+/* --------------------------------------------------------------- responsive */
+
+@media (max-width: 991px) {
+    .qa-agent { grid-template-columns: 1fr; height: auto; }
+    /* On a phone the thread list becomes a short scroller above the chat rather
+       than a column that would squeeze the conversation to nothing. */
+    .qa-threads { max-height: 210px; }
+    .qa-chat { height: calc(100vh - 300px); min-height: 420px; }
+    .qa-row { max-width: 94%; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header mb-3">
+    <div>
+        <h2>QA Assistant</h2>
+        <p>Ask about archived documents, how they are filed, and what the system found in them.</p>
+    </div>
+</div>
+
+<div class="qa-agent" id="qaAgent">
+
+    <!-- ---------------------------------------------------------- threads -->
+    <aside class="qa-threads">
+        <div class="qa-threads-head">
+            <div class="qa-threads-title">
+                <span>Conversations</span>
+                <button type="button" class="qa-new-btn" id="qaNew">
+                    <i class="bi bi-plus-lg"></i> New
+                </button>
+            </div>
+            <label for="qaSearch" class="visually-hidden">Search conversations</label>
+            <input type="search" id="qaSearch" class="qa-thread-search"
+                   placeholder="Search conversations…" autocomplete="off">
+        </div>
+        <div class="qa-thread-list" id="qaThreadList" role="list"></div>
+    </aside>
+
+    <!-- ------------------------------------------------------------- chat -->
+    <section class="qa-chat">
+        <header class="qa-chat-head">
+            <div class="qa-avatar" aria-hidden="true">
+                <i class="bi bi-robot"></i>
+                <span class="qa-avatar-dot"></span>
+            </div>
+            <div class="flex-grow-1 min-w-0">
+                <div class="qa-head-name">QA Assistant</div>
+                <div class="qa-head-role">QA Archive Agent</div>
+            </div>
+            <span class="qa-head-status"><i class="bi bi-circle-fill" style="font-size:7px"></i> Active</span>
+        </header>
+
+        <div class="qa-messages" id="qaMessages" role="log" aria-live="polite"
+             aria-label="Conversation with the QA Assistant"></div>
+
+        <form class="qa-composer" id="qaComposer">
+            <label for="qaInput" class="visually-hidden">Message the QA Assistant</label>
+            <input type="text" class="qa-input" id="qaInput" autocomplete="off"
+                   placeholder="Ask about documents, areas, programs, or how to use a page…">
+            <button type="submit" class="qa-send" id="qaSend" aria-label="Send message">
+                <i class="bi bi-send"></i>
+            </button>
+        </form>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    'use strict';
+
+    var messagesEl = document.getElementById('qaMessages');
+    var threadListEl = document.getElementById('qaThreadList');
+    var inputEl = document.getElementById('qaInput');
+    var sendEl = document.getElementById('qaSend');
+    var formEl = document.getElementById('qaComposer');
+    var searchEl = document.getElementById('qaSearch');
+    var newEl = document.getElementById('qaNew');
+
+    var activeId = null;
+
+    // Two of these advertised things the system does not do.
+    //
+    // "What documents are missing for PQA?" reaches _handle_missing in
+    // chatbot/agent.py, which answers "I couldn't determine what evidence is
+    // outstanding" every time -- both sources that once backed it were removed
+    // as out of scope, so nothing in the archive records what ought to exist.
+    //
+    // "Show me faculty evaluation records" reached a clarification menu
+    // offering Faculty, Curriculum and Student Evaluation. None is a document
+    // type in this system and no title contains any of them, so all three led
+    // to an empty result. Every suggestion below maps to a handler that answers
+    // from stored data.
+    var SUGGESTIONS = [
+        'Find accreditation documents',
+        'How many documents have I uploaded?',
+        'Show me the most recent uploads',
+        'Where do I upload documents?'
+    ];
+
+    function csrf() {
+        var m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s == null ? '' : String(s);
+        return d.innerHTML;
+    }
+
+    // Only **bold** is honoured, and only after escaping, so agent text can
+    // emphasise a title without any markup reaching the DOM unescaped.
+    function format(text) {
+        return esc(text).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    }
+
+    function scrollDown() {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    /* ----------------------------------------------------------- rendering */
+
+    function cardHtml(card) {
+        var chips = '';
+        if (card.category) { chips += '<span class="qa-chip">' + esc(card.category) + '</span>'; }
+        if (card.year) { chips += '<span class="qa-chip">' + esc(card.year) + '</span>'; }
+        if (card.area) { chips += '<span class="qa-chip">' + esc(card.area) + '</span>'; }
+        if (card.file_type) { chips += '<span class="qa-chip">' + esc(card.file_type) + '</span>'; }
+        var cls = card.status === 'Archived' ? 'is-archived' : 'is-available';
+        chips += '<span class="qa-chip ' + cls + '">' + esc(card.status) + '</span>';
+        return '' +
+            '<div class="qa-card">' +
+              '<div class="qa-card-title">' + esc(card.title) + '</div>' +
+              '<div class="qa-card-meta">' + chips + '</div>' +
+              '<div class="qa-card-actions">' +
+                '<a class="qa-card-btn" href="' + esc(card.view_url) + '" target="_blank" rel="noopener">View Document</a>' +
+                '<a class="qa-card-btn" href="' + esc(card.detail_url) + '">Details</a>' +
+              '</div>' +
+            '</div>';
+    }
+
+    function addMessage(role, text, extras) {
+        extras = extras || {};
+        var row = document.createElement('div');
+        row.className = 'qa-row ' + (role === 'user' ? 'is-user' : 'is-agent');
+
+        var avatar = '<div class="qa-mini-avatar" aria-hidden="true"><i class="bi bi-' +
+            (role === 'user' ? 'person' : 'robot') + '"></i></div>';
+
+        var body = '<div class="min-w-0"><div class="qa-bubble">' + format(text) + '</div>';
+
+        if (extras.cards && extras.cards.length) {
+            body += '<div class="qa-cards">' + extras.cards.map(cardHtml).join('') + '</div>';
+        }
+        if (extras.actions && extras.actions.length) {
+            body += '<div class="qa-actions">' + extras.actions.map(function (a) {
+                if (a.kind === 'suggest') {
+                    return '<button type="button" class="qa-action js-suggest">' + esc(a.label) + '</button>';
+                }
+                return '<a class="qa-action" href="' + esc(a.url) + '">' + esc(a.label) + '</a>';
+            }).join('') + '</div>';
+        }
+        if (extras.note) {
+            body += '<div class="qa-note"><i class="bi bi-info-circle"></i>' + esc(extras.note) + '</div>';
+        }
+        body += '<div class="qa-msg-meta">' + esc(extras.time || nowTime()) + '</div></div>';
+
+        row.innerHTML = avatar + body;
+        messagesEl.appendChild(row);
+        scrollDown();
+    }
+
+    function nowTime() {
+        var d = new Date();
+        return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
+
+    function showTyping() {
+        var row = document.createElement('div');
+        row.className = 'qa-row is-agent';
+        row.id = 'qaTyping';
+        row.innerHTML = '<div class="qa-mini-avatar" aria-hidden="true"><i class="bi bi-robot"></i></div>' +
+            '<div class="qa-bubble qa-typing"><span></span><span></span><span></span></div>';
+        messagesEl.appendChild(row);
+        scrollDown();
+    }
+    function hideTyping() {
+        var t = document.getElementById('qaTyping');
+        if (t) { t.remove(); }
+    }
+
+    function showWelcome() {
+        messagesEl.innerHTML =
+            '<div class="qa-empty">' +
+              '<div class="qa-empty-icon"><i class="bi bi-robot"></i></div>' +
+              '<div style="font-size:15px;font-weight:700;margin-bottom:5px;">QA Archive Agent</div>' +
+              '<p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0;">' +
+              'I answer from the documents this system actually holds — searches, ' +
+              'summaries, and how a document was classified.</p>' +
+              '<div class="qa-suggestions">' +
+                SUGGESTIONS.map(function (s) {
+                    return '<button type="button" class="qa-suggestion js-suggest">' + esc(s) + '</button>';
+                }).join('') +
+              '</div>' +
+            '</div>';
+    }
+
+    /* ------------------------------------------------------------- threads */
+
+    function renderThreads(list) {
+        if (!list.length) {
+            threadListEl.innerHTML = '<div class="qa-threads-empty">No conversations yet.<br>Ask something to start one.</div>';
+            return;
+        }
+        threadListEl.innerHTML = list.map(function (c) {
+            return '' +
+              '<button type="button" role="listitem" class="qa-thread' +
+                    (c.id === activeId ? ' is-active' : '') + '" data-id="' + c.id + '">' +
+                '<span class="qa-thread-name">' + esc(c.title) + '</span>' +
+                '<span class="qa-thread-preview">' + esc(c.preview || 'No messages yet') + '</span>' +
+                '<span class="qa-thread-time">' + esc(c.updated) + '</span>' +
+                '<span class="qa-thread-del" role="button" tabindex="0" data-del="' + c.id +
+                      '" title="Delete conversation"><i class="bi bi-trash3"></i></span>' +
+              '</button>';
+        }).join('');
+    }
+
+    function loadThreads(query) {
+        var url = '{% url "chatbot:conversation_list" %}' + (query ? '?q=' + encodeURIComponent(query) : '');
+        return fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { renderThreads(d.conversations || []); })
+            .catch(function () { /* the chat still works without the list */ });
+    }
+
+    function openThread(id) {
+        activeId = id;
+        fetch('/chatbot/conversations/' + id + '/', { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                messagesEl.innerHTML = '';
+                (d.messages || []).forEach(function (m) {
+                    addMessage(m.role, m.text, { cards: m.cards, actions: m.actions, note: m.note, time: m.time });
+                });
+                if (!(d.messages || []).length) { showWelcome(); }
+                loadThreads(searchEl.value.trim());
+            });
+    }
+
+    /* -------------------------------------------------------------- sending */
+
+    function send(text) {
+        if (!text) { return; }
+        var welcome = messagesEl.querySelector('.qa-empty');
+        if (welcome) { messagesEl.innerHTML = ''; }
+
+        addMessage('user', text, {});
+        inputEl.value = '';
+        sendEl.disabled = true;
+        showTyping();
+
+        fetch('{% url "chatbot:api" %}', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+            body: JSON.stringify({
+                message: text,
+                conversation_id: activeId,
+                start_conversation: !activeId
+            })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            hideTyping();
+            addMessage('agent', d.answer || 'No answer was returned.', {
+                cards: d.cards, actions: d.actions, note: d.note
+            });
+            if (d.conversation) {
+                activeId = d.conversation.id;
+                loadThreads(searchEl.value.trim());
+            }
+        })
+        .catch(function () {
+            hideTyping();
+            addMessage('agent', 'Something went wrong reaching the assistant. Please try again.', {});
+        })
+        .finally(function () {
+            sendEl.disabled = false;
+            inputEl.focus();
+        });
+    }
+
+    /* --------------------------------------------------------------- events */
+
+    formEl.addEventListener('submit', function (e) {
+        e.preventDefault();
+        send(inputEl.value.trim());
+    });
+
+    // Suggestion chips and clarification options both send their own label.
+    document.addEventListener('click', function (e) {
+        var suggest = e.target.closest('.js-suggest');
+        if (suggest) { send(suggest.textContent.trim()); return; }
+
+        var del = e.target.closest('[data-del]');
+        if (del) {
+            e.stopPropagation();
+            var delId = del.getAttribute('data-del');
+            if (!window.confirm('Delete this conversation?')) { return; }
+            fetch('/chatbot/conversations/' + delId + '/delete/', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'X-CSRFToken': csrf() }
+            }).then(function () {
+                if (String(activeId) === String(delId)) {
+                    activeId = null;
+                    showWelcome();
+                }
+                loadThreads(searchEl.value.trim());
+            });
+            return;
+        }
+
+        var thread = e.target.closest('.qa-thread');
+        if (thread) { openThread(parseInt(thread.getAttribute('data-id'), 10)); }
+    });
+
+    newEl.addEventListener('click', function () {
+        activeId = null;
+        showWelcome();
+        inputEl.focus();
+        threadListEl.querySelectorAll('.qa-thread').forEach(function (t) {
+            t.classList.remove('is-active');
+        });
+    });
+
+    var searchTimer = null;
+    searchEl.addEventListener('input', function () {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () { loadThreads(searchEl.value.trim()); }, 220);
+    });
+
+    showWelcome();
+    loadThreads('');
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+<div class="table-responsive">
+<table class="table table-sm mb-0 align-middle">
+    <thead>
+        <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Year</th>
+            <th>Uploaded</th>
+            <th class="text-end">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for doc in documents %}
+        <tr>
+            <td style="font-weight:500">{{ doc.title|truncatechars:60 }}</td>
+            <td>{% include '_file_type.html' with ft=doc.file_type %}</td>
+            <td>{{ doc.year }}</td>
+            <td class="text-nowrap">{{ doc.uploaded_at|date:"M d, Y" }}</td>
+            <td class="text-end text-nowrap">
+                <a href="{% url 'documents:view' doc.pk %}" class="btn btn-sm btn-outline-success" title="View File" target="_blank" rel="noopener"><i class="bi bi-eye"></i></a>
+                <a href="{% url 'documents:download' doc.pk %}" class="btn btn-sm btn-outline-primary" title="Download"><i class="bi bi-download"></i></a>
+                {% if rbac_is_qa_staff_or_admin or rbac_is_faculty and doc.uploaded_by_id == user.id %}
+                <a href="#" class="btn btn-sm btn-outline-danger js-qa-delete-confirm" title="Delete file"
+                   data-qa-delete-url="{% url 'documents:delete' doc.pk %}"
+                   data-qa-delete-title="{{ doc.title|truncatechars:80 }}"><i class="bi bi-trash3"></i></a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>

@@ -1,0 +1,174 @@
+{% load static %}
+<!-- Sidebar Navigation -->
+<aside class="sidebar" id="sidebar">
+    <!-- Sidebar Header / Logo -->
+    <div class="sidebar-header">
+        <a href="{% url 'dashboard:home' %}" class="sidebar-logo" aria-label="QA Archive home">
+            <span class="sidebar-logo-icon sidebar-logo-icon-svg" aria-hidden="true">
+                <img src="{% static 'images/qa-logo-mark.png' %}"
+                     alt="" width="38" height="38" decoding="async">
+            </span>
+            <span class="sidebar-logo-text">
+                <span class="sidebar-logo-title">QA Archive</span>
+                <span class="sidebar-logo-sub">Quality Assurance Office</span>
+            </span>
+        </a>
+        <button class="sidebar-collapse-btn" id="sidebarCollapse" title="Collapse sidebar">
+            <i class="bi bi-layout-sidebar-inset"></i>
+        </button>
+        <button class="sidebar-close d-lg-none" id="sidebarClose" aria-label="Close sidebar">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    <!-- Navigation Menu -->
+    <nav class="sidebar-nav">
+        <ul class="sidebar-menu">
+            <!-- Section: Main -->
+            <li class="sidebar-menu-label">Main</li>
+
+            <li class="sidebar-menu-item {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}">
+                <a href="{% url 'dashboard:home' %}" class="sidebar-link" data-tooltip="Dashboard">
+                    <i class="bi bi-grid-1x2"></i>
+                    <span class="sidebar-link-text">Dashboard</span>
+                </a>
+            </li>
+
+            <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'upload' or request.resolver_match.url_name == 'bulk_upload' or request.resolver_match.url_name == 'faculty_upload' %}active{% endif %}">
+                <a href="{% url 'documents:bulk_upload' %}" class="sidebar-link" data-tooltip="Upload Document">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                    <span class="sidebar-link-text">Upload Document</span>
+                </a>
+            </li>
+
+            <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'repository' %}active{% endif %}">
+                <a href="{% url 'documents:repository' %}" class="sidebar-link" data-tooltip="Repository">
+                    <i class="bi bi-archive"></i>
+                    <span class="sidebar-link-text">Repository</span>
+                    {% if sidebar_doc_count %}<span class="sidebar-badge">{{ sidebar_doc_count }}</span>{% endif %}
+                </a>
+            </li>
+
+            {% comment %}
+            One page per QA programme. The Repository can filter to a programme,
+            but that is a search; this is a place to go.
+            {% endcomment %}
+            <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'groups' or request.resolver_match.url_name == 'group_detail' %}active{% endif %}">
+                <a href="{% url 'documents:groups' %}" class="sidebar-link" data-tooltip="Document Groups">
+                    <i class="bi bi-folder2-open"></i>
+                    <span class="sidebar-link-text">Document Groups</span>
+                </a>
+            </li>
+
+            {% comment %}
+            QA Assistant, for every role. The agent applies the same
+            faculty_area_scope the Repository does, so a Faculty member only ever
+            sees documents from their assigned areas in its answers.
+            {% endcomment %}
+            <li class="sidebar-menu-item {% if request.resolver_match.app_name == 'chatbot' %}active{% endif %}">
+                <a href="{% url 'chatbot:page' %}" class="sidebar-link" data-tooltip="QA Assistant">
+                    <i class="bi bi-robot"></i>
+                    <span class="sidebar-link-text">QA Assistant</span>
+                </a>
+            </li>
+
+            {% comment %}
+            Messages, for every role. Anyone may message anyone; the badge counts
+            unread messages across all of the user's conversations.
+            {% endcomment %}
+            <li class="sidebar-menu-item {% if request.resolver_match.app_name == 'messaging' %}active{% endif %}">
+                <a href="{% url 'messaging:inbox' %}" class="sidebar-link" data-tooltip="Messages"
+                   data-live-badge="messages">
+                    <i class="bi bi-chat-dots"></i>
+                    <span class="sidebar-link-text">Messages</span>
+                    {% if unread_messages %}<span class="sidebar-badge">{{ unread_messages }}</span>{% endif %}
+                </a>
+            </li>
+
+            {% if rbac_is_qa_staff_or_admin %}
+            <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'area_submissions' %}active{% endif %}">
+                <a href="{% url 'documents:area_submissions' %}" class="sidebar-link" data-tooltip="Area Submissions">
+                    <i class="bi bi-diagram-3"></i>
+                    <span class="sidebar-link-text">Area Submissions</span>
+                </a>
+            </li>
+
+            <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'clusters' %}active{% endif %}">
+                <a href="{% url 'documents:clusters' %}" class="sidebar-link" data-tooltip="Document Clusters">
+                    <i class="bi bi-diagram-2"></i>
+                    <span class="sidebar-link-text">Clusters</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% comment %}
+            Section: AI & Analysis. The divider and label are rendered only when at
+            least one item below them is visible. They used to render unconditionally,
+            so a QA Head - who cannot see AI Processing - got a heading with nothing
+            under it.
+            {% endcomment %}
+            {% if rbac_can_view_ai_processing or not hide_advanced_qa_tools or rbac_is_admin %}
+            <li class="sidebar-divider"></li>
+            <li class="sidebar-menu-label">{% if simple_ui_mode %}Tools{% else %}AI &amp; Analysis{% endif %}</li>
+            {% endif %}
+
+            {% if rbac_can_view_ai_processing %}
+            <li class="sidebar-menu-item {% if request.resolver_match.app_name == 'ai_processing' %}active{% endif %}">
+                <a href="{% url 'ai_processing:list' %}" class="sidebar-link" data-tooltip="AI Processing">
+                    <i class="bi bi-cpu"></i>
+                    <span class="sidebar-link-text">AI Processing</span>
+                </a>
+            </li>
+
+            {% endif %}
+
+            <!-- Section: Reporting -->
+            {% if rbac_can_view_reports %}
+            <li class="sidebar-divider"></li>
+            <li class="sidebar-menu-label">Reporting</li>
+
+            <li class="sidebar-menu-item {% if request.resolver_match.app_name == 'reports' %}active{% endif %}">
+                <a href="{% url 'reports:page' %}" class="sidebar-link" data-tooltip="Reports">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span class="sidebar-link-text">Reports</span>
+                </a>
+            </li>
+
+            {% endif %}
+
+            {% if rbac_is_admin or user.is_superuser %}
+            <li class="sidebar-divider"></li>
+            <li class="sidebar-menu-label">Administration</li>
+
+            <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'user_list' %}active{% endif %}">
+                <a href="{% url 'accounts:user_list' %}" class="sidebar-link" data-tooltip="User Management">
+                    <i class="bi bi-people"></i>
+                    <span class="sidebar-link-text">User Management</span>
+                </a>
+            </li>
+
+            <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+                <a href="{% url 'accounts:settings' %}" class="sidebar-link" data-tooltip="Settings">
+                    <i class="bi bi-gear"></i>
+                    <span class="sidebar-link-text">Settings</span>
+                </a>
+            </li>
+
+            <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'audit_log' %}active{% endif %}">
+                <a href="{% url 'accounts:audit_log' %}" class="sidebar-link" data-tooltip="Audit Log">
+                    <i class="bi bi-journal-text"></i>
+                    <span class="sidebar-link-text">Audit Log</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="sidebar-footer">
+        <a href="#" class="sidebar-link sidebar-logout" data-tooltip="Logout" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">
+            <i class="bi bi-box-arrow-right"></i>
+            <span class="sidebar-link-text">Logout</span>
+        </a>
+    </div>
+</aside>

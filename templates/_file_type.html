@@ -1,0 +1,3 @@
+{% comment %}Reusable colored file-type icon + label. Pass the lowercase file type as `ft`:
+    {% include '_file_type.html' with ft=doc.file_type %}
+{% endcomment %}<span class="ft-tag">{% if ft == 'pdf' %}<i class="bi bi-file-earmark-pdf ft-ico ft-ico--pdf"></i>{% elif ft == 'docx' or ft == 'doc' %}<i class="bi bi-file-earmark-word ft-ico ft-ico--doc"></i>{% elif ft == 'xlsx' or ft == 'xls' %}<i class="bi bi-file-earmark-excel ft-ico ft-ico--xls"></i>{% elif ft == 'jpg' or ft == 'jpeg' or ft == 'png' %}<i class="bi bi-file-earmark-image ft-ico ft-ico--img"></i>{% else %}<i class="bi bi-file-earmark-text ft-ico ft-ico--other"></i>{% endif %}<span class="ft-tag-label">{{ ft|upper }}</span></span>

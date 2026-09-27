@@ -1,0 +1,842 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ document.title }} — QA Archive Viewer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: hsl(220, 12%, 12%);
+            color: hsl(0, 0%, 88%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        body.embed-mode {
+            background: #eef2f5;
+            height: 100%;
+            min-height: 100%;
+        }
+        body.embed-mode .viewer-body {
+            min-height: 100%;
+            height: 100%;
+        }
+
+        /* ── Top Toolbar ── */
+        .viewer-toolbar {
+            height: 56px;
+            background: hsl(220, 14%, 16%);
+            border-bottom: 1px solid hsl(220, 10%, 22%);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 12px;
+            flex-shrink: 0;
+            z-index: 100;
+        }
+        .toolbar-back {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: hsl(0, 0%, 80%);
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+        .toolbar-back:hover { background: hsl(220, 10%, 24%); }
+        .toolbar-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .toolbar-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: hsl(0, 0%, 92%);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .toolbar-meta {
+            font-size: 11px;
+            color: hsl(0, 0%, 52%);
+            display: flex;
+            gap: 12px;
+        }
+        .toolbar-actions {
+            display: flex;
+            gap: 4px;
+        }
+        .toolbar-btn {
+            height: 36px;
+            padding: 0 14px;
+            border-radius: 8px;
+            border: 1px solid hsl(220, 10%, 28%);
+            background: transparent;
+            color: hsl(0, 0%, 80%);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.15s, border-color 0.15s;
+            text-decoration: none;
+        }
+        .toolbar-btn:hover {
+            background: hsl(220, 10%, 22%);
+            border-color: hsl(220, 10%, 36%);
+            color: white;
+        }
+        .toolbar-btn.primary {
+            background: hsl(215, 65%, 48%);
+            border-color: hsl(215, 65%, 48%);
+            color: white;
+        }
+        .toolbar-btn.primary:hover {
+            background: hsl(215, 65%, 55%);
+        }
+        .toolbar-divider {
+            width: 1px;
+            height: 24px;
+            background: hsl(220, 10%, 26%);
+            margin: 0 4px;
+        }
+
+        /* ── Viewer Area ── */
+        .viewer-body {
+            flex: 1;
+            overflow: auto;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 0;
+        }
+
+        /* PDF viewer (native embed after fetch — avoids iframe + X-Frame-Options issues) */
+        .pdf-viewer-host {
+            width: 100%;
+            height: 100%;
+            min-height: calc(100vh - 96px);
+            position: relative;
+            background: hsl(220, 12%, 18%);
+        }
+        .pdf-viewer-host embed {
+            width: 100%;
+            height: 100%;
+            min-height: calc(100vh - 96px);
+            border: none;
+            display: block;
+        }
+        .pdf-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: hsl(0, 0%, 72%);
+            font-size: 14px;
+        }
+        .pdf-loading.error { color: hsl(0, 65%, 72%); text-align: center; padding: 24px; max-width: 520px; margin: 0 auto; }
+
+        /* PDF iframe fallback (legacy) */
+        .viewer-body iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Image */
+        .image-container {
+            padding: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+        .image-container img {
+            max-width: 100%;
+            max-height: calc(100vh - 100px);
+            object-fit: contain;
+            border-radius: 4px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+            transition: transform 0.2s ease;
+        }
+
+        /* Document (DOCX / XLSX) rendered HTML */
+        .doc-container {
+            width: 100%;
+            max-width: 850px;
+            margin: 32px auto;
+            background: white;
+            color: hsl(220, 10%, 15%);
+            border-radius: 4px;
+            box-shadow: 0 2px 24px rgba(0,0,0,0.4);
+            padding: 64px 72px;
+            min-height: calc(100vh - 120px);
+            line-height: 1.7;
+        }
+
+        /* Document Styles — mimic real Word rendering */
+        .doc-container .doc-title {
+            font-size: 26px;
+            font-weight: 700;
+            color: hsl(220, 14%, 10%);
+            margin: 0 0 8px;
+            line-height: 1.3;
+        }
+        .doc-container .doc-subtitle {
+            font-size: 16px;
+            font-weight: 500;
+            color: hsl(220, 8%, 42%);
+            margin: 0 0 24px;
+        }
+        .doc-container .doc-h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: hsl(215, 50%, 30%);
+            margin: 28px 0 10px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid hsl(215, 50%, 85%);
+        }
+        .doc-container .doc-h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: hsl(215, 45%, 35%);
+            margin: 22px 0 8px;
+        }
+        .doc-container .doc-h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: hsl(220, 10%, 25%);
+            margin: 18px 0 6px;
+        }
+        .doc-container .doc-h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: hsl(220, 8%, 35%);
+            margin: 14px 0 4px;
+        }
+        .doc-container .doc-para {
+            font-size: 14px;
+            margin: 0 0 8px;
+            color: hsl(220, 10%, 20%);
+        }
+        .doc-container .doc-spacer {
+            height: 10px;
+        }
+        .doc-container .doc-list {
+            margin: 4px 0 12px 20px;
+            padding: 0;
+        }
+        .doc-container .doc-list li {
+            font-size: 14px;
+            margin: 4px 0;
+            color: hsl(220, 10%, 20%);
+        }
+        .doc-container .doc-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 13px;
+        }
+        .doc-container .doc-table th {
+            background: hsl(215, 30%, 94%);
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 12px;
+            border: 1px solid hsl(215, 15%, 82%);
+            color: hsl(215, 30%, 25%);
+        }
+        .doc-container .doc-table td {
+            padding: 8px 12px;
+            border: 1px solid hsl(215, 10%, 88%);
+            vertical-align: top;
+        }
+        .doc-container .doc-table tr:nth-child(even) td {
+            background: hsl(215, 15%, 97%);
+        }
+        .doc-container .doc-error {
+            color: hsl(0, 60%, 50%);
+            padding: 16px;
+            background: hsl(0, 50%, 96%);
+            border-radius: 6px;
+        }
+        .doc-container .sheet-name {
+            background: hsl(215, 25%, 96%);
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 15px;
+            margin-top: 32px;
+        }
+
+        /* Zoom controls bottom bar */
+        .viewer-zoom-bar {
+            height: 40px;
+            background: hsl(220, 14%, 14%);
+            border-top: 1px solid hsl(220, 10%, 22%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .zoom-btn {
+            width: 32px;
+            height: 28px;
+            border: 1px solid hsl(220, 10%, 28%);
+            border-radius: 4px;
+            background: transparent;
+            color: hsl(0, 0%, 72%);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        .zoom-btn:hover { background: hsl(220, 10%, 22%); color: white; }
+        .zoom-level {
+            font-size: 12px;
+            color: hsl(0, 0%, 60%);
+            min-width: 40px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .doc-container { padding: 24px 20px; margin: 16px; }
+            .toolbar-meta { display: none; }
+        }
+
+        /* ── Lens Panel (Text Scanner) ── */
+        .lens-panel {
+            position: fixed;
+            top: 56px; /* below toolbar */
+            right: -400px;
+            width: 400px;
+            height: calc(100vh - 56px);
+            background: hsl(220, 14%, 18%);
+            border-left: 1px solid hsl(220, 10%, 26%);
+            box-shadow: -8px 0 32px rgba(0,0,0,0.5);
+            transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 90;
+            display: flex;
+            flex-direction: column;
+        }
+        .lens-panel.open { right: 0; }
+        .lens-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid hsl(220, 10%, 26%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .lens-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .lens-content { flex: 1; padding: 20px; overflow-y: auto; }
+        .lens-text {
+            font-family: monospace;
+            font-size: 13px;
+            color: hsl(0, 0%, 90%);
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            user-select: text;
+        }
+        .lens-close {
+            background: transparent;
+            border: none;
+            color: hsl(0, 0%, 60%);
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .lens-close:hover { color: white; }
+
+        /* docx-preview: preserve Word headers/footers (logos) — body must not paint over header */
+        .docx-wrapper {
+            background: #eef2f5;
+            padding: 24px 16px 48px;
+        }
+        .docx-wrapper section.docx {
+            margin: 0 auto 24px;
+            isolation: isolate;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: visible !important;
+            background: white;
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+        }
+        .docx-wrapper section.docx > header {
+            position: relative !important;
+            z-index: 5 !important;
+            flex: 0 0 auto !important;
+            overflow: visible !important;
+            min-height: unset !important;
+            display: block !important;
+        }
+        .docx-wrapper section.docx > article {
+            position: relative !important;
+            z-index: 1 !important;
+            flex: 1 1 auto !important;
+            overflow: visible !important;
+        }
+        .docx-wrapper section.docx > footer {
+            position: relative !important;
+            z-index: 5 !important;
+            flex: 0 0 auto !important;
+            overflow: visible !important;
+            display: block !important;
+        }
+        .docx-wrapper section.docx > header img,
+        .docx-wrapper section.docx > footer img,
+        .docx-wrapper section.docx img {
+            visibility: visible !important;
+            opacity: 1 !important;
+            max-width: 100% !important;
+            height: auto !important;
+            display: inline-block !important;
+            vertical-align: middle;
+        }
+
+        /* ── Print Styles ── */
+        @media print {
+            .viewer-toolbar, .viewer-zoom-bar, .lens-panel { display: none !important; }
+            body { background: white !important; color: black !important; height: auto !important; overflow: visible !important; }
+            .viewer-body { display: block !important; overflow: visible !important; }
+            .doc-container { box-shadow: none !important; margin: 0 !important; padding: 0 !important; max-width: none !important; }
+            #docx-render-area, .docx-wrapper { padding: 0 !important; margin: 0 !important; background: transparent !important; }
+            .docx-wrapper > section { box-shadow: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 0 !important; }
+        }
+    </style>
+</head>
+<body{% if embed %} class="embed-mode"{% endif %} data-doc-serve-path="{% url 'documents:serve' document.pk %}">
+<!-- docx-preview injects global <style> nodes here (do not use document.head — renderAsync clears innerHTML) -->
+<div id="docx-style-root" style="position:absolute;width:0;height:0;overflow:hidden;clip:rect(0,0,0,0)" aria-hidden="true"></div>
+
+<!-- ── Toolbar ── -->
+{% if not embed %}
+<div class="viewer-toolbar">
+    <button class="toolbar-back" onclick="window.close(); if(!window.closed) history.back();" title="Close">
+        <i class="bi bi-arrow-left"></i>
+    </button>
+
+    <div class="toolbar-info">
+        <div class="toolbar-title">{{ document.title }}</div>
+        <div class="toolbar-meta">
+            <span><i class="bi bi-file-earmark me-1"></i>{{ document.file_type|upper }}</span>
+            <span><i class="bi bi-calendar me-1"></i>{{ document.uploaded_at|date:"M d, Y" }}</span>
+        </div>
+    </div>
+
+    <div class="toolbar-actions">
+        {% if document.extracted_text or document.ocr_text %}
+        <button class="toolbar-btn" onclick="toggleLensPanel()" title="Scan & Copy Text" style="color: hsl(215, 65%, 70%); border-color: hsl(215, 65%, 40%);">
+            <i class="bi bi-upc-scan"></i><span class="d-none d-md-inline">Text Scanner</span>
+        </button>
+        <div class="toolbar-divider"></div>
+        {% endif %}
+        {% if preview_mode != 'pdf' %}
+        <button class="toolbar-btn" onclick="printDocument()" title="Print this document">
+            <i class="bi bi-printer"></i><span class="d-none d-md-inline">Print</span>
+        </button>
+        <div class="toolbar-divider"></div>
+        {% endif %}
+        <a href="{% url 'documents:detail' document.pk %}" class="toolbar-btn" title="View metadata and QA details">
+            <i class="bi bi-info-circle"></i><span class="d-none d-md-inline">Details</span>
+        </a>
+        {% if preview_mode != 'pdf' or document.file_type != 'pdf' %}
+        <div class="toolbar-divider"></div>
+        <a href="{% url 'documents:download' document.pk %}" class="toolbar-btn{% if preview_mode != 'pdf' %} primary{% endif %}" title="{% if preview_mode == 'pdf' and document.file_type != 'pdf' %}Download original {{ document.file_type|upper }} file{% else %}Download file{% endif %}">
+            <i class="bi bi-download"></i><span class="d-none d-md-inline">{% if preview_mode == 'pdf' and document.file_type != 'pdf' %}Original file{% else %}Download{% endif %}</span>
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- ── Viewer Body ── -->
+<div class="viewer-body" id="viewerBody">
+    {% if preview_mode == 'pdf' %}
+        <div class="pdf-viewer-host" id="pdfViewerHost">
+            <div class="pdf-loading" id="pdfLoading">
+                <div class="spinner-border text-light" role="status" aria-hidden="true"></div>
+                <span>Loading document preview…</span>
+            </div>
+            <embed id="pdfEmbed" type="application/pdf" title="{{ document.title }}" style="display:none;">
+        </div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var pdfPath = '{{ preview_pdf_path|escapejs }}';
+            var loading = document.getElementById('pdfLoading');
+            var embed = document.getElementById('pdfEmbed');
+            if (!pdfPath || !embed) return;
+
+            fetch(pdfPath, { credentials: 'same-origin' })
+                .then(function (res) {
+                    if (res.status === 401 || res.status === 403) {
+                        throw new Error('Sign in required — refresh this page and try again.');
+                    }
+                    if (!res.ok) {
+                        throw new Error('Could not load preview (HTTP ' + res.status + ').');
+                    }
+                    return res.blob();
+                })
+                .then(function (blob) {
+                    if (!blob || !blob.size) {
+                        throw new Error('Preview file is empty.');
+                    }
+                    var blobUrl = URL.createObjectURL(blob);
+                    embed.src = blobUrl;
+                    embed.style.display = 'block';
+                    if (loading) loading.style.display = 'none';
+                    embed.dataset.blobUrl = blobUrl;
+                })
+                .catch(function (err) {
+                    if (!loading) return;
+                    loading.classList.add('error');
+                    loading.innerHTML =
+                        '<p style="font-weight:600;margin-bottom:8px;">Could not display this document</p>' +
+                        '<p style="font-size:13px;color:hsl(0,0%,55%);line-height:1.5;">' +
+                        (err && err.message ? err.message : 'Unknown error') +
+                        '</p><p style="font-size:13px;margin-top:12px;">Use <strong>Download</strong> to open the original file in Word.</p>';
+                });
+        });
+        </script>
+
+    {% elif preview_mode == 'image' %}
+        <div class="image-container">
+            <img src="{% url 'documents:serve' document.pk %}" alt="{{ document.title }}" id="viewerImage">
+        </div>
+
+    {% elif preview_mode == 'docx_js' %}
+        <!-- DOCX Client-Side Viewer -->
+        <div class="doc-container" id="docContainer" style="padding:0; background: #eef2f5;">
+            <div id="docx-render-area" style="width:100%; min-height:800px;">
+                <div style="text-align:center; padding: 100px; color: #666;">
+                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                    <p>Loading document rendering engine...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- JSZip + docx-preview served locally (CDN blocked in some networks breaks the viewer) -->
+        <script src="{% static 'vendor/jszip.min.js' %}"></script>
+        <script src="{% static 'vendor/docx-preview.min.js' %}"></script>
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                /* Path-only URL: always same scheme/host as this page (avoids http/https mismatch from build_absolute_uri behind proxies) */
+                var docxPath = document.body.getAttribute("data-doc-serve-path") || "";
+                var container = document.getElementById("docx-render-area");
+
+                function showFetchError(status, statusText) {
+                    var msg = status
+                        ? ("Could not load the file (HTTP " + status + "). It may be missing on the server, or your session expired — try refreshing or use Download.")
+                        : ("Could not load the file. Check your connection, refresh the page, or use Download.");
+                    container.innerHTML =
+                        '<div style="padding:48px 24px; color:#b71c1c; text-align:center; max-width:520px; margin:0 auto;">' +
+                        '<p style="font-weight:600; margin-bottom:12px;">Failed to load document file</p>' +
+                        '<p style="font-size:14px; color:#555; line-height:1.5;">' + msg + '</p>' +
+                        (statusText ? '<p style="font-size:12px; color:#888; margin-top:8px;">' + String(statusText) + '</p>' : '') +
+                        '</div>';
+                }
+
+                function showNetworkHint() {
+                    container.innerHTML =
+                        '<div style="padding:48px 24px; color:#b71c1c; text-align:center; max-width:560px; margin:0 auto;">' +
+                        '<p style="font-weight:600; margin-bottom:12px;">Could not reach the file from this page</p>' +
+                        '<p style="font-size:14px; color:#555; line-height:1.55;">The browser blocked the request (often a network, VPN, strict extension, or sign-in redirect to another domain). ' +
+                        'Try refreshing this tab, use the same address you used to open the app (including <code>https</code>), or use <strong>Download</strong> to open the file in Word.</p>' +
+                        '</div>';
+                }
+
+                function showLoginRedirectHint() {
+                    container.innerHTML =
+                        '<div style="padding:48px 24px; color:#b71c1c; text-align:center; max-width:560px; margin:0 auto;">' +
+                        '<p style="font-weight:600; margin-bottom:12px;">Sign-in required for the file</p>' +
+                        '<p style="font-size:14px; color:#555; line-height:1.55;">The file request was redirected (session may have expired). Refresh this page and sign in again, then reopen the document — or use <strong>Download</strong>.</p>' +
+                        '</div>';
+                }
+
+                function loadDocxBlob(pathOrUrl) {
+                    return fetch(pathOrUrl, {
+                        credentials: "same-origin",
+                        redirect: "manual"
+                    }).then(function (response) {
+                        if (response.type === "opaqueredirect") {
+                            throw new Error("LOGIN_REDIRECT");
+                        }
+                        if (response.status >= 300 && response.status < 400) {
+                            throw new Error("LOGIN_REDIRECT");
+                        }
+                        if (!response.ok) {
+                            showFetchError(response.status, response.statusText);
+                            throw new Error("serve_failed");
+                        }
+                        return response.blob();
+                    }).catch(function (fetchErr) {
+                        if (fetchErr && fetchErr.message === "LOGIN_REDIRECT") {
+                            throw fetchErr;
+                        }
+                        if (fetchErr && fetchErr.message === "serve_failed") {
+                            throw fetchErr;
+                        }
+                        return new Promise(function (resolve, reject) {
+                            var xhr = new XMLHttpRequest();
+                            xhr.open("GET", pathOrUrl, true);
+                            xhr.responseType = "blob";
+                            xhr.withCredentials = true;
+                            xhr.onload = function () {
+                                if (xhr.status >= 300 && xhr.status < 400) {
+                                    reject(new Error("LOGIN_REDIRECT"));
+                                    return;
+                                }
+                                if (xhr.status >= 200 && xhr.status < 300) {
+                                    resolve(xhr.response);
+                                    return;
+                                }
+                                if (xhr.status === 404) {
+                                    showFetchError(404, "Not Found");
+                                    reject(new Error("serve_failed"));
+                                    return;
+                                }
+                                showFetchError(xhr.status, "");
+                                reject(new Error("serve_failed"));
+                            };
+                            xhr.onerror = function () {
+                                reject(fetchErr || new Error("XHR_FAILED"));
+                            };
+                            xhr.send();
+                        });
+                    });
+                }
+
+                if (typeof JSZip === "undefined" || typeof docx === "undefined" || !docx.renderAsync) {
+                    container.innerHTML =
+                        '<div style="padding:48px; color:#b71c1c; text-align:center;">' +
+                        '<p style="font-weight:600;">Preview libraries did not load</p>' +
+                        '<p style="font-size:14px; color:#555; margin-top:8px;">Try a hard refresh. You can still open the file with <strong>Download</strong>.</p>' +
+                        '</div>';
+                    return;
+                }
+
+                if (!docxPath || docxPath.charAt(0) !== "/") {
+                    container.innerHTML =
+                        '<div style="padding:48px;color:#b71c1c;text-align:center;"><p>Could not resolve the file address. Refresh the page or use <strong>Download</strong>.</p></div>';
+                    return;
+                }
+
+                loadDocxBlob(docxPath)
+                    .then(function (blob) {
+                        if (!blob) return;
+                        container.innerHTML = "";
+                        var styleMount = document.getElementById("docx-style-root") || container;
+                        return docx.renderAsync(blob, container, styleMount, {
+                            className: "docx",
+                            inWrapper: true,
+                            ignoreWidth: false,
+                            ignoreHeight: false,
+                            ignoreFonts: false,
+                            breakPages: true,
+                            ignoreLastRenderedPageBreak: false,
+                            useBase64URL: true,
+                            renderHeaders: true,
+                            renderFooters: true,
+                            renderFootnotes: true,
+                            renderEndnotes: true,
+                            renderAltChunks: true,
+                            renderComments: false,
+                            experimental: true
+                        }).then(function () {
+                            var wrapper = container.querySelector(".docx-wrapper");
+                            if (wrapper) {
+                                wrapper.style.background = "transparent";
+                                wrapper.style.padding = "0";
+                            }
+                            container.querySelectorAll("section.docx > header img, section.docx img").forEach(function (img) {
+                                img.style.visibility = "visible";
+                                img.style.opacity = "1";
+                            });
+                        });
+                    })
+                    .catch(function (err) {
+                        if (err && err.message === "serve_failed") return;
+                        if (err && err.message === "LOGIN_REDIRECT") {
+                            showLoginRedirectHint();
+                            return;
+                        }
+                        console.error("DOCX load/render error:", err);
+                        if (container.querySelector(".docx-wrapper")) return;
+                        var wrap = document.createElement("div");
+                        wrap.style.cssText = "padding:48px;text-align:center;color:#d32f2f;";
+                        var t1 = document.createElement("p");
+                        t1.style.fontWeight = "600";
+                        t1.textContent = "Could not show this document in the browser";
+                        var t2 = document.createElement("p");
+                        t2.style.cssText = "font-size:14px;color:#555;margin-top:10px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.5;";
+                        var detail = (err && err.message) ? String(err.message) : "Unknown error";
+                        if (detail === "Failed to fetch" || detail === "XHR_FAILED" || detail === "NetworkError when attempting to fetch resource.") {
+                            detail = "The browser could not complete the request to the server. Check your connection, VPN, or try Download.";
+                            showNetworkHint();
+                            return;
+                        }
+                        t2.textContent = detail;
+                        var t3 = document.createElement("p");
+                        t3.style.cssText = "font-size:13px;color:#666;margin-top:12px;";
+                        t3.innerHTML = "Use <strong>Download</strong> to open it in Word.";
+                        wrap.appendChild(t1);
+                        wrap.appendChild(t2);
+                        wrap.appendChild(t3);
+                        container.innerHTML = "";
+                        container.appendChild(wrap);
+                    });
+            });
+        </script>
+
+    {% elif preview_mode == 'html' and rendered_html %}
+        <div class="doc-container" id="docContainer">
+            {{ rendered_html|safe }}
+        </div>
+
+    {% else %}
+        <div class="doc-container" style="display:flex;align-items:center;justify-content:center;flex-direction:column;min-height:400px">
+            <i class="bi bi-file-earmark-x" style="font-size:64px;color:hsl(0,0%,60%);opacity:0.4"></i>
+            <p style="margin:16px 0 4px;font-size:16px;color:hsl(0,0%,50%)">Cannot preview this file</p>
+            <p style="font-size:13px;color:hsl(0,0%,42%)">Download the file to view its full content</p>
+            <a href="{% url 'documents:download' document.pk %}" class="toolbar-btn primary" style="margin-top:16px">
+                <i class="bi bi-download"></i> Download File
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- ── Lens Panel (Google Lens style scanner) ── -->
+{% if not embed %}
+{% if document.extracted_text or document.ocr_text %}
+<div class="lens-panel" id="lensPanel">
+    <div class="lens-header">
+        <div class="lens-title"><i class="bi bi-upc-scan text-primary"></i> Extracted Text</div>
+        <div class="d-flex align-items-center gap-2">
+            <button class="toolbar-btn primary" id="lensCopyBtn" onclick="copyLensText()" style="height:28px;padding:0 10px;font-size:12px">
+                <i class="bi bi-clipboard"></i> Copy
+            </button>
+            <button class="lens-close" onclick="toggleLensPanel()"><i class="bi bi-x-lg"></i></button>
+        </div>
+    </div>
+    <div class="lens-content">
+        <div class="lens-text" id="lensTextContent">{{ document.extracted_text|default:document.ocr_text }}</div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- ── Zoom Bar (images / HTML spreadsheets only; PDF uses built-in viewer controls) ── -->
+{% if not embed and preview_mode != 'pdf' %}
+<div class="viewer-zoom-bar">
+    <button class="zoom-btn" id="zoomOut" title="Zoom Out"><i class="bi bi-dash"></i></button>
+    <span class="zoom-level" id="zoomLevel">100%</span>
+    <button class="zoom-btn" id="zoomIn" title="Zoom In"><i class="bi bi-plus"></i></button>
+    <button class="zoom-btn" id="zoomReset" title="Reset"><i class="bi bi-arrows-fullscreen"></i></button>
+</div>
+
+<script>
+let scale = 1;
+const target = document.getElementById('viewerImage') || document.getElementById('docContainer');
+const zoomLevel = document.getElementById('zoomLevel');
+
+if (target) {
+    document.getElementById('zoomIn').addEventListener('click', function() {
+        scale = Math.min(scale + 0.15, 3);
+        applyZoom();
+    });
+    document.getElementById('zoomOut').addEventListener('click', function() {
+        scale = Math.max(scale - 0.15, 0.3);
+        applyZoom();
+    });
+    document.getElementById('zoomReset').addEventListener('click', function() {
+        scale = 1;
+        applyZoom();
+    });
+
+    function applyZoom() {
+        target.style.transform = 'scale(' + scale + ')';
+        target.style.transformOrigin = 'top center';
+        zoomLevel.textContent = Math.round(scale * 100) + '%';
+    }
+}
+</script>
+{% endif %}
+
+<script>
+function toggleLensPanel() {
+    const panel = document.getElementById('lensPanel');
+    const body = document.getElementById('viewerBody');
+    if (panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        body.style.marginRight = '0';
+    } else {
+        panel.classList.add('open');
+        // Push the viewer body to the left when panel is open on desktop
+        if (window.innerWidth > 768) {
+            body.style.marginRight = '400px';
+        }
+    }
+}
+
+function copyLensText() {
+    const textToCopy = document.getElementById('lensTextContent').innerText;
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        const btn = document.getElementById('lensCopyBtn');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+        btn.classList.replace('primary', 'btn-success');
+        btn.style.background = 'hsl(142, 50%, 40%)';
+        btn.style.borderColor = 'hsl(142, 50%, 40%)';
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.classList.replace('btn-success', 'primary');
+            btn.style.background = '';
+            btn.style.borderColor = '';
+        }, 2000);
+    }).catch(err => {
+        console.error('Could not copy text: ', err);
+    });
+}
+
+function printDocument() {
+    {% if preview_mode == 'pdf' %}
+        var embed = document.getElementById('pdfEmbed');
+        if (embed && embed.src) {
+            try {
+                embed.focus();
+            } catch (e) {}
+            window.print();
+        } else {
+            window.print();
+        }
+    {% else %}
+        window.print();
+    {% endif %}
+}
+</script>
+
+</body>
+</html>

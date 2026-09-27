@@ -1,0 +1,91 @@
+{% if selected %}
+<div class="card qa-sel-detail-card" id="area-detail">
+    <div class="card-body">
+        <div class="qa-sel-detail-head">
+            <div>
+                <h5>{{ selected.obj.area_code }} — {{ selected.obj.area_name }}</h5>
+                <p>
+                    {{ selected.submitted_count }}/{{ selected.faculty_rows|length }} faculty submitted
+                    · {{ selected.file_count }} file{{ selected.file_count|pluralize }}
+                </p>
+            </div>
+            {% if selected.file_count %}
+            <a href="{% url 'documents:download_area_zip' %}?area={{ selected.obj.area_code|urlencode }}"
+               class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-file-earmark-zip"></i> Download ZIP
+            </a>
+            {% endif %}
+        </div>
+
+        {% if selected.faculty_rows %}
+        <div class="accordion accordion-flush" id="facultyAccordion">
+            {% for row in selected.faculty_rows %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="fh{{ forloop.counter }}">
+                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#fc{{ forloop.counter }}" aria-expanded="false"
+                            aria-controls="fc{{ forloop.counter }}" {% if not row.file_count %}disabled{% endif %}>
+                        <span class="flex-grow-1 small fw-semibold d-flex align-items-center gap-2">
+                            {% include 'includes/avatar.html' with avatar_user=row.user avatar_class='qa-row-avatar' %}
+                            {{ row.user.get_full_name|default:row.user.username }}
+                        </span>
+                        <span class="me-2 d-flex align-items-center gap-2">
+                            {% if row.file_count %}
+                            <span class="badge bg-light text-dark border" style="font-size:10px;">{{ row.file_count }} file{{ row.file_count|pluralize }}</span>
+                            <span class="text-muted" style="font-size:11px;">{{ row.last_upload|date:"M j" }}</span>
+                            {% else %}
+                            <span class="badge bg-light text-muted border" style="font-size:10px;">No submissions</span>
+                            {% endif %}
+                        </span>
+                    </button>
+                </h2>
+                {% if row.file_count %}
+                <div id="fc{{ forloop.counter }}" class="accordion-collapse collapse"
+                     aria-labelledby="fh{{ forloop.counter }}" data-bs-parent="#facultyAccordion">
+                    <div class="accordion-body p-0">
+                        {% include 'documents/_area_submission_files.html' with documents=row.documents %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted mb-0 small">No faculty are assigned to this area yet.</p>
+        {% endif %}
+
+        {% if selected.other_rows %}
+        <h6 class="mt-3 mb-2 text-muted" style="font-size:12px;font-weight:600;">Other contributors</h6>
+        <div class="accordion accordion-flush" id="otherAccordion">
+            {% for row in selected.other_rows %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="oh{{ forloop.counter }}">
+                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#oc{{ forloop.counter }}" aria-expanded="false"
+                            aria-controls="oc{{ forloop.counter }}">
+                        <span class="flex-grow-1 small fw-semibold">
+                            {% if row.user %}{{ row.user.get_full_name|default:row.user.username }}{% else %}Unknown uploader{% endif %}
+                        </span>
+                        <span class="me-2 d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark border" style="font-size:10px;">{{ row.file_count }} file{{ row.file_count|pluralize }}</span>
+                            <span class="text-muted" style="font-size:11px;">{{ row.last_upload|date:"M j" }}</span>
+                        </span>
+                    </button>
+                </h2>
+                <div id="oc{{ forloop.counter }}" class="accordion-collapse collapse"
+                     aria-labelledby="oh{{ forloop.counter }}" data-bs-parent="#otherAccordion">
+                    <div class="accordion-body p-0">
+                        {% include 'documents/_area_submission_files.html' with documents=row.documents %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="qa-sel-detail-empty">
+    <i class="bi bi-cursor me-1"></i>Select an area above to view faculty submissions.
+</div>
+{% endif %}

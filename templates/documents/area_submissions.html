@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% load asset_tags %}
+{% load static %}
+{% block title %}Area Submissions{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static_v 'css/selection-cards.css' %}">
+{% endblock %}
+{% block content %}
+<div class="page-header qa-sel-page">
+    <div>
+        <h2>Area Submissions</h2>
+        <p>Faculty submission status by accreditation area</p>
+    </div>
+</div>
+
+{% if areas %}
+<div class="qa-sel-stats qa-sel-page">
+    <div class="qa-sel-stat"><span class="qa-sel-stat-n">{{ summary.area_count }}</span><span class="qa-sel-stat-l">Areas</span></div>
+    <div class="qa-sel-stat"><span class="qa-sel-stat-n">{{ summary.faculty_total }}</span><span class="qa-sel-stat-l">Faculty</span></div>
+    <div class="qa-sel-stat"><span class="qa-sel-stat-n">{{ summary.file_total }}</span><span class="qa-sel-stat-l">Files</span></div>
+    <div class="qa-sel-stat"><span class="qa-sel-stat-n">{{ summary.areas_with_files }}/{{ summary.area_count }}</span><span class="qa-sel-stat-l">With files</span></div>
+</div>
+{% endif %}
+
+<div class="qa-sel-grid qa-sel-page">
+    {% for a in areas %}
+    <a href="{% url 'documents:area_submissions' %}?area={{ a.obj.area_code|urlencode }}"
+       class="qa-sel-card js-area-card{% if selected_code == a.obj.area_code %} qa-sel-card--active{% endif %}{% if not a.file_count %} qa-sel-card--empty{% endif %}"
+       data-area="{{ a.obj.area_code }}">
+        <div class="qa-sel-card-head">
+            <span class="qa-sel-card-code">{{ a.obj.area_code }}</span>
+            {% if a.file_count %}
+            <span class="qa-sel-card-dot qa-sel-card-dot--on" title="Has submissions"></span>
+            {% else %}
+            <span class="qa-sel-card-dot" title="No files yet"></span>
+            {% endif %}
+        </div>
+        <div class="qa-sel-card-title" title="{{ a.obj.area_name }}">{{ a.obj.area_name }}</div>
+        {% comment %}
+        Four of the ten areas have nobody assigned to them. They drew an empty
+        track labelled "0/0", which reads as "no progress" when it means "this
+        bar cannot describe anything yet" -- the two states looked identical.
+        The label also carried no noun, so Area V's "0/1" beside "6 files" read
+        as a contradiction rather than as "one assigned lecturer, who has not
+        uploaded; the six files came from someone else".
+        {% endcomment %}
+        {% if a.faculty_count %}
+        <div class="qa-sel-card-progress">
+            <div class="qa-sel-card-progress-bar" role="progressbar" aria-valuenow="{{ a.progress_pct }}" aria-valuemin="0" aria-valuemax="100"
+                 aria-label="{{ a.submitted_count }} of {{ a.faculty_count }} assigned faculty have submitted">
+                <span style="width: {{ a.progress_pct }}%;" class="{% if a.progress_pct == 100 %}is-complete{% endif %}"></span>
+            </div>
+            <span class="qa-sel-card-progress-label">{{ a.submitted_count }}/{{ a.faculty_count }} <small>faculty</small></span>
+        </div>
+        {% else %}
+        <div class="qa-sel-card-progress qa-sel-card-note">No faculty assigned</div>
+        {% endif %}
+        <div class="qa-sel-card-foot">
+            <span>{{ a.file_count }} file{{ a.file_count|pluralize }}</span>
+            <span class="qa-sel-card-foot-sep">·</span>
+            <span>{% if a.last_upload %}{{ a.last_upload|date:"M j" }}{% else %}No uploads{% endif %}</span>
+        </div>
+    </a>
+    {% empty %}
+    <div style="grid-column: 1 / -1;">
+        {% include 'includes/empty_state.html' with empty_icon='bi-diagram-3' empty_title='No accreditation areas' empty_text='Create accreditation areas and assign faculty to start tracking submissions.' %}
+    </div>
+    {% endfor %}
+</div>
+
+<div id="areaDetailWrap" class="position-relative qa-sel-page" data-base-url="{% url 'documents:area_submissions' %}">
+    <div class="qa-sel-detail-spinner">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading…</span></div>
+    </div>
+    <div id="areaDetailContent">
+        {% include 'documents/_area_submission_detail.html' %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const wrap = document.getElementById('areaDetailWrap');
+    const content = document.getElementById('areaDetailContent');
+    if (!wrap || !content) return;
+    const baseUrl = wrap.dataset.baseUrl;
+    let loadToken = 0;
+    let controller = null;
+
+    function setActiveCard(areaCode) {
+        document.querySelectorAll('.js-area-card').forEach(function (card) {
+            card.classList.toggle('qa-sel-card--active', card.dataset.area === areaCode);
+            card.classList.remove('is-pending');
+        });
+    }
+
+    function scrollToDetail() {
+        const target = content.querySelector('.qa-sel-detail-card');
+        if (!target) return;
+        const top = target.getBoundingClientRect().top + window.pageYOffset - 80;
+        window.scrollTo({ top: top, behavior: 'smooth' });
+    }
+
+    function loadArea(areaCode, opts) {
+        opts = opts || {};
+        const myToken = ++loadToken;
+        const url = areaCode ? (baseUrl + '?area=' + encodeURIComponent(areaCode)) : baseUrl;
+
+        if (controller) { try { controller.abort(); } catch (e) {} }
+        controller = new AbortController();
+        wrap.classList.add('is-loading');
+
+        return fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            signal: controller.signal,
+        })
+            .then(function (res) {
+                if (!res.ok) throw new Error('Request failed (' + res.status + ')');
+                return res.text();
+            })
+            .then(function (html) {
+                if (myToken !== loadToken) return;
+                content.innerHTML = html;
+                setActiveCard(areaCode);
+                if (!opts.skipPush) {
+                    window.history.pushState({ area: areaCode }, '', url);
+                }
+                if (opts.scroll !== false) scrollToDetail();
+            })
+            .catch(function (err) {
+                if (err && err.name === 'AbortError') return;
+                if (typeof window.qaToast === 'function') {
+                    window.qaToast(err.message || 'Could not load area.', 'error');
+                }
+            })
+            .finally(function () {
+                if (myToken === loadToken) {
+                    wrap.classList.remove('is-loading');
+                    document.querySelectorAll('.js-area-card').forEach(function (c) {
+                        c.classList.remove('is-pending');
+                    });
+                }
+                controller = null;
+            });
+    }
+
+    document.querySelectorAll('.js-area-card').forEach(function (card) {
+        card.addEventListener('click', function (e) {
+            e.preventDefault();
+            const areaCode = card.dataset.area;
+            if (card.classList.contains('qa-sel-card--active')) {
+                scrollToDetail();
+                return;
+            }
+            document.querySelectorAll('.js-area-card').forEach(function (c) { c.classList.remove('is-pending'); });
+            card.classList.add('is-pending');
+            loadArea(areaCode);
+        });
+    });
+
+    window.addEventListener('popstate', function () {
+        const params = new URLSearchParams(window.location.search);
+        loadArea(params.get('area') || '', { skipPush: true, scroll: false });
+    });
+});
+</script>
+{% endblock %}

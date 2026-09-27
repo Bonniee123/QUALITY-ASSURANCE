@@ -1,0 +1,1052 @@
+{% load static %}
+{% comment %}
+Floating Messages dock.
+
+This is the floating button in the bottom-right corner of every page. It used to
+be the QA Assistant widget and nothing else; it is now Messages, so that direct
+messaging -- the thing people actually need from any page -- is one click away
+instead of a trip to the Messages page. The assistant was not removed: it is the
+first conversation in the list, and opening it gives the same chat it always
+gave, against the same endpoint.
+
+Nothing here is a second implementation of messaging. The dock calls the same
+endpoints the Messages page calls (messaging:sync, messaging:thread_detail,
+messaging:message_send, messaging:thread_start, messaging:people), so the same
+server-side rule decides everything: you may read and write a thread only if you
+are one of its participants, and an attached document is checked against the
+account that is reading it. A compact panel cannot add access it does not have.
+
+The full Messages page keeps what needs room: attaching a document to a message,
+the "new messages" divider, and deleting your own message. The header carries a
+link to it.
+{% endcomment %}
+
+{% comment %}
+The button is fixed bottom-right and floats over whatever is under it, so every
+page reserves that much space at the bottom of its content. The rule lives with
+the button, which means a page that does not render the dock gets no dead gap.
+{% endcomment %}
+<style>
+.main-content { padding-bottom: 104px; }
+
+/* ===== Floating action button ===== */
+.qa-dock-fab {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-full);
+    background: var(--color-brand);
+    color: #fff;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    z-index: 9998;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        transform var(--transition-base),
+        box-shadow var(--transition-base),
+        background-color var(--transition-base);
+}
+
+.qa-dock-fab:hover {
+    transform: scale(1.08);
+    box-shadow: var(--shadow-lg);
+    background: var(--color-brand-hover);
+}
+
+.qa-dock-fab.active {
+    background: var(--color-brand-dark);
+}
+
+/* The unread badge is the same element the sidebar count uses, so the live
+   poller in realtime.js creates, updates and removes it here with no special
+   case. Only its position is different: on a round button it belongs on the
+   corner rather than at the end of a row. */
+.qa-dock-fab .sidebar-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    margin: 0;
+    background: var(--color-danger);
+    border: 2px solid var(--color-surface);
+    padding: 2px 6px;
+    font-size: 10px;
+}
+
+/* ===== Panel ===== */
+.qa-dock {
+    position: fixed;
+    bottom: 96px;
+    right: 28px;
+    width: 380px;
+    height: 520px;
+    max-height: calc(100vh - 140px);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    z-index: 9999;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    animation: qaDockSlideUp 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.qa-dock.is-open { display: flex; }
+
+@keyframes qaDockSlideUp {
+    from { opacity: 0; transform: translateY(12px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ===== Header =====
+   Brand teal, not var(--color-sidebar). The old floating widget set this header
+   to the sidebar colour with white text; the sidebar is #ffffff in this theme,
+   so its title was white on white and could not be read at all -- which is why
+   the widget appeared to have an empty header bar. */
+.qa-dock-head {
+    background: var(--color-brand);
+    color: #fff;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.qa-dock-back,
+.qa-dock-close,
+.qa-dock-expand {
+    background: hsla(0, 0%, 100%, 0.15);
+    border: none;
+    color: #fff;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: background var(--transition-base);
+}
+
+.qa-dock-back:hover,
+.qa-dock-close:hover,
+.qa-dock-expand:hover { background: hsla(0, 0%, 100%, 0.28); color: #fff; }
+
+.qa-dock-head-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.qa-dock-avatar {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: var(--radius-full);
+    background: hsla(0, 0%, 100%, 0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    overflow: hidden;
+}
+
+.qa-dock-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+
+.qa-dock-title {
+    font-weight: 600;
+    font-size: var(--text-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.qa-dock-sub {
+    font-size: var(--text-xs);
+    opacity: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ===== Views ===== */
+.qa-dock-view {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-canvas);
+}
+
+.qa-dock-view[hidden] { display: none; }
+
+/* ===== List: search, conversations, people ===== */
+.qa-dock-search-wrap {
+    padding: 10px 12px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+}
+
+.qa-dock-search {
+    width: 100%;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    padding: 7px 14px;
+    font-size: var(--text-sm);
+    outline: none;
+    background: var(--color-canvas);
+    color: var(--color-text-primary);
+}
+
+.qa-dock-search:focus { border-color: var(--color-brand); background: var(--color-surface); }
+
+.qa-dock-rows { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
+
+.qa-dock-label {
+    padding: 10px 10px 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.qa-dock-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    padding: 9px 10px;
+    margin-bottom: 2px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    cursor: pointer;
+}
+
+.qa-dock-row:hover { background: var(--color-overlay); }
+
+.qa-dock-row-avatar {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: var(--radius-full);
+    background: var(--color-brand);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    overflow: hidden;
+}
+
+.qa-dock-row-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.qa-dock-row-avatar.is-bot { background: var(--color-brand-dark); font-size: 15px; }
+
+.qa-dock-row-body { flex: 1; min-width: 0; }
+
+.qa-dock-row-name {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.qa-dock-row-preview {
+    display: block;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.qa-dock-row-time { font-size: 10.5px; color: var(--color-text-muted); flex-shrink: 0; }
+
+.qa-dock-unread {
+    min-width: 19px;
+    height: 19px;
+    padding: 0 6px;
+    border-radius: var(--radius-full);
+    background: var(--color-brand);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+}
+
+.qa-dock-empty {
+    padding: 22px 16px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--color-text-secondary);
+}
+
+/* ===== Conversation ===== */
+.qa-dock-msgs {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.qa-dock-msg { display: flex; gap: 8px; max-width: 88%; }
+.qa-dock-msg.is-mine { align-self: flex-end; flex-direction: row-reverse; }
+.qa-dock-msg.is-theirs { align-self: flex-start; }
+
+.qa-dock-msg-avatar {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    border-radius: var(--radius-full);
+    background: var(--color-brand);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    overflow: hidden;
+}
+
+.qa-dock-msg-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+/* Your own avatar is the quiet one and the other person's carries the brand
+   colour, exactly as on the Messages page. */
+.qa-dock-msg.is-mine .qa-dock-msg-avatar {
+    background: var(--color-overlay);
+    color: var(--color-text-secondary);
+}
+.qa-dock-msg-avatar.is-bot, .qa-dock-avatar.is-bot { background: var(--color-brand-dark); color: #fff; }
+
+/* Bubbles have to be allowed to shrink, or a long unbroken word pushes the
+   conversation wider than the panel. */
+.qa-dock-body, .qa-dock-head-text { min-width: 0; }
+
+.qa-dock-bubble {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: var(--color-text-primary);
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.qa-dock-msg.is-mine .qa-dock-bubble { background: var(--color-brand); color: #fff; border: none; }
+.qa-dock-msg.is-mine .qa-dock-bubble a { color: #fff; text-decoration: underline; }
+
+.qa-dock-meta { font-size: 10.5px; color: var(--color-text-muted); margin-top: 3px; }
+.qa-dock-msg.is-mine .qa-dock-meta { text-align: right; }
+
+/* An attached document, and the placeholder for one the reader may not open.
+   The server decides which of the two arrives; this only draws it. */
+.qa-dock-card {
+    margin-top: 6px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--color-text-primary);
+}
+
+.qa-dock-card-title { font-weight: 600; margin-bottom: 4px; word-break: break-word; }
+.qa-dock-chip {
+    display: inline-block;
+    padding: 1px 7px;
+    margin-right: 4px;
+    border-radius: var(--radius-full);
+    background: var(--color-overlay);
+    font-size: 10.5px;
+    color: var(--color-text-secondary);
+}
+.qa-dock-card-btn { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--color-brand); }
+.qa-dock-card.is-withheld { color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px; }
+
+/* ===== Typing indicator (assistant) ===== */
+.qa-dock-typing {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--color-overlay) !important;
+    border: none !important;
+}
+
+.qa-dock-typing span {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--color-text-muted);
+    animation: qaDockBounce 1.2s infinite;
+}
+
+.qa-dock-typing span:nth-child(2) { animation-delay: 0.15s; }
+.qa-dock-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes qaDockBounce {
+    0%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-5px); }
+}
+
+/* ===== Composer ===== */
+.qa-dock-composer {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
+    flex-shrink: 0;
+}
+
+.qa-dock-input {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    padding: 9px 14px;
+    font-size: var(--text-sm);
+    outline: none;
+    background: var(--color-canvas);
+    color: var(--color-text-primary);
+}
+
+.qa-dock-input:focus { border-color: var(--color-brand); background: var(--color-surface); }
+
+.qa-dock-send {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: var(--radius-full);
+    background: var(--color-brand);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    transition: background var(--transition-base);
+}
+
+.qa-dock-send:hover { background: var(--color-brand-hover); }
+.qa-dock-send:disabled { opacity: .6; cursor: default; }
+
+/* Scrollbars are hidden system-wide; these panes still scroll normally. This
+   partial's <style> sits in the body, so the rule has to be repeated here to
+   outrank the global one. */
+.qa-dock-rows, .qa-dock-msgs { scrollbar-width: none; -ms-overflow-style: none; }
+.qa-dock-rows::-webkit-scrollbar, .qa-dock-msgs::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+@media (max-width: 480px) {
+    .qa-dock {
+        width: calc(100vw - 24px);
+        right: 12px;
+        bottom: 90px;
+        height: 70vh;
+    }
+}
+
+@media print {
+    .qa-dock-fab, .qa-dock { display: none !important; }
+}
+</style>
+
+<button class="qa-dock-fab" id="qaDockFab" type="button" title="Messages"
+        aria-expanded="false" aria-controls="qaDockPanel" data-live-badge="messages">
+    <i class="bi bi-chat-dots" id="qaDockFabIcon" aria-hidden="true"></i>
+    <span class="visually-hidden">Messages</span>
+    {% if unread_messages %}<span class="sidebar-badge">{{ unread_messages }}</span>{% endif %}
+</button>
+
+<div class="qa-dock" id="qaDockPanel" role="dialog" aria-label="Messages">
+    <div class="qa-dock-head">
+        <button class="qa-dock-back" id="qaDockBack" type="button" title="Back to conversations" hidden>
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+            <span class="visually-hidden">Back to conversations</span>
+        </button>
+        <div class="qa-dock-head-main">
+            <span class="qa-dock-avatar" id="qaDockAvatar" aria-hidden="true"><i class="bi bi-chat-dots"></i></span>
+            <div class="qa-dock-head-text">
+                <div class="qa-dock-title" id="qaDockTitle">Messages</div>
+                <div class="qa-dock-sub" id="qaDockSub">Conversations and the QA Assistant</div>
+            </div>
+        </div>
+        <a class="qa-dock-expand" href="{% url 'messaging:inbox' %}" title="Open the Messages page">
+            <i class="bi bi-arrows-angle-expand" aria-hidden="true"></i>
+            <span class="visually-hidden">Open the Messages page</span>
+        </a>
+        <button class="qa-dock-close" id="qaDockClose" type="button" title="Minimize">
+            <i class="bi bi-dash-lg" aria-hidden="true"></i>
+            <span class="visually-hidden">Minimize</span>
+        </button>
+    </div>
+
+    <div class="qa-dock-view" id="qaDockList">
+        <div class="qa-dock-search-wrap">
+            <label for="qaDockSearch" class="visually-hidden">Search people or messages</label>
+            <input type="search" class="qa-dock-search" id="qaDockSearch"
+                   placeholder="Search people or messages…" autocomplete="off">
+        </div>
+        <div class="qa-dock-rows" id="qaDockRows">
+            {% comment %}
+            The assistant is rendered by the server rather than by the script, so
+            it is there the moment the panel opens and stays there if the thread
+            list cannot be fetched.
+            {% endcomment %}
+            <button class="qa-dock-row" type="button" data-assistant="1" id="qaDockAssistantRow">
+                <span class="qa-dock-row-avatar is-bot" aria-hidden="true"><i class="bi bi-robot"></i></span>
+                <span class="qa-dock-row-body">
+                    <span class="qa-dock-row-name">QA Assistant</span>
+                    <span class="qa-dock-row-preview">Ask about uploads, repository, search, document groups, and reports</span>
+                </span>
+            </button>
+            <div class="qa-dock-label">Conversations</div>
+            <div id="qaDockThreads">
+                <div class="qa-dock-empty">Loading conversations…</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="qa-dock-view" id="qaDockChat" hidden>
+        <div class="qa-dock-msgs" id="qaDockMsgs"></div>
+        <form class="qa-dock-composer" id="qaDockComposer" autocomplete="off">
+            <label for="qaDockInput" class="visually-hidden">Message</label>
+            <input type="text" class="qa-dock-input" id="qaDockInput" placeholder="Write a message…">
+            <button type="submit" class="qa-dock-send" id="qaDockSend" title="Send">
+                <i class="bi bi-send" aria-hidden="true"></i>
+                <span class="visually-hidden">Send</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    /* The signed-in account, rendered by the server for this request. Message
+       payloads carry their own sender_id, so "mine" is decided by comparing the
+       two ids rather than by trusting a boolean, exactly as the Messages page
+       does -- and a payload built for another account is ignored rather than
+       drawn as this user's own words. */
+    var VIEWER_ID = {{ request.user.pk|default:0 }};
+
+    var THREAD_URL = '{% url "messaging:thread_detail" 0 %}';
+    var SEND_URL = '{% url "messaging:message_send" 0 %}';
+    var SYNC_URL = '{% url "messaging:sync" %}';
+    var THREADS_URL = '{% url "messaging:thread_list" %}';
+    var PEOPLE_URL = '{% url "messaging:people" %}';
+    var START_URL = '{% url "messaging:thread_start" %}';
+    var ASSISTANT_URL = '{% url "chatbot:api" %}';
+
+    var ASSISTANT_GREETING = 'Hello! I am the QA Archive assistant. I only help with this ' +
+        'system — uploads, repository, search, document groups, and reports. ' +
+        'Ask "Where is upload?" or "Help me navigate".';
+
+    var fab = document.getElementById('qaDockFab');
+    var fabIcon = document.getElementById('qaDockFabIcon');
+    var panel = document.getElementById('qaDockPanel');
+    var backBtn = document.getElementById('qaDockBack');
+    var closeBtn = document.getElementById('qaDockClose');
+    var avatarEl = document.getElementById('qaDockAvatar');
+    var titleEl = document.getElementById('qaDockTitle');
+    var subEl = document.getElementById('qaDockSub');
+    var listView = document.getElementById('qaDockList');
+    var chatView = document.getElementById('qaDockChat');
+    var searchEl = document.getElementById('qaDockSearch');
+    var threadsEl = document.getElementById('qaDockThreads');
+    var rowsEl = document.getElementById('qaDockRows');
+    var msgsEl = document.getElementById('qaDockMsgs');
+    var composerEl = document.getElementById('qaDockComposer');
+    var inputEl = document.getElementById('qaDockInput');
+    var sendEl = document.getElementById('qaDockSend');
+
+    if (!fab || !panel) { return; }
+
+    var POLL_MS = 3000;
+    var pollTimer = null;
+    var syncInFlight = false;
+    var mode = 'list';          // 'list', 'thread' or 'assistant'
+    var activeId = null;        // the open thread, when mode is 'thread'
+    var lastMessageId = 0;
+    var lastThreadsSig = '';
+    var searchTimer = null;
+    var assistantLog = [];      // kept in memory so reopening the panel keeps the chat
+
+    /* ------------------------------------------------------------- helpers */
+
+    function csrf() {
+        var m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s == null ? '' : String(s);
+        return d.innerHTML;
+    }
+
+    /* One person's picture, or their initials when they have no photo. The
+       element keeps its class either way, so it keeps the size, shape and
+       fallback colour the design already has -- the photo is laid inside it
+       rather than replacing it. `who` is always the person the avatar is for,
+       never the signed-in reader. */
+    function avatarHTML(who, cls) {
+        var url = who && who.avatar;
+        if (url) {
+            return '<span class="' + cls + ' has-photo">' +
+                     '<img src="' + esc(url) + '" alt="" loading="lazy" decoding="async">' +
+                   '</span>';
+        }
+        return '<span class="' + cls + '" aria-hidden="true">' + esc((who && who.initials) || '') + '</span>';
+    }
+
+    function paintAvatar(who, isBot) {
+        avatarEl.classList.toggle('is-bot', !!isBot);
+        var url = who && who.avatar;
+        if (isBot) {
+            avatarEl.innerHTML = '<i class="bi bi-robot"></i>';
+        } else if (url) {
+            avatarEl.innerHTML = '<img src="' + esc(url) + '" alt="" decoding="async">';
+        } else {
+            avatarEl.textContent = (who && who.initials) || '';
+        }
+    }
+
+    function post(url, payload) {
+        return fetch(url, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+            body: JSON.stringify(payload || {})
+        }).then(function (r) { return r.json(); });
+    }
+
+    function getJSON(url) {
+        var qa = window.qaActivity;
+        return fetch(url, { credentials: 'same-origin', headers: qa ? qa.headers() : {} })
+            .then(function (r) {
+                if (qa && qa.expired(r)) { return null; }
+                return r.ok ? r.json() : null;
+            });
+    }
+
+    function withId(template, id) {
+        return template.replace(/\/0\//, '/' + id + '/');
+    }
+
+    function scrollDown() { msgsEl.scrollTop = msgsEl.scrollHeight; }
+
+    /* Sent by the account currently signed in? Decided by comparing the
+       message's stored sender against this page's viewer, and refusing to claim
+       a message whose payload was built for someone else. */
+    function isMine(m) {
+        if (m == null) { return false; }
+        if (m.viewer_id != null && VIEWER_ID && m.viewer_id !== VIEWER_ID) { return false; }
+        if (m.sender_id != null && VIEWER_ID) { return m.sender_id === VIEWER_ID; }
+        return !!m.mine;
+    }
+
+    /* ------------------------------------------------------ open and close */
+
+    function openPanel() {
+        panel.classList.add('is-open');
+        fab.classList.add('active');
+        fab.setAttribute('aria-expanded', 'true');
+        fabIcon.className = 'bi bi-x-lg';
+        /* The dock now owns the live counts while it is open, so the global
+           badge poller in realtime.js stands down rather than asking for the
+           same numbers a second time. */
+        window.qaLiveOwner = true;
+        if (mode === 'list') { searchEl.focus(); }
+        syncNow();
+        startPolling();
+    }
+
+    function closePanel() {
+        panel.classList.remove('is-open');
+        fab.classList.remove('active');
+        fab.setAttribute('aria-expanded', 'false');
+        fabIcon.className = 'bi bi-chat-dots';
+        window.qaLiveOwner = false;
+        clearInterval(pollTimer);
+        pollTimer = null;
+    }
+
+    function isOpen() { return panel.classList.contains('is-open'); }
+
+    fab.addEventListener('click', function () {
+        if (isOpen()) { closePanel(); } else { openPanel(); }
+    });
+
+    closeBtn.addEventListener('click', closePanel);
+
+    backBtn.addEventListener('click', showList);
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' || !isOpen()) { return; }
+        if (mode === 'list') { closePanel(); } else { showList(); }
+    });
+
+    /* --------------------------------------------------------- list view */
+
+    function showList() {
+        mode = 'list';
+        activeId = null;
+        lastMessageId = 0;
+        listView.hidden = false;
+        chatView.hidden = true;
+        backBtn.hidden = true;
+        titleEl.textContent = 'Messages';
+        subEl.textContent = 'Conversations and the QA Assistant';
+        avatarEl.classList.remove('is-bot');
+        avatarEl.innerHTML = '<i class="bi bi-chat-dots"></i>';
+        lastThreadsSig = '';
+        syncNow();
+    }
+
+    function threadRowHTML(t) {
+        return '<button class="qa-dock-row" type="button" data-thread="' + t.id + '">' +
+                 avatarHTML(t, 'qa-dock-row-avatar') +
+                 '<span class="qa-dock-row-body">' +
+                   '<span class="qa-dock-row-name">' + esc(t.name) + '</span>' +
+                   '<span class="qa-dock-row-preview">' + esc(t.preview || t.role || '') + '</span>' +
+                 '</span>' +
+                 (t.unread ? '<span class="qa-dock-unread">' + esc(t.unread) + '</span>'
+                           : '<span class="qa-dock-row-time">' + esc(t.updated || '') + '</span>') +
+               '</button>';
+    }
+
+    function personRowHTML(p) {
+        return '<button class="qa-dock-row" type="button" data-person="' + p.id + '">' +
+                 avatarHTML(p, 'qa-dock-row-avatar') +
+                 '<span class="qa-dock-row-body">' +
+                   '<span class="qa-dock-row-name">' + esc(p.name) + '</span>' +
+                   '<span class="qa-dock-row-preview">' + esc(p.area_label || p.role || '') + '</span>' +
+                 '</span>' +
+               '</button>';
+    }
+
+    function renderThreads(list, people, emptyText) {
+        var html = '';
+        if (list && list.length) {
+            html += list.map(threadRowHTML).join('');
+        } else if (!people || !people.length) {
+            html += '<div class="qa-dock-empty">' + esc(emptyText ||
+                    'No conversations yet. Search for a name above to start one.') + '</div>';
+        }
+        if (people && people.length) {
+            html += '<div class="qa-dock-label">People</div>' + people.map(personRowHTML).join('');
+        }
+        threadsEl.innerHTML = html;
+    }
+
+    /* A search asks for both: conversations that match, and people who match but
+       have no conversation yet. Someone you have never written to is the normal
+       case for a first message, so they cannot be missing from the result. */
+    function runSearch() {
+        var q = searchEl.value.trim();
+        if (!q) { lastThreadsSig = ''; syncNow(); return; }
+
+        Promise.all([
+            getJSON(THREADS_URL + '?q=' + encodeURIComponent(q)),
+            getJSON(PEOPLE_URL + '?q=' + encodeURIComponent(q))
+        ]).then(function (results) {
+            var threads = (results[0] && results[0].threads) || [];
+            var people = (results[1] && results[1].people) || [];
+            var known = {};
+            threads.forEach(function (t) { known[t.name] = true; });
+            renderThreads(threads, people.filter(function (p) { return !known[p.name]; }),
+                          'Nobody and no message matches “' + q + '”.');
+        }).catch(function () {});
+    }
+
+    searchEl.addEventListener('input', function () {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(runSearch, 220);
+    });
+
+    rowsEl.addEventListener('click', function (e) {
+        var row = e.target.closest('.qa-dock-row');
+        if (!row) { return; }
+        if (row.hasAttribute('data-assistant')) { openAssistant(); return; }
+        var threadId = row.getAttribute('data-thread');
+        if (threadId) { openThread(threadId); return; }
+        var personId = row.getAttribute('data-person');
+        if (personId) {
+            post(START_URL, { user_id: Number(personId) }).then(function (d) {
+                if (d && d.thread) {
+                    searchEl.value = '';
+                    openThread(d.thread.id);
+                }
+            }).catch(function () {});
+        }
+    });
+
+    /* ------------------------------------------------- conversation view */
+
+    function messageHTML(m) {
+        var mine = isMine(m);
+        var body = '<div class="qa-dock-body">';
+        if (m.body) { body += '<div class="qa-dock-bubble">' + esc(m.body) + '</div>'; }
+        if (m.document) {
+            body += '<div class="qa-dock-card">' +
+                      '<div class="qa-dock-card-title">' + esc(m.document.title) + '</div>' +
+                      (m.document.area ? '<span class="qa-dock-chip">' + esc(m.document.area) + '</span>' : '') +
+                      (m.document.year ? '<span class="qa-dock-chip">' + esc(m.document.year) + '</span>' : '') +
+                      '<a class="qa-dock-card-btn" href="' + esc(m.document.view_url) +
+                        '" target="_blank" rel="noopener">View Document</a>' +
+                    '</div>';
+        } else if (m.document_withheld) {
+            body += '<div class="qa-dock-card is-withheld"><i class="bi bi-lock"></i>' +
+                    '<span>A document you don\'t have access to</span></div>';
+        }
+        body += '<div class="qa-dock-meta" title="' + esc(m.stamp || '') + '">' + esc(m.time || '') +
+                (m.edited ? ' · edited' : '') + '</div></div>';
+        return '<div class="qa-dock-msg ' + (mine ? 'is-mine' : 'is-theirs') + '" data-mid="' + m.id + '">' +
+                 avatarHTML(m, 'qa-dock-msg-avatar') + body +
+               '</div>';
+    }
+
+    function renderMessages(list) {
+        msgsEl.innerHTML = (list || []).map(messageHTML).join('') ||
+            '<div class="qa-dock-empty">No messages yet. Say hello.</div>';
+        var last = (list || [])[list.length - 1];
+        lastMessageId = last ? last.id : 0;
+        scrollDown();
+    }
+
+    function appendMessages(list) {
+        if (!list || !list.length) { return 0; }
+        var added = 0;
+        var placeholder = msgsEl.querySelector('.qa-dock-empty');
+        if (placeholder) { placeholder.remove(); }
+        list.forEach(function (m) {
+            if (msgsEl.querySelector('[data-mid="' + m.id + '"]')) { return; }
+            msgsEl.insertAdjacentHTML('beforeend', messageHTML(m));
+            if (m.id > lastMessageId) { lastMessageId = m.id; }
+            added += 1;
+        });
+        if (added) { scrollDown(); }
+        return added;
+    }
+
+    function openThread(id) {
+        mode = 'thread';
+        activeId = id;
+        lastMessageId = 0;
+        listView.hidden = true;
+        chatView.hidden = false;
+        backBtn.hidden = false;
+        msgsEl.innerHTML = '<div class="qa-dock-empty">Loading…</div>';
+        inputEl.placeholder = 'Write a message…';
+        getJSON(withId(THREAD_URL, id)).then(function (d) {
+            if (!d) { return; }
+            titleEl.textContent = d.thread.name;
+            subEl.textContent = d.thread.role || '';
+            paintAvatar(d.thread, false);
+            renderMessages(d.messages);
+            inputEl.focus();
+        }).catch(function () {
+            msgsEl.innerHTML = '<div class="qa-dock-empty">That conversation could not be opened.</div>';
+        });
+    }
+
+    /* ---------------------------------------------------------- assistant */
+
+    function assistantBubbleHTML(entry) {
+        var mine = entry.role === 'user';
+        var text = entry.text;
+        var bubble;
+        if (mine) {
+            bubble = '<div class="qa-dock-bubble">' + esc(text) + '</div>';
+        } else {
+            /* The assistant's replies name pages and sometimes carry a link, so
+               a URL is made clickable. Everything is escaped first, so the link
+               is built from text the browser can no longer read as markup. */
+            var safe = esc(text).replace(/(https?:\/\/[^\s<]+[^)\s.,;])/g, function (m) {
+                return '<a href="' + m + '" target="_blank" rel="noopener noreferrer">' + m + '</a>';
+            });
+            bubble = '<div class="qa-dock-bubble">' + safe + '</div>';
+        }
+        var avatar = mine
+            ? '<span class="qa-dock-msg-avatar"><i class="bi bi-person"></i></span>'
+            : '<span class="qa-dock-msg-avatar is-bot"><i class="bi bi-robot"></i></span>';
+        return '<div class="qa-dock-msg ' + (mine ? 'is-mine' : 'is-theirs') + '">' +
+                 avatar + '<div class="qa-dock-body">' + bubble + '</div></div>';
+    }
+
+    function renderAssistant() {
+        msgsEl.innerHTML = assistantLog.map(assistantBubbleHTML).join('');
+        scrollDown();
+    }
+
+    function openAssistant() {
+        mode = 'assistant';
+        activeId = null;
+        lastMessageId = 0;
+        listView.hidden = true;
+        chatView.hidden = false;
+        backBtn.hidden = false;
+        titleEl.textContent = 'QA Assistant';
+        subEl.textContent = 'Answers about this system';
+        paintAvatar(null, true);
+        if (!assistantLog.length) {
+            assistantLog.push({ role: 'bot', text: ASSISTANT_GREETING });
+        }
+        renderAssistant();
+        inputEl.placeholder = 'Ask about this QA system…';
+        inputEl.focus();
+    }
+
+    function showTyping() {
+        msgsEl.insertAdjacentHTML('beforeend',
+            '<div class="qa-dock-msg is-theirs" id="qaDockTyping">' +
+              '<span class="qa-dock-msg-avatar is-bot"><i class="bi bi-robot"></i></span>' +
+              '<div class="qa-dock-bubble qa-dock-typing"><span></span><span></span><span></span></div>' +
+            '</div>');
+        scrollDown();
+    }
+
+    function removeTyping() {
+        var el = document.getElementById('qaDockTyping');
+        if (el) { el.remove(); }
+    }
+
+    function askAssistant(text) {
+        assistantLog.push({ role: 'user', text: text });
+        renderAssistant();
+        showTyping();
+        sendEl.disabled = true;
+
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function () { controller.abort(); }, 30000);
+
+        fetch(ASSISTANT_URL, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+            body: JSON.stringify({ message: text }),
+            signal: controller.signal
+        }).then(function (r) {
+            clearTimeout(timeoutId);
+            return r.ok ? r.json() : null;
+        }).then(function (d) {
+            removeTyping();
+            var answer = (d && d.answer)
+                ? d.answer
+                : 'Sorry, the assistant could not respond. Please try again.';
+            assistantLog.push({ role: 'bot', text: answer });
+            renderAssistant();
+        }).catch(function (e) {
+            removeTyping();
+            assistantLog.push({
+                role: 'bot',
+                text: e && e.name === 'AbortError'
+                    ? 'That took too long. Please ask a shorter question about this QA system.'
+                    : 'Sorry, something went wrong. Please try again.'
+            });
+            renderAssistant();
+        }).finally(function () {
+            sendEl.disabled = false;
+            inputEl.focus();
+        });
+    }
+
+    /* ----------------------------------------------------------- sending */
+
+    composerEl.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var text = inputEl.value.trim();
+        if (!text) { return; }
+        inputEl.value = '';
+
+        if (mode === 'assistant') { askAssistant(text); return; }
+        if (!activeId) { return; }
+
+        sendEl.disabled = true;
+        post(withId(SEND_URL, activeId), { body: text })
+            .then(function (d) {
+                if (d && d.message) { appendMessages([d.message]); }
+            })
+            .catch(function () {})
+            .finally(function () { sendEl.disabled = false; inputEl.focus(); });
+    });
+
+    /* -------------------------------------------------------------- sync */
+
+    /* One request per tick: the badge counts, the conversation list, and any new
+       messages in the conversation that is open. The assistant is not part of
+       it -- that chat has no server-side state to poll for. */
+    function syncNow() {
+        if (syncInFlight || document.hidden || !isOpen()) { return; }
+        syncInFlight = true;
+
+        var params = new URLSearchParams();
+        if (mode === 'thread' && activeId) {
+            params.set('thread', activeId);
+            params.set('after', lastMessageId || 0);
+        }
+
+        getJSON(SYNC_URL + '?' + params.toString())
+            .then(function (d) {
+                if (!d) { return; }
+                if (window.qaSetBadge) {
+                    window.qaSetBadge('messages', d.unread_messages);
+                    window.qaSetBadge('bell', d.unread_notifications);
+                }
+                if (mode === 'thread') { appendMessages(d.messages); }
+
+                /* The list is repainted only when something actually changed, so
+                   a hover or a click is not interrupted every three seconds, and
+                   never while a search owns the list. */
+                if (mode === 'list' && d.threads && !searchEl.value.trim()) {
+                    var sig = d.threads.map(function (t) {
+                        return t.id + ':' + t.unread + ':' + t.preview + ':' + t.updated;
+                    }).join('|');
+                    if (sig !== lastThreadsSig) {
+                        lastThreadsSig = sig;
+                        renderThreads(d.threads, null);
+                    }
+                }
+            })
+            .catch(function () {})
+            .finally(function () { syncInFlight = false; });
+    }
+
+    function startPolling() {
+        clearInterval(pollTimer);
+        pollTimer = setInterval(syncNow, POLL_MS);
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && isOpen()) { syncNow(); }
+    });
+})();
+</script>

@@ -1,0 +1,655 @@
+{% extends 'base.html' %}
+{% block title %}{{ action }} User{% endblock %}
+
+{% block extra_css %}
+<style>
+.uf-shell { max-width: 880px; }
+.uf-card {
+    background: #fff;
+    border: 1px solid hsl(220, 13%, 91%);
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+    overflow: hidden;
+}
+.uf-section { padding: 26px 30px; border-bottom: 1px solid hsl(220, 13%, 94%); }
+.uf-section:last-of-type { border-bottom: none; }
+.uf-section-title {
+    font-size: 13px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .6px; color: hsl(220, 10%, 45%);
+    margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
+}
+.uf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.uf-grid .uf-col-2 { grid-column: 1 / -1; }
+@media (max-width: 620px){ .uf-grid { grid-template-columns: 1fr; } }
+.uf-field label { font-size: 13px; font-weight: 600; color: hsl(220, 20%, 28%); margin-bottom: 6px; display:block; }
+.uf-field .req { color: #ef4444; }
+.uf-help { font-size: 12px; color: var(--color-text-secondary); margin-top: 5px; }
+.uf-err { font-size: 12px; color: #dc2626; margin-top: 5px; }
+.uf-field input.is-invalid, .uf-field select.is-invalid { border-color:#ef4444 !important; }
+
+/* Avatar uploader */
+.uf-avatar-row { display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
+.uf-avatar-preview {
+    width: 92px; height: 92px; border-radius: 50%;
+    object-fit: cover; background: hsl(220, 20%, 95%);
+    border: 3px solid #fff; box-shadow: 0 4px 14px rgba(0,0,0,.12);
+    display:flex; align-items:center; justify-content:center;
+    color: hsl(220, 12%, 55%); font-size: 30px; flex-shrink:0;
+}
+.uf-avatar-meta { flex:1; min-width: 220px; }
+
+/* Password */
+.uf-pass-wrap { position: relative; }
+.uf-pass-wrap input { padding-right: 44px; }
+.uf-show-pw {
+    display:inline-flex; align-items:center; gap:8px; margin-top:14px;
+    font-size:13px; color: var(--color-text-secondary); cursor:pointer;
+    user-select:none;
+}
+.uf-show-pw input {
+    width:15px; height:15px; margin:0; accent-color: var(--color-brand); cursor:pointer;
+}
+.uf-show-pw:hover { color: var(--color-text-primary); }
+.uf-pass-note {
+    background: hsl(45, 100%, 96%); border: 1px solid hsl(45, 90%, 85%);
+    color: hsl(35, 60%, 32%); border-radius: 10px; padding: 10px 14px;
+    font-size: 12.5px; margin-bottom: 16px; display:flex; gap:8px;
+}
+.uf-actions { padding: 20px 30px; background: hsl(220, 20%, 98%); display:flex; gap:12px; justify-content:flex-end; }
+
+/* Faculty area checkbox grid */
+.qa-area-checks ul { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:8px; }
+.qa-area-checks li { margin:0; }
+.qa-area-checks li label { display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:500; color:hsl(220,20%,28%); background:#fff; border:1px solid hsl(220,13%,88%); border-radius:10px; padding:9px 12px; cursor:pointer; transition:border-color .12s, background .12s, box-shadow .12s; margin:0; }
+.qa-area-checks li label:hover { border-color:hsl(215,70%,60%); background:hsl(215,100%,98%); }
+.qa-area-checks li input[type="checkbox"] { width:16px; height:16px; flex-shrink:0; cursor:pointer; }
+.qa-area-checks li:has(input:checked) label { border-color:hsl(215,75%,55%); background:hsl(215,100%,97%); box-shadow:0 0 0 1px hsl(215,75%,55%) inset; }
+
+/* Department row: the select keeps its full width, the add button sits beside it. */
+.dept-row { display:flex; gap:8px; align-items:stretch; }
+.dept-row select { flex:1 1 auto; min-width:0; }
+.dept-add-btn { flex:0 0 auto; width:42px; border:1px solid hsl(220,13%,88%); background:#fff; border-radius:10px; color:hsl(215,70%,45%); font-size:15px; cursor:pointer; transition:border-color .12s, background .12s; }
+.dept-add-btn:hover { border-color:hsl(215,70%,60%); background:hsl(215,100%,98%); }
+.dept-inline { display:flex; gap:8px; align-items:center; margin-top:8px; }
+.dept-inline input { flex:1 1 auto; min-width:0; }
+/* The manage panel floats over the page like a dropdown. Laid out in flow it
+   pushed Account status and the area checkboxes down every time it opened,
+   which moved the controls under the pointer. */
+.dept-anchor { position:relative; }
+.dept-manage { position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:1040; max-height:260px; overflow-y:auto; border:1px solid hsl(220,13%,85%); border-radius:10px; background:#fff; box-shadow:0 12px 32px rgba(0,0,0,.14); padding:10px 12px; }
+.dept-manage-title { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:hsl(220,10%,45%); margin-bottom:6px; }
+.dept-manage-list { list-style:none; margin:0; padding:0; }
+.dept-manage-list li { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid hsl(220,13%,92%); font-size:13.5px; }
+.dept-manage-list li:last-child { border-bottom:none; }
+.dept-manage-name { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:hsl(220,20%,25%); }
+.dept-manage-count { flex:0 0 auto; font-size:11.5px; color:hsl(220,10%,50%); }
+.dept-manage-del { flex:0 0 auto; border:1px solid hsl(0,70%,88%); background:#fff; color:hsl(0,65%,48%); border-radius:8px; width:28px; height:28px; cursor:pointer; line-height:1; }
+.dept-manage-del:hover { background:hsl(0,100%,98%); border-color:hsl(0,70%,70%); }
+.dept-manage-del[disabled] { opacity:.5; cursor:default; }
+.dept-manage-note { font-size:11.5px; color:hsl(220,10%,50%); margin-top:8px; }
+.dept-manage-empty { font-size:13px; color:hsl(220,10%,50%); padding:4px 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4" style="border-bottom:none;">
+    <div>
+        <h2 style="font-size:26px; font-weight:700; color:hsl(220,20%,15%);">{{ action }} User</h2>
+        <p style="color:hsl(220,10%,45%);">{% if action == 'Create' %}Create a new account and assign access.{% else %}Update account details and access.{% endif %}</p>
+    </div>
+    <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i> Back</a>
+</div>
+
+<div class="uf-shell">
+<form method="post" enctype="multipart/form-data" id="userForm" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors.0 }}</div>{% endif %}
+
+    <div class="uf-card">
+        <!-- Profile picture -->
+        <div class="uf-section">
+            <div class="uf-section-title"><i class="bi bi-image"></i> Profile Picture</div>
+            <div class="uf-avatar-row">
+                {% if user_obj and user_obj.profile.avatar_url %}
+                <img id="avatarPreview" class="uf-avatar-preview" src="{{ user_obj.profile.avatar_url }}" alt="Avatar">
+                {% else %}
+                <span id="avatarPreview" class="uf-avatar-preview"><i class="bi bi-person"></i></span>
+                {% endif %}
+                <div class="uf-avatar-meta uf-field">
+                    <label for="id_avatar">Upload photo</label>
+                    {{ form.avatar }}
+                    <div class="uf-help">JPG, PNG, WEBP or GIF · up to 3 MB. Shown across the admin panel.</div>
+                    {% if form.avatar.errors %}<div class="uf-err">{{ form.avatar.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Account -->
+        <div class="uf-section">
+            <div class="uf-section-title"><i class="bi bi-person-vcard"></i> Account</div>
+            <div class="uf-grid">
+                <div class="uf-field">
+                    <label for="{{ form.username.id_for_label }}">Username <span class="req">*</span></label>
+                    {{ form.username }}
+                    <div class="uf-help">Start with a letter; letters, numbers, . _ - only.</div>
+                    {% if form.username.errors %}<div class="uf-err">{{ form.username.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="uf-field">
+                    <label for="{{ form.email.id_for_label }}">Email</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}<div class="uf-err">{{ form.email.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Personal -->
+        <div class="uf-section">
+            <div class="uf-section-title"><i class="bi bi-person-lines-fill"></i> Personal Details</div>
+            <div class="uf-grid">
+                <div class="uf-field">
+                    <label for="{{ form.first_name.id_for_label }}">First name</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}<div class="uf-err">{{ form.first_name.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="uf-field">
+                    <label for="{{ form.last_name.id_for_label }}">Last name</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}<div class="uf-err">{{ form.last_name.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="uf-field uf-col-2">
+                    <label for="{{ form.phone.id_for_label }}">Contact number</label>
+                    {{ form.phone }}
+                    {% if form.phone.errors %}<div class="uf-err">{{ form.phone.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Role & access -->
+        <div class="uf-section">
+            <div class="uf-section-title"><i class="bi bi-shield-check"></i> Role &amp; Access</div>
+            <div class="uf-grid">
+                <div class="uf-field">
+                    <label for="{{ form.role.id_for_label }}">System role <span class="req">*</span></label>
+                    {{ form.role }}
+                    {% if form.role.errors %}<div class="uf-err">{{ form.role.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="uf-field dept-anchor">
+                    <label for="{{ form.department.id_for_label }}">Department / Office</label>
+                    {% comment %}
+                    The select keeps its own styling; the button sits beside it so
+                    adding an office does not cost the half-filled form on screen.
+                    {% endcomment %}
+                    <div class="dept-row">
+                        {{ form.department }}
+                        <button type="button" class="dept-add-btn" id="deptAddBtn"
+                                title="Add a new department or office" aria-label="Add a new department or office">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                        <button type="button" class="dept-add-btn" id="deptManageBtn"
+                                title="Manage departments" aria-label="Manage departments"
+                                aria-expanded="false">
+                            <i class="bi bi-list-ul"></i>
+                        </button>
+                    </div>
+                    <div class="dept-inline" id="deptInline" hidden>
+                        <input type="text" id="deptNewName" class="form-control" maxlength="100"
+                               placeholder="New department or office name" autocomplete="off">
+                        <button type="button" class="btn btn-primary btn-sm" id="deptSaveBtn">Add</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="deptCancelBtn">Cancel</button>
+                    </div>
+                    <div class="dept-manage" id="deptManage" hidden>
+                        <div class="dept-manage-title">Departments / offices</div>
+                        <ul class="dept-manage-list" id="deptManageList"></ul>
+                        <div class="dept-manage-note">
+                            Removing one takes it out of this list. Accounts already recording
+                            it keep showing the name and are not changed.
+                        </div>
+                    </div>
+                    <div class="uf-err" id="deptError" hidden></div>
+                    {% if form.department.errors %}<div class="uf-err">{{ form.department.errors.0 }}</div>{% endif %}
+                </div>
+                {% if action != 'Create' %}
+                <div class="uf-field">
+                    <label for="{{ form.status.id_for_label }}">Account status</label>
+                    {{ form.status }}
+                    {% if form.status.errors %}<div class="uf-err">{{ form.status.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="uf-field">
+                    <label for="{{ form.is_active.id_for_label }}">Can sign in</label>
+                    <div class="form-check form-switch mt-2">{{ form.is_active }}</div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="uf-field uf-col-2 mt-3" id="facultyAreaWrap" style="display:none;">
+                <label>Assigned accreditation area(s) <span class="req">*</span></label>
+                <div class="qa-area-checks">{{ form.assigned_areas }}</div>
+                <div class="uf-help">Tick every area this faculty member is responsible for. They can upload to and view documents only for the selected areas.</div>
+                {% if form.assigned_areas.errors %}<div class="uf-err">{{ form.assigned_areas.errors.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <!-- Security / password -->
+        <div class="uf-section">
+            <div class="uf-section-title"><i class="bi bi-key"></i> Security</div>
+            {% if action != 'Create' %}
+            <div class="uf-pass-note">
+                <i class="bi bi-info-circle"></i>
+                <span>For security, stored passwords are encrypted and cannot be displayed. Enter a new value below only if you want to reset this user's password.</span>
+            </div>
+            {% endif %}
+            <div class="uf-grid">
+                <div class="uf-field">
+                    <label for="id_password">{% if action == 'Create' %}Password <span class="req">*</span>{% else %}New password{% endif %}</label>
+                    <div class="uf-pass-wrap">
+                        {% if action == 'Create' %}{{ form.password }}{% else %}{{ form.new_password }}{% endif %}
+                    </div>
+                    {% if action == 'Create' %}
+                        {% if form.password.errors %}<div class="uf-err">{{ form.password.errors.0 }}</div>{% endif %}
+                    {% else %}
+                        {% if form.new_password.errors %}<div class="uf-err">{{ form.new_password.errors.0 }}</div>{% endif %}
+                    {% endif %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="genPassBtn"><i class="bi bi-shuffle me-1"></i> Generate strong password</button>
+                </div>
+                <div class="uf-field">
+                    <label for="id_password_confirm">Confirm password</label>
+                    <div class="uf-pass-wrap">
+                        {% if action == 'Create' %}{{ form.password_confirm }}{% else %}{{ form.new_password_confirm }}{% endif %}
+                    </div>
+                    {% if action == 'Create' %}
+                        {% if form.password_confirm.errors %}<div class="uf-err">{{ form.password_confirm.errors.0 }}</div>{% endif %}
+                    {% else %}
+                        {% if form.new_password_confirm.errors %}<div class="uf-err">{{ form.new_password_confirm.errors.0 }}</div>{% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% comment %}
+            One labelled checkbox for both fields, in place of an eye button
+            inside each of them. The eye stated its meaning through an icon and
+            a hover tooltip and its two states looked alike; a checkbox says
+            what it does in words and shows whether it is on. Both fields are
+            revealed together because they are a pair that has to be compared.
+            {% endcomment %}
+            <label class="uf-show-pw">
+                <input type="checkbox" id="ufShowPw">
+                <span>Show password</span>
+            </label>
+        </div>
+
+        <div class="uf-actions">
+            <a href="{% url 'accounts:user_list' %}" class="btn btn-light">Cancel</a>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> {{ action }} User</button>
+        </div>
+    </div>
+</form>
+</div>
+
+{% comment %}
+Confirming a department removal used to be the browser's own confirm box, which
+cannot be styled and names the host rather than the system. This matches the
+delete dialogs elsewhere in the system. It sits outside the account form on
+purpose: a modal nested in a form can submit that form when a button inside it
+is pressed.
+{% endcomment %}
+<div class="modal fade" id="deptRemoveModal" tabindex="-1" aria-labelledby="deptRemoveModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: var(--shadow-lg, 0 12px 40px rgba(0,0,0,.12));">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title d-flex align-items-center gap-2" id="deptRemoveModalLabel">
+                    <i class="bi bi-exclamation-triangle text-danger"></i>
+                    Remove department
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="mb-2" id="deptRemoveName" style="font-size: 14px; line-height: 1.5;"></p>
+                <p class="text-muted mb-0" id="deptRemoveNote" style="font-size: 13px; line-height: 1.5;"></p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="deptRemoveConfirmBtn">
+                    <i class="bi bi-trash3 me-1"></i>Remove
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    // Strict input filtering based on data-strict attribute.
+    const filters = {
+        name: /[^A-Za-z .'\-]/g,
+        phone: /[^0-9+\-() ]/g,
+        username: /[^A-Za-z0-9._-]/g,
+    };
+    document.querySelectorAll('[data-strict]').forEach(function (el) {
+        const kind = el.getAttribute('data-strict');
+        const re = filters[kind];
+        if (!re) return;
+        el.addEventListener('input', function () {
+            const cleaned = el.value.replace(re, '');
+            if (cleaned !== el.value) {
+                const pos = el.selectionStart - (el.value.length - cleaned.length);
+                el.value = cleaned;
+                try { el.setSelectionRange(pos, pos); } catch (e) {}
+            }
+        });
+    });
+
+    /* Show password. The checkbox is the only thing that decides whether the
+       two fields are visible; it never reads or changes what they contain, so
+       what is typed and what is submitted are untouched. */
+    const showPw = document.getElementById('ufShowPw');
+    const pwFields = ['#id_password', '#id_password_confirm']
+        .map(function (sel) { return document.querySelector(sel); })
+        .filter(Boolean);
+    function applyPwVisibility() {
+        pwFields.forEach(function (input) {
+            input.type = showPw && showPw.checked ? 'text' : 'password';
+        });
+    }
+    if (showPw) { showPw.addEventListener('change', applyPwVisibility); }
+
+    // Generate a strong password and reveal it.
+    const genBtn = document.getElementById('genPassBtn');
+    if (genBtn) {
+        genBtn.addEventListener('click', function () {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
+            let pw = '';
+            const arr = new Uint32Array(14);
+            (window.crypto || window.msCrypto).getRandomValues(arr);
+            for (let i = 0; i < arr.length; i++) { pw += chars[arr[i] % chars.length]; }
+            ['#id_password', '#id_password_confirm'].forEach(function (sel) {
+                const input = document.querySelector(sel);
+                if (input) { input.value = pw; }
+            });
+            // A generated password has to be readable to be written down, and
+            // the checkbox has to agree with what is on screen.
+            if (showPw) { showPw.checked = true; }
+            applyPwVisibility();
+        });
+    }
+
+    // Show the accreditation-area picker only for the Faculty role.
+    const roleSelect = document.querySelector('[data-role-select]');
+    const facultyWrap = document.getElementById('facultyAreaWrap');
+    function syncFacultyAreas() {
+        if (!roleSelect || !facultyWrap) return;
+        facultyWrap.style.display = roleSelect.value === 'faculty' ? '' : 'none';
+    }
+    if (roleSelect) {
+        roleSelect.addEventListener('change', syncFacultyAreas);
+        syncFacultyAreas();
+    }
+
+    // Live avatar preview.
+    const avatarInput = document.getElementById('id_avatar');
+    const preview = document.getElementById('avatarPreview');
+    if (avatarInput && preview) {
+        avatarInput.addEventListener('change', function () {
+            const file = avatarInput.files && avatarInput.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            if (preview.tagName === 'IMG') {
+                preview.src = url;
+            } else {
+                const img = document.createElement('img');
+                img.id = 'avatarPreview';
+                img.className = 'uf-avatar-preview';
+                img.src = url;
+                preview.replaceWith(img);
+            }
+        });
+    }
+})();
+</script>
+
+<script>
+/* Add a department without leaving the form.
+
+   The Administrator is usually part-way through creating an account when they
+   find the office missing. Sending them to the management page would lose what
+   they have typed, so the new department is created in place and selected. */
+(function () {
+    var select = document.getElementById('id_department');
+    var addBtn = document.getElementById('deptAddBtn');
+    var panel = document.getElementById('deptInline');
+    var input = document.getElementById('deptNewName');
+    var saveBtn = document.getElementById('deptSaveBtn');
+    var cancelBtn = document.getElementById('deptCancelBtn');
+    var errorBox = document.getElementById('deptError');
+    if (!select || !addBtn || !panel || !input || !saveBtn || !cancelBtn) { return; }
+
+    function showError(message) {
+        errorBox.textContent = message;
+        errorBox.hidden = !message;
+    }
+
+    function openPanel() {
+        panel.hidden = false;
+        addBtn.hidden = true;
+        showError('');
+        input.value = '';
+        input.focus();
+    }
+
+    function closePanel() {
+        panel.hidden = true;
+        addBtn.hidden = false;
+        showError('');
+    }
+
+    function csrfToken() {
+        var field = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        return field ? field.value : '';
+    }
+
+    function selectDepartment(name) {
+        var already = Array.prototype.find.call(select.options, function (opt) {
+            return opt.value.toLowerCase() === name.toLowerCase();
+        });
+        if (!already) {
+            already = new Option(name, name);
+            select.add(already);
+        }
+        select.value = already.value;
+        /* Anything listening to the select (validation, dependent fields) should
+           see this the same as a human choosing it. */
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function save() {
+        var name = input.value.trim();
+        if (!name) { showError('Enter a department or office name.'); input.focus(); return; }
+
+        saveBtn.disabled = true;
+        var body = new FormData();
+        body.append('name', name);
+
+        fetch('{% url "accounts:department_quick_add" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+            body: body,
+            credentials: 'same-origin'
+        }).then(function (response) {
+            return response.json().then(function (data) { return { ok: response.ok, data: data }; });
+        }).then(function (result) {
+            saveBtn.disabled = false;
+            if (!result.ok || !result.data.ok) {
+                showError((result.data && result.data.error) || 'Could not add that department.');
+                return;
+            }
+            selectDepartment(result.data.name);
+            closePanel();
+            /* Keep the manage panel honest if it happens to be open. */
+            if (managePanel && !managePanel.hidden) { loadList(); }
+        }).catch(function () {
+            saveBtn.disabled = false;
+            showError('Could not reach the server. Check your connection and try again.');
+        });
+    }
+
+    /* The manage panel lists the departments with a remove button each. It lives
+       here rather than on a page of its own so that managing the list never
+       costs the half-filled account form on screen. */
+    var manageBtn = document.getElementById('deptManageBtn');
+    var managePanel = document.getElementById('deptManage');
+    var manageList = document.getElementById('deptManageList');
+
+    function removeOption(name) {
+        Array.prototype.slice.call(select.options).forEach(function (opt) {
+            if (opt.value && opt.value.toLowerCase() === name.toLowerCase()) {
+                /* Never drop the option the account currently holds, or saving
+                   the form would silently clear its department. */
+                if (select.value === opt.value) { return; }
+                opt.remove();
+            }
+        });
+    }
+
+    function drawList(rows) {
+        manageList.innerHTML = '';
+        if (!rows.length) {
+            var empty = document.createElement('li');
+            empty.className = 'dept-manage-empty';
+            empty.textContent = 'No departments yet. Use + to add one.';
+            manageList.appendChild(empty);
+            return;
+        }
+        rows.forEach(function (row) {
+            var item = document.createElement('li');
+
+            var label = document.createElement('span');
+            label.className = 'dept-manage-name';
+            label.textContent = row.name;
+
+            var count = document.createElement('span');
+            count.className = 'dept-manage-count';
+            count.textContent = row.members === 1 ? '1 account' : row.members + ' accounts';
+
+            var del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'dept-manage-del';
+            del.title = 'Remove ' + row.name;
+            del.setAttribute('aria-label', 'Remove ' + row.name);
+            del.innerHTML = '<i class="bi bi-trash"></i>';
+            del.addEventListener('click', function () { askToRemove(row, del); });
+
+            item.appendChild(label);
+            item.appendChild(count);
+            item.appendChild(del);
+            manageList.appendChild(item);
+        });
+    }
+
+    function loadList() {
+        return fetch('{% url "accounts:department_quick_list" %}', {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (response) {
+            return response.json();
+        }).then(function (data) {
+            if (data && data.ok) { drawList(data.departments); }
+        }).catch(function () {
+            showError('Could not load the department list.');
+        });
+    }
+
+    /* The confirmation is the system's own dialog rather than the browser's
+       confirm box, which cannot be styled and announces the host name. */
+    var removeModalEl = document.getElementById('deptRemoveModal');
+    var removeModal = (removeModalEl && window.bootstrap)
+        ? new window.bootstrap.Modal(removeModalEl) : null;
+    var removeNameEl = document.getElementById('deptRemoveName');
+    var removeNoteEl = document.getElementById('deptRemoveNote');
+    var removeConfirmBtn = document.getElementById('deptRemoveConfirmBtn');
+    var pending = null;
+
+    function askToRemove(row, button) {
+        if (!removeModal) {
+            /* Bootstrap missing: still ask, rather than deleting unprompted. */
+            if (window.confirm('Remove "' + row.name + '" from the list?')) { remove(row, button); }
+            return;
+        }
+        pending = { row: row, button: button };
+        removeNameEl.textContent = 'Remove "' + row.name + '" from the list?';
+        removeNoteEl.textContent = row.members
+            ? row.members + ' account(s) record this department. They keep showing the '
+              + 'name and are not changed.'
+            : 'No account records this department.';
+        removeModal.show();
+    }
+
+    if (removeConfirmBtn) {
+        removeConfirmBtn.addEventListener('click', function () {
+            if (!pending) { return; }
+            var job = pending;
+            pending = null;
+            if (removeModal) { removeModal.hide(); }
+            remove(job.row, job.button);
+        });
+    }
+    if (removeModalEl) {
+        removeModalEl.addEventListener('hidden.bs.modal', function () { pending = null; });
+    }
+
+    function remove(row, button) {
+        button.disabled = true;
+        var body = new FormData();
+        fetch('{% url "accounts:department_quick_delete" 0 %}'.replace('/0/', '/' + row.id + '/'), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+            body: body,
+            credentials: 'same-origin'
+        }).then(function (response) {
+            return response.json().then(function (data) { return { ok: response.ok, data: data }; });
+        }).then(function (result) {
+            if (!result.ok || !result.data.ok) {
+                button.disabled = false;
+                showError('Could not remove that department.');
+                return;
+            }
+            removeOption(result.data.name);
+            showError('');
+            loadList();
+        }).catch(function () {
+            button.disabled = false;
+            showError('Could not reach the server. Check your connection and try again.');
+        });
+    }
+
+    function setManageOpen(open) {
+        managePanel.hidden = !open;
+        manageBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) { loadList(); }
+    }
+
+    manageBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        setManageOpen(managePanel.hidden);
+    });
+
+    /* A floating panel has to close the way a dropdown does: clicking away or
+       pressing Escape. Clicks inside it must not close it, or removing a
+       department would dismiss the list mid-action. */
+    managePanel.addEventListener('click', function (event) { event.stopPropagation(); });
+    document.addEventListener('click', function () {
+        if (!managePanel.hidden) { setManageOpen(false); }
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !managePanel.hidden) { setManageOpen(false); }
+    });
+
+    addBtn.addEventListener('click', openPanel);
+    cancelBtn.addEventListener('click', closePanel);
+    saveBtn.addEventListener('click', save);
+    input.addEventListener('keydown', function (event) {
+        /* Enter here adds the department; it must not submit the account form. */
+        if (event.key === 'Enter') { event.preventDefault(); save(); }
+        if (event.key === 'Escape') { event.preventDefault(); closePanel(); }
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% load dict_extras %}
+{% for doc in documents %}
+<tr class="doc-row {% if doc.is_archived %}table-secondary{% endif %}" data-doc-id="{{ doc.pk }}">
+    {% if rbac_is_qa_staff_or_admin %}
+    <td class="text-center">
+        <input class="form-check-input js-bulk-doc-checkbox" type="checkbox" value="{{ doc.pk }}" aria-label="Select {{ doc.title }}">
+    </td>
+    {% endif %}
+    {% comment %}
+    The title is emitted in full and truncated by CSS, not by `truncatechars`.
+    Cutting it server-side put an already-shortened string in the DOM, so the
+    hover tooltip and a screen reader got the same clipped text the eye did;
+    now both get the whole title while the row stays one line tall.
+    {% endcomment %}
+    <td class="repo-col-title">
+        <div class="repo-title">
+            <a href="#" class="js-qa-doc-detail repo-title-link" title="{{ doc.title }}"
+               data-doc-id="{{ doc.pk }}"
+               data-doc-title="{{ doc.title|truncatechars:80 }}"
+               data-doc-download="{% url 'documents:download' doc.pk %}">{{ doc.title }}</a>
+        </div>
+    </td>
+    {% comment %}
+    Category and status used to sit inside the title cell, which put a
+    programme badge beside every title and made one column read as two things.
+    Each has its own column now, so a title is only ever a title.
+    {% endcomment %}
+    <td class="repo-col-category">
+        {% if doc.program %}<span class="badge" style="background:{{ doc.program.color }};color:{{ doc.program.color|readable_ink }};font-size:10px;" title="{{ doc.program.name }}">{{ doc.program.code }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+    </td>
+    <td class="repo-col-status">
+        {% if doc.processing_in_progress %}<span class="badge badge-suggested" title="Text extraction and metadata still running">Processing…</span>
+        {% elif doc.is_processed %}<span class="badge repo-status-done" title="Text extracted and metadata filled in">Processed</span>
+        {% else %}<span class="text-muted">—</span>{% endif %}
+        {% if doc.is_archived %}<span class="badge bg-secondary" title="Archived (older version)">archived</span>{% endif %}
+        {% if doc.previous_version_id %}<span class="badge bg-info text-dark" title="This document supersedes another">v{{ doc.version_chain|length }}</span>{% endif %}
+    </td>
+    <td>{% include '_file_type.html' with ft=doc.file_type %}</td>
+    <td class="js-doc-year">{{ doc.year }}</td>
+    <td>{% include 'documents/_area_badge.html' with doc=doc %}</td>
+    {% if not rbac_is_faculty %}
+    <td>{% if doc.cluster_label is not None %}<span class="badge badge-suggested" title="{{ cluster_names|get_item:doc.cluster_label|default:'' }}">C{{ doc.cluster_label }}</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+    {% endif %}
+    {% if rbac_is_qa_staff_or_admin %}
+    {% comment %}
+    Addressed so a decision taken in the details modal can repaint this cell;
+    without it the row went on saying "Needs review" until the page was loaded
+    again.
+    {% endcomment %}
+    <td data-qa-dup-badge="{{ doc.pk }}">{% include 'documents/_duplicate_status_badge.html' with status=doc.duplicate_status %}</td>
+    {% endif %}
+    <td>{{ doc.uploaded_at|date:"M d, Y" }}</td>
+    {% comment %}
+    The tooltip carried the uploader's email address. The column is capped at
+    130px and clips -- measured at 1500px, 150px of content into 106px of room,
+    so "Jester Limbaro Faculty" is cut on every row -- and the stylesheet's own
+    note beside that cap says the column is "clipped like the title, with the
+    full name on hover". The tooltip is the only place the clipped name can be
+    read, so it holds the name, and the Faculty marker that is clipped with it.
+    An address is neither what the column shows nor what the reader is after.
+    {% endcomment %}
+    <td class="repo-col-user">{% if doc.uploaded_by %}<span class="text-nowrap" title="{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}{% if doc.uploaded_by.profile.is_faculty %} (Faculty){% endif %}">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}{% if doc.uploaded_by.profile.is_faculty %} <span class="badge" style="font-size:9px;vertical-align:middle;background:#ede9fe;color:#5b21b6;">Faculty</span>{% endif %}</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+    <td class="repo-col-actions text-end">{% include 'documents/_row_actions.html' with doc=doc %}</td>
+</tr>
+{% empty %}
+<tr><td colspan="{% if rbac_is_qa_staff_or_admin %}12{% else %}9{% endif %}">
+    {% if rbac_is_faculty %}
+    {% include 'includes/empty_state.html' with empty_icon='bi-archive' empty_title='No documents found' empty_text='Try adjusting your filters. Use the Upload Document page to add a new file.' %}
+    {% else %}
+    {% include 'includes/empty_state.html' with empty_icon='bi-archive' empty_title='No documents found' empty_text='Try adjusting your filters or upload a new document.' %}
+    {% endif %}
+</td></tr>
+{% endfor %}

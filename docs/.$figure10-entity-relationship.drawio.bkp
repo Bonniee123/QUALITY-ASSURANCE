@@ -1,0 +1,172 @@
+<mxfile host="app.diagrams.net" agent="QA Capstone" background="#ffffff">
+  <diagram name="Entity Relationship" id="fig10-erd">
+    <mxGraphModel dx="1471" dy="890" grid="1" gridSize="10" guides="1" tooltips="1" connect="0" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="820" background="#FFFFFF" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="z_auth_l" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#23445d;fontSize=9;fontStyle=1;fontFamily=Helvetica;align=left;" value="Identity &amp; Access" vertex="1">
+          <mxGeometry height="16" width="120" x="52" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="z_doc_l" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#23445d;fontSize=9;fontStyle=1;fontFamily=Helvetica;align=left;" value="Document Repository (Central)" vertex="1">
+          <mxGeometry height="16" width="200" x="372" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="z_acc_l" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#2D7600;fontSize=9;fontStyle=1;fontFamily=Helvetica;align=left;" value="Accreditation Area" vertex="1">
+          <mxGeometry height="16" width="140" x="772" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="t_user" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#23445d;strokeWidth=2;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#23445d;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;auth_user&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;username&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;email&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;password&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;is_active&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="108" width="130" x="56" y="72" as="geometry" />
+        </mxCell>
+        <mxCell id="t_profile" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#23445d;strokeWidth=2;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#23445d;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;accounts_userprofile&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;user_id → auth_user&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;role (admin / qa_staff / faculty)&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;status&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#d5e8d4&quot;&gt;&lt;b&gt;M2M&lt;/b&gt;&lt;/td&gt;&lt;td&gt;assigned_areas ↔ acc_area&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="116" width="130" x="198" y="72" as="geometry" />
+        </mxCell>
+        <mxCell id="t_doc" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#23445d;strokeWidth=3;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#23445d;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;documents_document&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;uploaded_by_id → auth_user&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;program_id → qa_program&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;previous_version_id → self&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;acc_area_id → acc_area&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;qa_area (text tag)&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;title · file · year · document_type&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;extracted_text · ocr_text&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;cluster_label · duplicate_status&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;is_processed · is_archived&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="200" width="200" x="380" y="68" as="geometry" />
+        </mxCell>
+        <mxCell id="t_cluster" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#23445d;strokeWidth=2;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#23445d;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;documents_clusterresult&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;document_id → document&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;cluster_number&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;top_keywords (JSON)&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="88" width="128" x="600" y="88" as="geometry" />
+        </mxCell>
+        <mxCell id="t_area" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2D7600;strokeWidth=2;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#2D7600;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;qa_structure_accreditationarea&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;area_code · area_name&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="64" width="188" x="776" y="72" as="geometry" />
+        </mxCell>
+        <mxCell id="z_prog_l" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#6c8ebf;fontSize=9;fontStyle=1;fontFamily=Helvetica;align=left;" value="QA Program &amp; Legacy Mapping" vertex="1">
+          <mxGeometry height="16" width="180" x="52" y="258" as="geometry" />
+        </mxCell>
+        <mxCell id="z_map_l" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#9673a6;fontSize=9;fontStyle=1;fontFamily=Helvetica;align=left;" value="Faculty Area Assignment (M2M)" vertex="1">
+          <mxGeometry height="16" width="220" x="540" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="t_program" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;strokeWidth=2;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#6c8ebf;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;qa_mapping_qaprogram&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;name · code&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;is_active&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="80" width="168" x="56" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="t_req" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;strokeWidth=2;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#6c8ebf;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;qa_mapping_qarequirement&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;program_id → qa_program&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;qa_area · criterion · indicator&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;required_document&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="96" width="168" x="56" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="t_attach" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;strokeWidth=2;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#6c8ebf;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;qa_mapping_requirementattachment&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;requirement_id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;uploaded_by_id → auth_user&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;file · label&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="90" width="160" x="240" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="t_facareas" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9673a6;strokeWidth=2;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#9673a6;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;accounts_userprofile_assigned_areas&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;userprofile_id → userprofile&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;accreditationarea_id → acc_area&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f0eaf6&quot;&gt;&lt;i&gt;M2M: Faculty upload / view scope per area&lt;/i&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="100" width="280" x="540" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="z_ops_l" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#d79b00;fontSize=9;fontStyle=1;fontFamily=Helvetica;align=left;" value="Operations, Alerts &amp; Support Data" vertex="1">
+          <mxGeometry height="16" width="200" x="52" y="474" as="geometry" />
+        </mxCell>
+        <mxCell id="t_log" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#d79b00;strokeWidth=2;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#d79b00;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;documents_activitylog&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;user_id → auth_user&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;action · description&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="80" width="148" x="56" y="496" as="geometry" />
+        </mxCell>
+        <mxCell id="t_notif" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#d79b00;strokeWidth=2;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#d79b00;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;notifications_notification&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;user_id → auth_user&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;category · message · is_read&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="88" width="148" x="220" y="496" as="geometry" />
+        </mxCell>
+        <mxCell id="t_job" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#d79b00;strokeWidth=2;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#d79b00;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;documents_backgroundjob&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#fff2cc&quot;&gt;&lt;b&gt;FK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;created_by_id → auth_user&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;job_type · status · payload&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="88" width="156" x="390" y="496" as="geometry" />
+        </mxCell>
+        <mxCell id="t_metric" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#d79b00;strokeWidth=1;dashed=1;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#d79b00;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;documents_processingmetric&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;metric_name · metric_value&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;unit · meta (JSON)&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="72" width="148" x="570" y="496" as="geometry" />
+        </mxCell>
+        <mxCell id="t_faq" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#d79b00;strokeWidth=1;dashed=1;" value="&lt;table border=&quot;1&quot; cellpadding=&quot;3&quot; cellspacing=&quot;0&quot; style=&quot;border-collapse:collapse;font-family:Helvetica;font-size:8px;width:100%;color:#000000;background-color:#ffffff;&quot;&gt;&lt;tr style=&quot;background:#d79b00;color:#fff;&quot;&gt;&lt;td colspan=&quot;2&quot;&gt;&lt;b&gt;chatbot_chatbotfaq&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td width=&quot;28&quot; bgcolor=&quot;#dae8fc&quot;&gt;&lt;b&gt;PK&lt;/b&gt;&lt;/td&gt;&lt;td&gt;id&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;question · answer&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan=&quot;2&quot; bgcolor=&quot;#f5f5f5&quot;&gt;category · keywords (JSON)&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="72" width="148" x="740" y="496" as="geometry" />
+        </mxCell>
+        <mxCell id="e_up" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#23445d;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="186" y="126" as="sourcePoint" />
+            <mxPoint x="198" y="126" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ud" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#23445d;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="350" y="142" />
+              <mxPoint x="350" y="110" />
+            </Array>
+            <mxPoint x="186" y="142" as="sourcePoint" />
+            <mxPoint x="380" y="110" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_dc" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#23445d;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="132" as="sourcePoint" />
+            <mxPoint x="600" y="132" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_dev" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#2D7600;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="740" y="188" />
+              <mxPoint x="740" y="124" />
+            </Array>
+            <mxPoint x="580" y="188" as="sourcePoint" />
+            <mxPoint x="776" y="124" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pr" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="140" y="360" as="sourcePoint" />
+            <mxPoint x="140" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pd" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="350" y="300" />
+              <mxPoint x="350" y="248" />
+            </Array>
+            <mxPoint x="224" y="300" as="sourcePoint" />
+            <mxPoint x="380" y="248" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ra" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="224" y="428" as="sourcePoint" />
+            <mxPoint x="240" y="428" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pfa" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#9673a6;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="263.5" y="272" />
+              <mxPoint x="680.5" y="272" />
+            </Array>
+            <mxPoint x="264" y="190" as="sourcePoint" />
+            <mxPoint x="681" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_afa" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#9673a6;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="870" y="240" />
+              <mxPoint x="820" y="240" />
+            </Array>
+            <mxPoint x="870" y="136" as="sourcePoint" />
+            <mxPoint x="820" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ul" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#d79b00;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="30" y="200" />
+              <mxPoint x="30" y="516" />
+            </Array>
+            <mxPoint x="121" y="200" as="sourcePoint" />
+            <mxPoint x="60" y="516" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_un" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#d79b00;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="232" y="200" />
+            </Array>
+            <mxPoint x="59" y="200" as="sourcePoint" />
+            <mxPoint x="232" y="490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_uj" edge="1" parent="1" style="endArrow=none;html=1;strokeColor=#d79b00;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="400" y="200" />
+            </Array>
+            <mxPoint x="186" y="200" as="sourcePoint" />
+            <mxPoint x="401" y="490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

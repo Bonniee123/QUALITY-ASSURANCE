@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}Document Groups{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>Document Groups</h2>
+        <p class="text-muted mb-0" style="font-size:13px;">
+            Each QA programme has its own page. {{ total_files }} document{{ total_files|pluralize }} in your scope.
+        </p>
+    </div>
+</div>
+
+<div class="group-grid">
+    {% for g in groups %}
+    <a class="group-card" href="{% url 'documents:group_detail' g.program.code %}">
+        <div class="group-card-head">
+            <span class="group-code" style="background:{{ g.program.color }};">{{ g.program.code }}</span>
+            <span class="group-files">{{ g.files }} file{{ g.files|pluralize }}</span>
+        </div>
+        <div class="group-name">{{ g.program.name }}</div>
+        {% if g.program.description %}<div class="group-desc">{{ g.program.description|truncatechars:110 }}</div>{% endif %}
+        <div class="group-meta">
+            {% comment %}Duplicate review is QA work; a Faculty member cannot resolve one, so the count is not theirs to carry.{% endcomment %}
+            {% if g.needs_review and not rbac_is_faculty %}<span class="badge repo-status-review">{{ g.needs_review }} to review</span>{% endif %}
+            {% if g.pending %}<span class="badge badge-suggested">{{ g.pending }} processing</span>{% endif %}
+            {% if g.last_upload %}<span class="text-muted">Last upload {{ g.last_upload|date:"M d, Y" }}</span>
+            {% else %}<span class="text-muted">No documents yet</span>{% endif %}
+        </div>
+    </a>
+    {% endfor %}
+
+    {% if unassigned_files %}
+    <a class="group-card" href="{% url 'documents:group_detail' 'unassigned' %}">
+        <div class="group-card-head">
+            <span class="group-code" style="background:var(--color-text-muted);">—</span>
+            <span class="group-files">{{ unassigned_files }} file{{ unassigned_files|pluralize }}</span>
+        </div>
+        <div class="group-name">No category</div>
+        <div class="group-desc">Documents uploaded without a QA programme.</div>
+        <div class="group-meta">
+            {% if unassigned_last_upload %}<span class="text-muted">Last upload {{ unassigned_last_upload|date:"M d, Y" }}</span>{% endif %}
+        </div>
+    </a>
+    {% endif %}
+</div>
+
+<style>
+.group-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+    gap: 16px;
+}
+.group-card {
+    display: block;
+    background: var(--color-surface);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    padding: var(--card-pad);
+    text-decoration: none;
+    color: var(--color-text-primary);
+    box-shadow: var(--card-shadow);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+.group-card:hover, .group-card:focus-visible {
+    border-color: var(--color-border-strong);
+    box-shadow: var(--card-shadow-hover);
+    color: var(--color-text-primary);
+}
+.group-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.group-code {
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    padding: 3px 9px;
+    border-radius: var(--radius-full);
+}
+.group-files { font-size: var(--text-sm); color: var(--color-text-muted); }
+.group-name { font-weight: 600; margin-top: 10px; line-height: 1.3; }
+.group-desc { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 4px; line-height: 1.45; }
+.group-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: var(--text-xs);
+}
+.repo-status-review { background: var(--color-warning-light); color: var(--color-warning-text); font-weight: 600; }
+</style>
+{% endblock %}

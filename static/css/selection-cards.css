@@ -1,0 +1,332 @@
+/* Compact selection cards — Area Submissions & Document Clusters */
+
+.qa-sel-page {
+    /* Both point at the shared card tokens: these pages were drawing their own
+       grey edge, one shade off the one every other card in the system uses. */
+    --qa-sel-border: var(--card-border);
+    --qa-sel-border-active: var(--color-border-strong);
+    --qa-sel-bg-active: hsl(215, 45%, 98%);
+    --qa-sel-text: hsl(220, 25%, 18%);
+    /* Both measured on white: muted was 4.60:1 (ok) and dim was 2.80:1, well under
+       the 4.5:1 minimum while carrying card metadata at 10.5px - the smallest text
+       on the page and the hardest to read. Both now point at the shared tokens. */
+    --qa-sel-muted: var(--color-text-secondary);
+    --qa-sel-dim: var(--color-text-secondary);
+    --qa-sel-accent: hsl(215, 60%, 48%);
+}
+
+/* Summary strip */
+.qa-sel-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.qa-sel-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #fff;
+    border: 1px solid var(--qa-sel-border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--qa-sel-muted);
+}
+.qa-sel-stat-n {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--qa-sel-text);
+    line-height: 1;
+}
+.qa-sel-stat-l {
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Sort control. It sits at the end of the summary strip and borrows that
+   strip's pill so it reads as part of the same row rather than as a new
+   control surface. The order in force is named on the button, because an order
+   nobody can see looks like no order at all. */
+.qa-sel-sort { margin-left: auto; }
+.qa-sel-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #fff;
+    border: 1px solid var(--qa-sel-border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--qa-sel-muted);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.qa-sel-sort-btn:hover { border-color: var(--qa-sel-border-active); background: hsl(220, 25%, 99%); }
+.qa-sel-sort-btn[aria-expanded="true"] { border-color: var(--qa-sel-accent); }
+.qa-sel-sort-btn:focus-visible { outline: 2px solid var(--qa-sel-accent); outline-offset: 2px; }
+.qa-sel-sort-caption { font-weight: 500; }
+.qa-sel-sort-current { font-weight: 700; color: var(--qa-sel-text); }
+.qa-sel-sort-caret { font-size: 10px; opacity: 0.7; }
+.qa-sel-sort .dropdown-item { font-size: 12.5px; padding: 6px 14px; }
+.qa-sel-sort .dropdown-item.active { background: var(--qa-sel-bg-active); color: var(--qa-sel-accent); font-weight: 600; }
+
+@media (max-width: 575px) {
+    .qa-sel-sort { margin-left: 0; width: 100%; }
+    .qa-sel-sort-btn { width: 100%; justify-content: flex-start; }
+}
+
+/* Card grid */
+/* Measured at 1440px: the 152px track gave a 155px card, and on it 4 of the 10
+   area names and 32 of the 32 cluster labels were clipped mid-word. The card
+   was sized to fit seven to a row while the text on it needed room to be read,
+   and the narrower track above 1400px shrank the card exactly when the screen
+   had more space to give. One track now, wide enough for the label. */
+.qa-sel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+/* Selection card */
+.qa-sel-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    padding: var(--card-pad-tight);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    background: var(--card-bg);
+    box-shadow: var(--card-shadow);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+/* The surface does not change on hover -- these sit in a grid of twenty or
+   more, and a card that repaints its background as the pointer passes turns
+   scanning the grid into a flicker. The edge and the shadow answer instead. */
+.qa-sel-card:hover {
+    border-color: var(--color-border-strong);
+    box-shadow: var(--card-shadow-hover);
+    color: inherit;
+}
+.qa-sel-card--active {
+    border-color: var(--qa-sel-accent);
+    background: var(--qa-sel-bg-active);
+    box-shadow: inset 3px 0 0 var(--qa-sel-accent);
+}
+.qa-sel-card.is-pending { opacity: 0.65; pointer-events: none; }
+
+.qa-sel-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    min-height: 18px;
+}
+.qa-sel-card-code {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--qa-sel-accent);
+}
+.qa-sel-card-code i {
+    font-size: 10px;
+    margin-right: 2px;
+    opacity: 0.85;
+}
+.qa-sel-card-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: hsl(220, 12%, 82%);
+    flex-shrink: 0;
+}
+.qa-sel-card-dot--on {
+    background: hsl(142, 55%, 42%);
+    box-shadow: 0 0 0 2px hsl(142, 50%, 92%);
+}
+
+/* Two lines, and the box is always two lines high so the cards in a row still
+   line up. One nowrap line cut "Curriculum and Instruction" and every cluster
+   label; two lines at this width hold about sixty characters, which is the
+   whole of nearly all of them. */
+.qa-sel-card-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--qa-sel-text);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.7em;
+}
+
+/* The facets a cluster was grouped on -- area, document type. They were the
+   first thing on the label and the same on card after card ("Area II" opened
+   21 of the 32), so they pushed the one part that differs off the end. Quiet,
+   above the title, where they read as a category rather than as the name. */
+.qa-sel-card-facets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--qa-sel-muted);
+    text-transform: uppercase;
+    line-height: 1.2;
+    min-height: 12px;
+}
+.qa-sel-card-facet + .qa-sel-card-facet::before {
+    content: '·';
+    margin-right: 4px;
+    opacity: 0.55;
+}
+
+/* An area with nobody assigned is not an area at 0% -- it is an area the bar
+   cannot describe. It says so instead of drawing an empty track labelled 0/0. */
+.qa-sel-card-note {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--qa-sel-muted);
+    line-height: 1.3;
+}
+
+/* Nothing filed here yet. Eight of the ten area cards were in this state and
+   carried exactly the weight of the two that had content, so the grid gave the
+   eye nowhere to land. Recessed, not hidden: every figure on it still reads at
+   full contrast on hover and focus. */
+/* An area with nothing filed yet. Still a card, just quieter: the muted title
+   and the 0 already say it, so the surface no longer needs to. */
+.qa-sel-card--empty { background: var(--card-bg); }
+.qa-sel-card--empty .qa-sel-card-title,
+.qa-sel-card--empty .qa-sel-card-metric { color: var(--qa-sel-muted); font-weight: 600; }
+.qa-sel-card--empty:hover .qa-sel-card-title,
+.qa-sel-card--empty:focus-visible .qa-sel-card-title { color: var(--qa-sel-text); }
+
+.qa-sel-card-metric {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--qa-sel-text);
+    font-variant-numeric: tabular-nums;
+}
+.qa-sel-card-metric small { font-size: 11px; font-weight: 600; color: var(--qa-sel-muted); }
+
+/* One status slot, the same height whichever of the two states it shows, so a
+   card with a bar and a card saying "No faculty assigned" still line up. */
+.qa-sel-card-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 16px;
+}
+.qa-sel-card-progress-bar {
+    flex: 1;
+    height: 4px;
+    border-radius: 99px;
+    background: hsl(220, 16%, 92%);
+    overflow: hidden;
+}
+.qa-sel-card-progress-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 99px;
+    background: var(--qa-sel-accent);
+    transition: width 0.25s ease;
+}
+.qa-sel-card-progress-bar span.is-complete {
+    background: hsl(142, 55%, 42%);
+}
+/* "0/1" said nothing about what was counted, so next to "6 files" it read as a
+   contradiction. It counts assigned faculty who have submitted; the noun says so. */
+.qa-sel-card-progress-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--qa-sel-muted);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+.qa-sel-card-progress-label small { font-size: 10px; font-weight: 500; }
+
+.qa-sel-card-foot {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+    font-size: 10.5px;
+    color: var(--qa-sel-dim);
+    line-height: 1.3;
+}
+.qa-sel-card-foot-sep {
+    opacity: 0.5;
+}
+
+/* Detail panel below cards */
+#areaDetailWrap { transition: opacity 0.18s ease; }
+#areaDetailWrap.is-loading { opacity: 0.55; pointer-events: none; }
+.qa-sel-detail-spinner {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 32px;
+    z-index: 3;
+}
+#areaDetailWrap.is-loading .qa-sel-detail-spinner { display: flex; }
+
+.qa-sel-detail-card {
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    background: var(--card-bg);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+}
+.qa-sel-detail-card .card-body {
+    padding: 16px 18px;
+}
+.qa-sel-detail-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid hsl(220, 14%, 94%);
+}
+.qa-sel-detail-head h5 {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 2px;
+    color: var(--qa-sel-text);
+}
+.qa-sel-detail-head p {
+    font-size: 12px;
+    margin: 0;
+    color: var(--qa-sel-muted);
+}
+
+.qa-sel-detail-empty {
+    padding: 14px 16px;
+    border: 1px dashed hsl(220, 14%, 86%);
+    border-radius: 10px;
+    background: hsl(220, 25%, 99%);
+    font-size: 12.5px;
+    color: var(--qa-sel-muted);
+}
+
+@keyframes qaSelFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+}
+.qa-sel-detail-card,
+.qa-sel-detail-empty {
+    animation: qaSelFadeIn 0.2s ease;
+}

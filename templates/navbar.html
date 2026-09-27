@@ -1,0 +1,120 @@
+<!-- Top Navbar -->
+<header class="top-navbar">
+    <div class="navbar-left">
+        <button class="sidebar-toggle d-lg-none" id="sidebarToggle" aria-label="Toggle sidebar">
+            <i class="bi bi-list"></i>
+        </button>
+        {% comment %}
+        The system name and tagline sat here on every page, directly under the
+        same name in the sidebar, and above the page's own heading -- three
+        titles stacked before any content. The reference system's top bar carries
+        no title at all, and reads far cleaner for it.
+
+        The h1 stays, visually hidden: the page's own heading is an h2, so
+        removing this outright would leave every page without a top-level
+        heading for a screen reader.
+        {% endcomment %}
+        <h1 class="visually-hidden">{% block page_title %}QA Archiving System{% endblock %}</h1>
+    </div>
+    <div class="navbar-right">
+        <a href="{% url 'documents:repository' %}" id="qaJobStatusPill" class="qa-job-status-pill d-none me-2" role="status" aria-live="polite" aria-hidden="true"
+           data-job-status-url-template="{% url 'documents:job_status' 0 %}"
+           data-repository-url="{% url 'documents:repository' %}"
+           title="View repository">Processing…</a>
+        <div class="dropdown me-2" id="qaNotifDropdown" data-mark-all-url="{% url 'notifications:mark_all_read' %}">
+            <button class="btn btn-light position-relative notif-bell" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications" style="border-radius:10px;padding:8px 12px;"
+                    data-live-badge="bell">
+                <i class="bi bi-bell"></i>
+                {% if notifications_unread_count and notifications_unread_count > 0 %}
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:10px;">
+                    {{ notifications_unread_count }}
+                    <span class="visually-hidden">unread notifications</span>
+                </span>
+                {% endif %}
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow" style="width:360px;max-width:360px;padding:0;border:none;border-radius:12px;overflow:hidden;">
+                <li class="d-flex justify-content-between align-items-center px-3 py-2" style="background:hsl(220,15%,97%);border-bottom:1px solid hsl(220,10%,90%);">
+                    <strong style="font-size:14px;color:hsl(220,20%,20%);"><i class="bi bi-bell me-2"></i>Notifications</strong>
+                    {% if notifications_unread_count and notifications_unread_count > 0 %}
+                    <span id="qaNotifMarkAllWrap">
+                        <button type="button" class="btn btn-link btn-sm p-0 js-notif-mark-all-read" style="font-size:12px;text-decoration:none;">Mark all read</button>
+                    </span>
+                    {% endif %}
+                </li>
+                <li style="max-height:420px;overflow-y:auto;overflow-x:hidden;">
+                {% if recent_notifications %}
+                    {% for n in recent_notifications %}
+                    <div>
+                        <a href="{% url 'notifications:open' n.pk %}" class="dropdown-item d-flex align-items-start px-3 py-2 {% if not n.is_read %}fw-semibold{% endif %}" style="white-space:normal;border-bottom:1px solid hsl(220,10%,95%);">
+                            <span class="me-2" style="margin-top:2px;">
+                                {% if n.category == 'duplicate' %}<i class="bi bi-exclamation-triangle text-warning"></i>
+                                {% elif n.category == 'completion' %}<i class="bi bi-check-circle text-success"></i>
+                                {% elif n.category == 'evidence' %}<i class="bi bi-link-45deg text-primary"></i>
+                                {% elif n.category == 'upload' %}<i class="bi bi-cloud-upload text-primary"></i>
+                                {% else %}<i class="bi bi-info-circle text-muted"></i>{% endif %}
+                            </span>
+                            <span style="flex:1;min-width:0;">
+                                <span style="font-size:13px;display:block;">{{ n.display_message }}</span>
+                                <small class="text-muted" style="font-size:11px;">{{ n.created_at|timesince }} ago</small>
+                            </span>
+                        </a>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="px-3 py-4 text-center text-muted" style="font-size:13px;">
+                        <i class="bi bi-bell-slash" style="font-size:22px;display:block;margin-bottom:6px;"></i>
+                        No notifications yet
+                    </div>
+                {% endif %}
+                </li>
+            </ul>
+        </div>
+        <div class="dropdown">
+            <button class="navbar-user-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                {% if user.profile.avatar_url %}
+                <img class="navbar-user-avatar" src="{{ user.profile.avatar_url }}" alt="{{ user.get_full_name|default:user.username }} profile picture">
+                {% else %}
+                <i class="bi bi-person-circle"></i>
+                {% endif %}
+                <span class="d-none d-md-inline">{{ user.get_full_name|default:user.username }}</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <span class="dropdown-item-text">
+                        <strong>{{ user.get_full_name|default:user.username }}</strong><br>
+                        <small class="text-muted">
+                            {% if user.profile %}{{ user.profile.get_role_display }}{% endif %}
+                        </small>
+                    </span>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                {% if user.profile.is_admin or user.is_superuser %}
+                <li><a class="dropdown-item" href="{% url 'accounts:settings' %}"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                {% endif %}
+                <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+            </ul>
+        </div>
+    </div>
+</header>
+
+<!-- Logout Confirmation Modal -->
+<div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content" style="border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+            <div class="modal-body text-center p-4">
+                <div style="width: 64px; height: 64px; background: hsl(0, 50%, 96%); color: hsl(0, 60%, 50%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 16px;">
+                    <i class="bi bi-box-arrow-right"></i>
+                </div>
+                <h5 class="mb-2" style="font-weight: 700; color: hsl(220, 20%, 15%);">Ready to leave?</h5>
+                <p style="color: hsl(220, 10%, 45%); font-size: 14px; margin-bottom: 24px;">You are about to sign out of the QA Archiving System.</p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn btn-light w-50" data-bs-dismiss="modal" style="border-radius: 8px; font-weight: 500;">Cancel</button>
+                    {% comment %}A form, not a link: signing out is a POST, so another site cannot sign people out by loading the URL. Same button look.{% endcomment %}
+                    <form method="post" action="{% url 'accounts:logout' %}" style="display: contents;">{% csrf_token %}
+                        <button type="submit" class="btn btn-danger w-50" style="border-radius: 8px; font-weight: 500;">Log Out</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

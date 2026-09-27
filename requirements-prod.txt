@@ -1,0 +1,9 @@
+# Production / MySQL extras — install AFTER requirements.txt (do not use -r requirements.txt here:
+# that would reinstall pandas/sklearn and can trigger broken source builds on Python 3.12).
+#
+#   pip install -r requirements.txt
+#   pip install -r requirements-prod.txt
+#
+# PyMySQL is pure Python (Windows + XAMPP friendly). Optional on Linux: mysqlclient instead.
+PyMySQL==1.1.1
+gunicorn==22.0.0

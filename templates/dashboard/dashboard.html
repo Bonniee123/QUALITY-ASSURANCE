@@ -1,0 +1,661 @@
+{% extends 'base.html' %}
+{% load asset_tags %}
+{% load static %}
+{% load dict_extras %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_css %}<link rel="stylesheet" href="{% static_v 'css/nexus.css' %}">{% endblock %}
+
+{% block content %}
+<div class="nexus-dashboard">
+
+    <!-- ================= TOP ACTION BAR ================= -->
+    <div class="nx-actionbar">
+        <div>
+            <h2 class="nx-page-title">Dashboard</h2>
+            {% comment %}
+            The trailing "here is what's happening across your QA programs" was
+            filler -- the heading above it already says Dashboard -- and it made
+            this block 558px wide, which pushed the toolbar onto a row of its
+            own. Without it the whole header fits on one line on a wide screen.
+            {% endcomment %}
+            <p class="nx-page-sub">
+                {{ greeting }}, <strong>{{ user.get_full_name|default:user.username }}</strong>
+            </p>
+            {% comment %}
+            Only shown when a programme filter is actually applied. The
+            "Showing All QA Documents (Combined)" version said exactly what the
+            programme dropdown a few centimetres to its right already said, and
+            cost a full row at the top of the page for it. When a filter *is*
+            set the chip earns its place: it names the filter and carries the
+            control that clears it.
+            {% endcomment %}
+            {% if current_program %}
+                <div class="nx-active-filter">
+                    <span class="nx-prog-dot" style="background:{{ current_program.color }};"></span>
+                    <span>Filtered by <strong>{{ current_program.code }} &middot; {{ current_program.name }}</strong></span>
+                    <a href="?period={{ period_value }}" class="nx-clear-filter" title="Clear filter">
+                        <i class="bi bi-x-circle"></i>
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+        <div class="nx-actions">
+            {% comment %}
+            These two report state; they are not controls. They used to wear the
+            same pill as the three controls beside them -- measured identical:
+            white fill, the same 1px border, 10px radius and 8px/14px padding --
+            so the only thing telling a reader that "Updated 12:41 PM" could not
+            be clicked was the absence of a caret. They are now plain text, and
+            a rule separates the things you read from the things you press.
+            {% endcomment %}
+            <span class="nx-readout nx-readout-live" title="When this dashboard data was generated">
+                <i class="bi bi-clock-history nx-i-text-teal" aria-hidden="true"></i>
+                <span>Updated {{ generated_at|time:"g:i A" }}</span>
+            </span>
+            <span class="nx-readout" title="Date range covered by the upload trend chart">
+                <i class="bi bi-calendar3 nx-i-text-teal" aria-hidden="true"></i>
+                <span>{{ period_range }}</span>
+            </span>
+            <span class="nx-actions-rule" aria-hidden="true"></span>
+
+            <!-- Period switcher (Monthly / Weekly / Daily) -->
+            <div class="dropdown">
+                <button class="nx-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span>{{ period_display }}</span>
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow nx-menu nx-menu-period">
+                    <li><a class="dropdown-item {% if period_value == 'monthly' %}active{% endif %}" href="?period=monthly{% if current_program %}&program={{ current_program.pk }}{% endif %}">
+                        <i class="bi bi-calendar3 me-2"></i>Monthly <small class="text-muted">(6 months)</small>
+                    </a></li>
+                    <li><a class="dropdown-item {% if period_value == 'weekly' %}active{% endif %}" href="?period=weekly{% if current_program %}&program={{ current_program.pk }}{% endif %}">
+                        <i class="bi bi-calendar-week me-2"></i>Weekly <small class="text-muted">(12 weeks)</small>
+                    </a></li>
+                    <li><a class="dropdown-item {% if period_value == 'daily' %}active{% endif %}" href="?period=daily{% if current_program %}&program={{ current_program.pk }}{% endif %}">
+                        <i class="bi bi-calendar-day me-2"></i>Daily <small class="text-muted">(30 days)</small>
+                    </a></li>
+                </ul>
+            </div>
+
+            <!-- Program filter -->
+            <div class="dropdown">
+                <button class="nx-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-funnel"></i>
+                    <span>{% if current_program %}{{ current_program.code }}{% else %}All QA Documents{% endif %}</span>
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow nx-menu nx-menu-program">
+                    <li><h6 class="dropdown-header nx-menu-header">QA Program</h6></li>
+                    <li><a class="dropdown-item {% if not current_program %}active{% endif %}" href="?period={{ period_value }}">
+                        <i class="bi bi-collection me-2"></i>All QA Documents (Combined)
+                    </a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    {% for prog in all_programs %}
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center {% if current_program.pk == prog.pk %}active{% endif %}"
+                           href="?period={{ period_value }}&program={{ prog.pk }}">
+                            <span class="nx-prog-dot me-2" style="background:{{ prog.color }};"></span>
+                            <span class="nx-program-meta">
+                                <strong class="nx-program-code">{{ prog.code }}</strong>
+                                <small class="d-block text-muted nx-program-name">{{ prog.name|truncatechars:32 }}</small>
+                            </span>
+                        </a>
+                    </li>
+                    {% empty %}
+                    <li><span class="dropdown-item-text text-muted nx-menu-empty">No active programs.</span></li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- Export -->
+            <a href="?period={{ period_value }}{% if current_program %}&program={{ current_program.pk }}{% endif %}&export=excel"
+               class="nx-btn nx-btn-primary" title="Download a styled Excel summary of this dashboard">
+                <i class="bi bi-file-earmark-excel"></i>
+                <span>Export Excel</span>
+            </a>
+        </div>
+    </div>
+
+    <h3 class="nx-section-title">At a glance</h3>
+    <div class="nx-kpi-row nx-kpi-row-auto">
+        <!-- Total Documents -->
+        <a href="{% url 'documents:repository' %}" class="nx-card nx-kpi nx-kpi-link nx-kpi-accent-blue">
+            <div class="nx-kpi-head">
+                <div class="nx-kpi-label"><i class="bi bi-file-earmark-text nx-i nx-i-blue"></i><span>Total Documents</span></div>
+                <i class="bi bi-arrow-right nx-kpi-go" aria-hidden="true"></i>
+            </div>
+            {% comment %}
+            No change badge here. This card counts the whole archive, and a
+            lifetime total has no period to be compared against -- the badge was
+            measuring the last 30 days against the 30 before them, while the
+            number beside it measured everything ever uploaded and the line
+            below it measured the last 30 days again. Three time frames, one
+            tile, and two of them invisible. The comparison belongs on
+            "Uploaded This Week", where a period is the point; the 30-day figure
+            stays in the footer, where it is labelled.
+            {% endcomment %}
+            <div class="nx-kpi-body">
+                <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ total_documents }}">{{ total_documents|default:0 }}</span></div>
+            </div>
+            <div class="nx-kpi-spark"><canvas id="kpiSparkTotal"></canvas></div>
+            <div class="nx-kpi-foot">
+                {% if total_documents %}<strong>{{ docs_last30 }}</strong> uploaded in last 30 days{% else %}No documents yet &mdash; upload to get started{% endif %}
+            </div>
+        </a>
+
+        <!-- Uploaded This Week -->
+        <a href="{{ week_repo_url }}" class="nx-card nx-kpi nx-kpi-link nx-kpi-accent-teal">
+            <div class="nx-kpi-head">
+                <div class="nx-kpi-label"><i class="bi bi-calendar-week nx-i nx-i-teal"></i><span>Uploaded This Week</span></div>
+                <i class="bi bi-arrow-right nx-kpi-go" aria-hidden="true"></i>
+            </div>
+            <div class="nx-kpi-body">
+                <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ docs_last7 }}">{{ docs_last7|default:0 }}</span></div>
+                {% comment %}
+                'new' means the previous 7 days were empty, so there is no
+                percentage to state. The footer below says why, rather than
+                leaving the reader to guess at a bare word.
+                {% endcomment %}
+                <span class="nx-delta nx-delta-{{ week_delta_dir }}" title="Change vs. previous 7 days">
+                    {% if week_delta_dir == 'new' %}New{% else %}{% if week_delta_dir == 'up' %}<i class="bi bi-arrow-up-short"></i>{% elif week_delta_dir == 'down' %}<i class="bi bi-arrow-down-short"></i>{% else %}<i class="bi bi-dash"></i>{% endif %}{{ week_delta_pct }}%{% endif %}
+                </span>
+            </div>
+            <div class="nx-kpi-spark"><canvas id="kpiSparkWeek"></canvas></div>
+            <div class="nx-kpi-foot">{% if week_delta_dir == 'new' %}No uploads in the previous 7 days{% else %}Last 7 days vs. previous 7{% endif %}</div>
+        </a>
+
+        {% comment %}
+        Duplicates and Clusters are staff work. A Faculty member cannot confirm
+        or dismiss a duplicate and cannot open the Clusters page, so an amber
+        "Action needed" was asking them for something the server would refuse,
+        and a cluster count led nowhere. Both cards are staff-only; the numbers
+        behind them are still computed in the view for the roles that use them.
+        {% endcomment %}
+        {% if not rbac_is_faculty %}
+        <!-- Duplicates to Review -->
+        <a href="{{ duplicate_repo_url }}" class="nx-card nx-kpi nx-kpi-link nx-kpi-accent-amber">
+            <div class="nx-kpi-head">
+                <div class="nx-kpi-label"><i class="bi bi-exclamation-triangle nx-i nx-i-amber"></i><span>Duplicates to Review</span></div>
+                <i class="bi bi-arrow-right nx-kpi-go" aria-hidden="true"></i>
+            </div>
+            <div class="nx-kpi-body">
+                <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ duplicate_review_count }}">{{ duplicate_review_count|default:0 }}</span></div>
+                {% if duplicate_review_count > 0 %}
+                <span class="nx-delta nx-delta-down nx-delta-warn">Action needed</span>
+                {% else %}
+                <span class="nx-delta nx-delta-up">All clear</span>
+                {% endif %}
+            </div>
+            <div class="nx-kpi-foot">Files flagged for duplicate review</div>
+        </a>
+
+        <!-- Document Clusters -->
+        <a href="{% url 'documents:repository' %}" class="nx-card nx-kpi nx-kpi-link nx-kpi-accent-purple">
+            <div class="nx-kpi-head">
+                <div class="nx-kpi-label"><i class="bi bi-diagram-3 nx-i nx-i-purple"></i><span>Document Clusters</span></div>
+                <i class="bi bi-arrow-right nx-kpi-go" aria-hidden="true"></i>
+            </div>
+            <div class="nx-kpi-body">
+                <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ cluster_count }}">{{ cluster_count|default:0 }}</span></div>
+            </div>
+            <div class="nx-kpi-foot">
+                {% if cluster_count %}AI-grouped topic clusters{% else %}Clusters form as documents are processed{% endif %}
+            </div>
+        </a>
+        {% endif %}
+
+        <!-- AI-Processed -->
+        <div class="nx-card nx-kpi nx-kpi-accent-green">
+            <div class="nx-kpi-head">
+                <div class="nx-kpi-label"><i class="bi bi-cpu nx-i nx-i-green"></i><span>AI-Processed</span></div>
+            </div>
+            <div class="nx-kpi-body">
+                <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ ai_processed_pct }}">{{ ai_processed_pct }}</span><span class="nx-kpi-unit">%</span></div>
+            </div>
+            <div class="nx-kpi-spark">
+                <div class="nx-bar-track"><div class="nx-bar-fill nx-bar-fill-green" style="width: {{ ai_processed_pct }}%;"></div></div>
+            </div>
+            <div class="nx-kpi-foot">
+                {% if total_documents %}<strong>{{ ai_processed_count }}</strong> of {{ total_documents }} processed by AI{% else %}No documents to process yet{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <h3 class="nx-section-title">Overview</h3>
+    <div class="nx-grid-row nx-grid-overview">
+        <div class="nx-card nx-insight-card">
+            <div class="nx-card-head">
+                <div class="nx-card-title"><i class="bi bi-bar-chart-line nx-i nx-i-indigo"></i><span>Upload Trend</span></div>
+                <span class="nx-pill-mini">{{ period_display }}</span>
+            </div>
+            <div class="nx-card-body nx-insight-body">
+                <div class="nx-chart-shell">
+                    <canvas id="docsTrendChart" role="img"
+                            aria-label="Upload trend bar chart, {{ period_display|lower }} view. {{ monthly_total_window }} document{{ monthly_total_window|pluralize }} uploaded over {{ period_label }}."></canvas>
+                    {% if monthly_total_window == 0 %}
+                    <div class="nx-empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <p>No uploads in this window yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="nx-legend" id="docsTrendLegend"></div>
+            </div>
+        </div>
+
+        <div class="nx-card nx-insight-card" id="qaDashboardCalendar"
+             data-cal-param="{{ calendar_nav.cal_param }}"
+             data-period="{{ period_value }}"
+             {% if current_program %}data-program="{{ current_program.pk }}"{% endif %}>
+            <div class="nx-card-head">
+                <div class="nx-card-title"><i class="bi bi-calendar3 nx-i nx-i-teal"></i><span>Upload Activity</span></div>
+                <div class="nx-calendar-nav">
+                    <a href="{{ calendar_nav.prev_url }}" class="nx-cal-nav-btn" title="{{ calendar_nav.prev_label }}"><i class="bi bi-chevron-left"></i></a>
+                    <span class="nx-cal-month-label">{{ calendar_month_label }}</span>
+                    <a href="{{ calendar_nav.next_url }}" class="nx-cal-nav-btn" title="{{ calendar_nav.next_label }}"><i class="bi bi-chevron-right"></i></a>
+                </div>
+            </div>
+            <div class="nx-card-body nx-calendar-body nx-insight-body">
+                <div class="nx-cal-weekdays">
+                    <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                </div>
+                <div class="nx-cal-grid">
+                    {% for week in calendar_weeks %}
+                    {% for cell in week %}
+                    <a href="?cal={{ calendar_nav.cal_param }}&day={{ cell.iso }}&period={{ period_value }}{% if current_program %}&program={{ current_program.pk }}{% endif %}"
+                       class="nx-cal-day {% if not cell.in_month %}is-outside{% endif %} {% if cell.has_uploads %}has-uploads{% endif %} {% if selected_day == cell.date %}is-selected{% endif %}"
+                       {% if not cell.in_month %}aria-hidden="true" tabindex="-1"{% endif %}
+                       title="{% if cell.has_uploads %}{{ cell.count }} upload{{ cell.count|pluralize }}{% else %}No uploads{% endif %}">
+                        <span class="nx-cal-day-num">{{ cell.day }}</span>
+                        {% if cell.has_uploads %}<span class="nx-cal-dot">{{ cell.count }}</span>{% endif %}
+                    </a>
+                    {% endfor %}
+                    {% endfor %}
+                </div>
+                <div class="nx-cal-day-detail">
+                    {% if selected_day %}
+                    <div class="nx-cal-detail-head">
+                        <strong>{{ selected_day|date:"M j, Y" }}</strong>
+                        <span class="text-muted">— {{ selected_day_count }} upload{{ selected_day_count|pluralize }}</span>
+                    </div>
+                    {% if selected_day_docs %}
+                    <ul class="nx-cal-doc-list">
+                        {% for doc in selected_day_docs %}
+                        <li>
+                            <a href="#" class="js-qa-doc-detail nx-doc-link"
+                               data-doc-id="{{ doc.pk }}"
+                               data-doc-title="{{ doc.title|truncatechars:80 }}"
+                               data-doc-download="{% url 'documents:download' doc.pk %}">{{ doc.title|truncatechars:40 }}</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% elif selected_day_count == 0 %}
+                    <p class="text-muted mb-0 nx-empty-text">No uploads on this day.</p>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-muted mb-0 nx-empty-text">Select a day to see uploads.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="nx-card nx-insight-card">
+            <div class="nx-card-head">
+                <div class="nx-card-title"><i class="bi bi-pie-chart nx-i nx-i-cyan"></i><span>File Formats</span></div>
+                <span class="nx-pill-mini">{{ file_format_total }} total</span>
+            </div>
+            <div class="nx-card-body nx-insight-body nx-format-body">
+                <div class="nx-donut-shell nx-donut-shell-compact">
+                    <canvas id="fileFormatChart" role="img"
+                            aria-label="File format distribution doughnut chart. {{ file_format_total }} document{{ file_format_total|pluralize }} total across {{ file_format_labels_count }} format type{{ file_format_labels_count|pluralize }}."></canvas>
+                    {% if file_format_total > 0 %}
+                    <div class="nx-donut-center" aria-hidden="true">
+                        <span class="nx-donut-center-num">{{ file_format_total }}</span>
+                        <span class="nx-donut-center-label">Documents</span>
+                    </div>
+                    {% else %}
+                    <div class="nx-empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <p>No documents yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="nx-legend nx-legend-center" id="fileFormatLegend"></div>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="nx-section-title">Recent Activity</h3>
+    <div class="nx-grid-row nx-grid-recent">
+        <div class="nx-card">
+            <div class="nx-card-head">
+                <div class="nx-card-title">
+                    <i class="bi bi-clock-history nx-i nx-i-blue"></i>
+                    <span>Recent Uploads</span>
+                </div>
+                <a href="{% url 'documents:repository' %}" class="nx-link nx-link-sm">View all &rarr;</a>
+            </div>
+            <div class="nx-card-body nx-card-body-flush">
+                <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="Recent uploads">
+                <table class="nx-table nx-table-rich">
+                    <thead><tr><th>Document</th><th>Uploaded by</th><th>Cluster</th><th class="text-end">Date</th><th class="nx-th-actions"></th></tr></thead>
+                    <tbody>
+                    {% for doc in recent_uploads %}
+                    <tr>
+                        <td>
+                            <div class="nx-doc-cell">
+                                {% if doc.file_type == 'pdf' %}<i class="bi bi-file-earmark-pdf nx-ft nx-ft-pdf"></i>
+                                {% elif doc.file_type == 'docx' %}<i class="bi bi-file-earmark-word nx-ft nx-ft-doc"></i>
+                                {% elif doc.file_type == 'xlsx' %}<i class="bi bi-file-earmark-excel nx-ft nx-ft-xls"></i>
+                                {% elif doc.file_type == 'jpg' or doc.file_type == 'jpeg' or doc.file_type == 'png' %}<i class="bi bi-file-earmark-image nx-ft nx-ft-img"></i>
+                                {% else %}<i class="bi bi-file-earmark-text nx-ft nx-ft-other"></i>{% endif %}
+                                <div class="nx-doc-cell-text">
+                                    <a href="#" class="js-qa-doc-detail nx-doc-link"
+                                       data-doc-id="{{ doc.pk }}"
+                                       data-doc-title="{{ doc.title|truncatechars:80 }}"
+                                       data-doc-download="{% url 'documents:download' doc.pk %}">
+                                        {{ doc.title|truncatechars:34 }}
+                                    </a>
+                                    <span class="nx-doc-cell-type">{{ doc.file_type|upper }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if doc.uploaded_by %}
+                                <span class="nx-uploader">
+                                    {% include 'includes/avatar.html' with avatar_user=doc.uploaded_by avatar_class='nx-uploader-avatar' %}
+                                    <span class="nx-uploader-name">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username|truncatechars:18 }}</span>
+                                </span>
+                            {% else %}
+                                <span class="nx-cell-empty">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if doc.cluster_label is not None %}
+                                <span class="nx-tiny-badge nx-badge-cluster" title="{{ cluster_names|get_item:doc.cluster_label|default:'' }}">C{{ doc.cluster_label }}</span>
+                            {% else %}
+                                <span class="nx-cell-empty">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end nx-cell-date">{{ doc.uploaded_at|date:"M d" }}</td>
+                        <td class="nx-td-actions">
+                            <div class="nx-row-actions">
+                                <a href="#" class="nx-row-act js-qa-doc-detail" title="View details"
+                                   data-doc-id="{{ doc.pk }}"
+                                   data-doc-title="{{ doc.title|truncatechars:80 }}"
+                                   data-doc-download="{% url 'documents:download' doc.pk %}"><i class="bi bi-eye"></i></a>
+                                <a href="{% url 'documents:download' doc.pk %}" class="nx-row-act" title="Download"><i class="bi bi-download"></i></a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">No documents uploaded yet.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="nx-card">
+            <div class="nx-card-head">
+                <div class="nx-card-title">
+                    <i class="bi bi-activity nx-i nx-i-green"></i>
+                    <span>Activity Feed</span>
+                </div>
+                <span class="nx-pill-mini">Latest</span>
+            </div>
+            <div class="nx-card-body repo-scroll-panel repo-scroll-panel--embedded nx-activity-panel" role="region" aria-label="Activity feed">
+                {% for log in recent_activity %}
+                <div class="nx-activity">
+                    <div class="nx-activity-icon {% if log.action == 'upload' or log.action == 'bulk_upload' %}upload{% elif log.action == 'auto_ai_processing' or log.action == 'ai_processing' %}ai{% elif log.action == 'delete' or log.action == 'bulk_delete' %}delete{% elif log.action == 'edit' or log.action == 'edit_document' or log.action == 'update' %}edit{% elif log.action == 'login' or log.action == 'logout' %}auth{% else %}default{% endif %}">
+                        {% if log.action == 'upload' or log.action == 'bulk_upload' %}<i class="bi bi-cloud-arrow-up"></i>
+                        {% elif log.action == 'auto_ai_processing' or log.action == 'ai_processing' %}<i class="bi bi-cpu"></i>
+                        {% elif log.action == 'delete' or log.action == 'bulk_delete' %}<i class="bi bi-trash3"></i>
+                        {% elif log.action == 'edit' or log.action == 'edit_document' or log.action == 'update' %}<i class="bi bi-pencil"></i>
+                        {% elif log.action == 'login' or log.action == 'logout' %}<i class="bi bi-box-arrow-in-right"></i>
+                        {% else %}<i class="bi bi-activity"></i>{% endif %}
+                    </div>
+                    <div class="nx-activity-body">
+                        {% comment %}
+                        display_description is the description with the trailing
+                        "(IP …)" removed. The address stays on the record and is
+                        shown in full on the Audit Log; it does not belong on a
+                        dashboard that colleagues read.
+                        {% endcomment %}
+                        <div class="nx-activity-text">{{ log.display_description|default:log.description|truncatechars:55 }}</div>
+                        <div class="nx-activity-time">
+                            {% if log.user %}<span class="nx-activity-user">{{ log.user.get_full_name|default:log.user.username }}</span> &middot; {% endif %}{{ log.created_at|timesince }} ago
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center py-3 nx-empty-text">No activity yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static_v 'js/dashboard-calendar.js' %}"></script>
+<script>
+var monthlyLabels = {{ monthly_labels|safe }};
+var monthlyCounts = {{ monthly_counts|safe }};
+var programLines = {{ monthly_program_lines|safe }};
+var fmtLabels = {{ file_format_labels|safe }};
+var fmtCounts = {{ file_format_counts|safe }};
+var sparkCounts = {{ spark_counts|safe }};
+
+var formatPalette = [
+    'hsl(180, 60%, 35%)', 'hsl(220, 70%, 58%)', 'hsl(265, 65%, 60%)',
+    'hsl(330, 65%, 55%)', 'hsl(35, 90%, 55%)', 'hsl(150, 60%, 45%)',
+    'hsl(15, 80%, 55%)', 'hsl(220, 15%, 60%)'
+];
+
+// --- KPI sparklines (tiny inline trend behind the big number) ---
+(function() {
+    function drawSpark(id, data, color) {
+        var el = document.getElementById(id);
+        if (!el || !data || !data.length) return;
+        var sum = data.reduce(function(a, b) { return a + b; }, 0);
+        if (sum === 0) { el.parentElement.style.display = 'none'; return; }
+        new Chart(el, {
+            type: 'line',
+            data: {
+                labels: data.map(function(_, i) { return i; }),
+                datasets: [{
+                    data: data,
+                    borderColor: color,
+                    borderWidth: 2,
+                    fill: true,
+                    backgroundColor: 'rgba(30, 90, 150, 0.06)',
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                scales: { x: { display: false }, y: { display: false, beginAtZero: true } },
+                elements: { line: { borderCapStyle: 'round' } }
+            }
+        });
+    }
+    var brand = getComputedStyle(document.documentElement)
+        .getPropertyValue('--color-brand').trim() || '#1D4ED8';
+    drawSpark('kpiSparkTotal', sparkCounts, brand);
+    drawSpark('kpiSparkWeek', sparkCounts.slice(-7), brand);
+})();
+
+// KPI count-up now lives in static/js/main.js, which handles both
+// .stat-value and .nx-num[data-countup]. This page carried a duplicate copy.
+
+(function() {
+    var ctx = document.getElementById('docsTrendChart');
+    if (!ctx) return;
+    var totalSum = monthlyCounts.reduce(function(a, b) { return a + b; }, 0);
+    if (totalSum === 0) { ctx.style.display = 'none'; return; }
+
+    var datasets = [];
+    if (programLines && programLines.length > 0) {
+        programLines.forEach(function(p) {
+            datasets.push({
+                label: p.label,
+                data: p.data,
+                backgroundColor: p.color,
+                borderRadius: 4,
+                borderSkipped: false,
+                stack: 'progs',
+                barPercentage: 0.6,
+                categoryPercentage: 0.7,
+            });
+        });
+    } else {
+        datasets.push({
+            label: 'Documents',
+            data: monthlyCounts,
+            backgroundColor: 'hsl(180, 60%, 35%)',
+            borderRadius: 6,
+            borderSkipped: false,
+            barPercentage: 0.5,
+            categoryPercentage: 0.7,
+        });
+    }
+
+    // Dashed average reference line (isolated stack so it doesn't add to the bars).
+    var avg = monthlyCounts.length ? totalSum / monthlyCounts.length : 0;
+    datasets.push({
+        type: 'line',
+        label: 'Average',
+        data: monthlyLabels.map(function() { return avg; }),
+        borderColor: 'hsl(220, 12%, 58%)',
+        borderWidth: 1.5,
+        borderDash: [5, 4],
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        fill: false,
+        tension: 0,
+        stack: 'avgline',
+    });
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: { labels: monthlyLabels, datasets: datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'hsl(220, 25%, 15%)',
+                    padding: 10,
+                    titleFont: { size: 12, weight: '600' },
+                    bodyFont: { size: 12 },
+                    cornerRadius: 8,
+                    displayColors: true,
+                    boxWidth: 8,
+                    boxPadding: 4,
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { display: false },
+                    ticks: { color: 'hsl(220,10%,55%)', font: { size: 11.5 } },
+                    border: { color: 'hsl(220,15%,90%)' }
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    grid: { color: 'hsl(220,15%,94%)', drawBorder: false },
+                    ticks: { color: 'hsl(220,10%,55%)', font: { size: 11 }, precision: 0 },
+                    border: { display: false }
+                }
+            }
+        }
+    });
+
+    var legendEl = document.getElementById('docsTrendLegend');
+    if (legendEl) {
+        legendEl.innerHTML = '';
+        if (programLines && programLines.length > 0) {
+            programLines.forEach(function(p) {
+                var item = document.createElement('div');
+                item.className = 'nx-legend-item';
+                item.innerHTML = '<span class="nx-legend-swatch" style="background:' + p.color + '"></span>' + p.label;
+                legendEl.appendChild(item);
+            });
+        }
+        var avgItem = document.createElement('div');
+        avgItem.className = 'nx-legend-item';
+        avgItem.innerHTML = '<span class="nx-legend-swatch nx-legend-swatch-dash"></span>Average (' + avg.toFixed(1) + ')';
+        legendEl.appendChild(avgItem);
+    }
+})();
+
+(function() {
+    var ctx = document.getElementById('fileFormatChart');
+    if (!ctx) return;
+    if (!fmtLabels.length) {
+        ctx.style.display = 'none';
+        return;
+    }
+
+    var colors = fmtLabels.map(function(_, i) { return formatPalette[i % formatPalette.length]; });
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: fmtLabels,
+            datasets: [{
+                data: fmtCounts,
+                backgroundColor: colors,
+                borderColor: 'white',
+                borderWidth: 3,
+                hoverOffset: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'hsl(220, 25%, 15%)',
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(c) {
+                            var total = fmtCounts.reduce(function(a, b) { return a + b; }, 0);
+                            var pct = total > 0 ? Math.round((c.parsed / total) * 100) : 0;
+                            return c.label + ': ' + c.parsed + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    var legendEl = document.getElementById('fileFormatLegend');
+    if (legendEl) {
+        legendEl.innerHTML = '';
+        fmtLabels.forEach(function(label, i) {
+            var item = document.createElement('div');
+            item.className = 'nx-legend-item';
+            item.innerHTML = '<span class="nx-legend-swatch" style="background:' + colors[i] + '"></span>' + label;
+            legendEl.appendChild(item);
+        });
+    }
+})();
+</script>
+{% endblock %}

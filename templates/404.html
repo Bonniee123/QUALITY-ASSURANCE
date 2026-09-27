@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Not Found | QA Archiving System</title>
+    <style>
+        :root { --slate: #0F172A; --brand: #1D4ED8; --brand-dark: #1E3A8A; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: hsl(210, 20%, 97%);
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .err-card {
+            background: #fff;
+            border: 1px solid hsl(215, 16%, 88%);
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+            max-width: 560px;
+            width: 100%;
+            padding: 40px 36px 44px;
+            text-align: center;
+        }
+        .err-art { display: block; width: 100%; max-width: 380px; height: auto; margin: 0 auto; }
+        .err-code {
+            font-size: 84px;
+            font-weight: 800;
+            letter-spacing: -3px;
+            line-height: 1;
+            color: var(--slate);
+            margin: 4px 0 6px;
+        }
+        .err-title { font-size: 20px; font-weight: 700; letter-spacing: -0.2px; margin-bottom: 10px; }
+        .err-text { font-size: 15px; color: #64748b; line-height: 1.6; margin: 0 auto 26px; max-width: 380px; }
+        .err-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--brand);
+            color: #fff;
+            text-decoration: none;
+            padding: 12px 26px;
+            border-radius: 9999px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background .18s, transform .1s;
+        }
+        .err-btn:hover { background: var(--brand-dark); transform: translateY(-1px); }
+        @media (max-width: 480px) {
+            .err-card { padding: 28px 20px 32px; }
+            .err-code { font-size: 62px; letter-spacing: -2px; }
+            .err-title { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="err-card">
+        <svg class="err-art" viewBox="0 0 420 250" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Illustration: a screen with a magnifying glass and an unplugged cable">
+            <!-- soft background shapes -->
+            <circle cx="56" cy="52" r="30" fill="#EEF3FF"/>
+            <circle cx="372" cy="70" r="21" fill="#EEF3FF"/>
+            <circle cx="332" cy="26" r="6" fill="#C7D7FE"/>
+            <circle cx="70" cy="126" r="5" fill="#C7D7FE"/>
+            <circle cx="398" cy="158" r="7" fill="#C7D7FE"/>
+            <ellipse cx="210" cy="226" rx="152" ry="12" fill="#E8EEFB"/>
+
+            <!-- the screen -->
+            <rect x="166" y="40" width="92" height="170" rx="16" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="3"/>
+            <rect x="176" y="58" width="72" height="134" rx="9" fill="#EEF3FF"/>
+            <rect x="196" y="47" width="32" height="5" rx="2.5" fill="#C7D7FE"/>
+            <circle cx="206" cy="112" r="21" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="4"/>
+            <text x="206" y="121" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif"
+                  font-size="24" font-weight="800" fill="#1D4ED8">?</text>
+            <line x1="221" y1="127" x2="235" y2="141" stroke="#1D4ED8" stroke-width="6" stroke-linecap="round"/>
+            <rect x="188" y="160" width="48" height="6" rx="3" fill="#C7D7FE"/>
+            <rect x="196" y="174" width="32" height="6" rx="3" fill="#C7D7FE"/>
+
+            <!-- person, seated on a block with a laptop -->
+            <rect x="64" y="178" width="54" height="34" rx="7" fill="#DBE7FE"/>
+            <path d="M98 180l28 3" stroke="#1E3A8A" stroke-width="13" stroke-linecap="round"/>
+            <path d="M126 183l2 27" stroke="#1E3A8A" stroke-width="13" stroke-linecap="round"/>
+            <path d="M128 210h9" stroke="#1E3A8A" stroke-width="9" stroke-linecap="round"/>
+            <rect x="85" y="136" width="27" height="48" rx="13.5" fill="#1D4ED8"/>
+            <circle cx="98" cy="120" r="13" fill="#9DBAFD"/>
+            <g transform="rotate(-8 126 168)">
+                <rect x="110" y="172" width="36" height="6" rx="3" fill="#1E3A8A"/>
+                <rect x="114" y="153" width="29" height="19" rx="3" fill="#B9CFFE" stroke="#1D4ED8" stroke-width="1.5"/>
+            </g>
+            <path d="M107 148l14 18" stroke="#9DBAFD" stroke-width="8" stroke-linecap="round"/>
+
+            <!-- person, standing, hands out: where did it go? -->
+            <path d="M322 176l-7 34" stroke="#1E3A8A" stroke-width="11" stroke-linecap="round"/>
+            <path d="M336 176l8 34" stroke="#1E3A8A" stroke-width="11" stroke-linecap="round"/>
+            <path d="M315 210h-9M344 210h9" stroke="#1E3A8A" stroke-width="9" stroke-linecap="round"/>
+            <rect x="315" y="126" width="28" height="54" rx="14" fill="#1D4ED8"/>
+            <circle cx="329" cy="108" r="14" fill="#9DBAFD"/>
+            <path d="M343 140l16-14" stroke="#9DBAFD" stroke-width="8" stroke-linecap="round"/>
+            <circle cx="362" cy="123" r="5" fill="#9DBAFD"/>
+            <path d="M315 140l-15 16" stroke="#9DBAFD" stroke-width="8" stroke-linecap="round"/>
+            <circle cx="297" cy="159" r="5" fill="#9DBAFD"/>
+
+            <!-- the cable in front, its two ends not meeting -->
+            <path d="M142 208c16 9 30 12 40 13" stroke="#1E3A8A" stroke-width="5" fill="none" stroke-linecap="round"/>
+            <rect x="180" y="215" width="15" height="11" rx="3" fill="#1E3A8A"/>
+            <path d="M290 208c-17 9-31 12-41 13" stroke="#1E3A8A" stroke-width="5" fill="none" stroke-linecap="round"/>
+            <rect x="233" y="215" width="15" height="11" rx="3" fill="#1E3A8A"/>
+            <path d="M227 218h6M227 223h6" stroke="#1E3A8A" stroke-width="3" stroke-linecap="round"/>
+
+            <!-- plants -->
+            <path d="M52 212c0-13 7-22 17-24-2 15-7 22-17 24z" fill="#BBD3FE"/>
+            <path d="M52 212c-9-6-13-15-11-24 11 6 15 15 11 24z" fill="#9DBAFD"/>
+            <path d="M376 212c0-11 6-19 14-21-2 13-6 19-14 21z" fill="#BBD3FE"/>
+            <path d="M376 212c-8-5-11-13-9-21 9 5 13 13 9 21z" fill="#9DBAFD"/>
+        </svg>
+        <div class="err-code">404</div>
+        <h1 class="err-title">Oops! Page not found</h1>
+        <p class="err-text">The page you're looking for doesn't exist or may have been moved. Check the address, or head back to your dashboard.</p>
+        <a href="/" class="err-btn">Go back to homepage</a>
+    </div>
+</body>
+</html>

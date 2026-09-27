@@ -1,0 +1,875 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Messages{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ---------------------------------------------------------------------------
+   Messages.
+
+   Deliberately the same two-pane shape and the same class vocabulary as the QA
+   Assistant page, so the system has one conversation design rather than two.
+   Only what direct messaging adds is defined here: the recipient picker, unread
+   badges, and the withheld-document placeholder.
+   --------------------------------------------------------------------------- */
+
+.qa-agent {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 16px;
+    height: calc(100vh - var(--navbar-height) - 128px);
+    min-height: 460px;
+}
+
+.qa-threads, .qa-chat {
+    display: flex; flex-direction: column; min-height: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+.qa-chat { min-width: 0; }
+
+.qa-threads-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--color-border); }
+.qa-threads-title {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; font-weight: 700; color: var(--color-text-primary);
+    margin-bottom: 10px;
+}
+.qa-new-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; font-size: 12px; font-weight: 600;
+    border-radius: var(--radius-sm); border: 1px solid var(--color-border-strong);
+    background: var(--color-surface); color: var(--color-brand); cursor: pointer;
+}
+.qa-new-btn:hover { background: var(--color-brand-light); }
+.qa-thread-search {
+    width: 100%; padding: 8px 11px; font-size: 13px;
+    border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm);
+    background: var(--color-surface); color: var(--color-text-primary);
+}
+.qa-thread-list { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; }
+
+.qa-thread {
+    position: relative; display: flex; gap: 10px; align-items: center;
+    width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 3px;
+    border: 0; border-radius: var(--radius-sm); background: transparent; cursor: pointer;
+}
+.qa-thread:hover { background: var(--color-overlay); }
+.qa-thread.is-active { background: var(--color-brand-light); }
+.qa-thread.is-active::before {
+    content: ''; position: absolute; left: 0; top: 8px; bottom: 8px;
+    width: 3px; border-radius: 0 3px 3px 0; background: var(--color-brand);
+}
+.qa-thread-body { flex: 1; min-width: 0; }
+.qa-thread-name {
+    display: block; font-size: 13px; font-weight: 600; color: var(--color-text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.qa-thread-preview {
+    display: block; font-size: 12px; color: var(--color-text-secondary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.qa-thread-time { font-size: 10.5px; color: var(--color-text-muted); }
+/* Unread is a count, not a dot: "3" tells you whether to open it now. */
+.qa-unread {
+    min-width: 19px; height: 19px; padding: 0 6px; border-radius: var(--radius-full);
+    background: var(--color-brand); color: #fff; font-size: 10.5px; font-weight: 700;
+    display: grid; place-items: center; flex-shrink: 0;
+}
+.qa-threads-empty { padding: 26px 16px; text-align: center; font-size: 12.5px;
+    color: var(--color-text-secondary); }
+/* Separates people you have never messaged from existing conversations. */
+.qa-list-label {
+    padding: 12px 12px 5px; font-size: 10.5px; font-weight: 700;
+    letter-spacing: .6px; text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.qa-person-avatar {
+    width: 36px; height: 36px; border-radius: var(--radius-full); flex-shrink: 0;
+    display: grid; place-items: center; font-size: 12.5px; font-weight: 700; color: #fff;
+    background: var(--color-brand);
+}
+
+/* ---------------------------------------------------------------------- chat */
+
+.qa-chat-head {
+    display: flex; align-items: center; gap: 12px; padding: 12px 18px;
+    border-bottom: 1px solid var(--color-border); flex-shrink: 0;
+}
+.qa-head-name { font-size: 14.5px; font-weight: 700; color: var(--color-text-primary); }
+.qa-head-role { font-size: 12px; color: var(--color-text-secondary); }
+
+.qa-messages {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 20px 22px 26px; display: flex; flex-direction: column; gap: 12px;
+}
+.qa-row { display: flex; gap: 10px; max-width: 78%; }
+.qa-row.is-mine { margin-left: auto; flex-direction: row-reverse; }
+.qa-bubble {
+    padding: 9px 13px; border-radius: 16px; font-size: 13.5px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
+}
+.qa-row.is-theirs .qa-bubble {
+    background: var(--color-overlay); color: var(--color-text-primary);
+    border-bottom-left-radius: 5px;
+}
+.qa-row.is-mine .qa-bubble {
+    background: var(--color-brand); color: #fff; border-bottom-right-radius: 5px;
+}
+.qa-msg-meta { font-size: 10.5px; color: var(--color-text-muted); margin-top: 3px; }
+.qa-row.is-mine .qa-msg-meta { text-align: right; }
+.qa-mini-avatar {
+    width: 28px; height: 28px; border-radius: var(--radius-full); flex-shrink: 0;
+    display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff;
+    background: var(--color-brand);
+}
+.qa-row.is-mine .qa-mini-avatar {
+    background: var(--color-overlay); color: var(--color-text-secondary);
+}
+
+/* ------------------------------------------------------- attached documents */
+
+.qa-card {
+    border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+    padding: 10px 12px; margin-top: 7px; background: var(--color-surface);
+}
+.qa-card-title { font-size: 12.5px; font-weight: 650; color: var(--color-text-primary);
+    margin-bottom: 5px; line-height: 1.35; }
+.qa-chip {
+    font-size: 10.5px; font-weight: 600; padding: 2px 8px; margin-right: 5px;
+    border-radius: var(--radius-full); background: var(--color-overlay);
+    color: var(--color-text-secondary);
+}
+.qa-card-btn {
+    display: inline-block; margin-top: 7px;
+    font-size: 11.5px; font-weight: 600; padding: 4px 10px; text-decoration: none;
+    border-radius: var(--radius-xs); border: 1px solid var(--color-border-strong);
+    color: var(--color-brand); background: var(--color-surface);
+}
+.qa-card-btn:hover { background: var(--color-brand-light); color: var(--color-brand-dark); }
+
+/* The sender attached something this reader may not open. Stating that plainly
+   is the point: the alternative is a title they should not see, or a link that
+   fails confusingly. */
+.qa-card.is-withheld {
+    border-style: dashed; background: var(--color-overlay);
+    color: var(--color-text-secondary); font-size: 12px;
+    display: flex; align-items: center; gap: 8px;
+}
+
+/* --------------------------------------------------------------- composer */
+
+.qa-composer {
+    display: flex; gap: 9px; padding: 12px 16px;
+    border-top: 1px solid var(--color-border); flex-shrink: 0;
+}
+.qa-input {
+    flex: 1; padding: 10px 14px; font-size: 13.5px;
+    border: 1px solid var(--color-border-strong); border-radius: var(--radius-full);
+    background: var(--color-surface); color: var(--color-text-primary);
+}
+.qa-input:focus { outline: 2px solid var(--color-brand); outline-offset: 1px; }
+.qa-send {
+    width: 40px; height: 40px; flex-shrink: 0; border: 0;
+    border-radius: var(--radius-full); background: var(--color-brand); color: #fff;
+    display: grid; place-items: center; cursor: pointer; font-size: 15px;
+}
+.qa-send:hover { background: var(--color-brand-hover); }
+.qa-send:disabled { opacity: .5; cursor: not-allowed; }
+
+.qa-empty { margin: auto; text-align: center; max-width: 400px; padding: 20px; }
+.qa-empty-icon {
+    width: 54px; height: 54px; margin: 0 auto 14px; border-radius: var(--radius-full);
+    display: grid; place-items: center; font-size: 23px; color: #fff;
+    background: var(--color-brand);
+}
+
+/* ------------------------------------------------------- recipient picker */
+
+.qa-people-backdrop {
+    position: fixed; inset: 0; background: rgba(2, 32, 48, .38);
+    display: none; align-items: center; justify-content: center; z-index: 10900;
+}
+.qa-people-backdrop.is-open { display: flex; }
+.qa-people {
+    width: min(420px, calc(100vw - 32px)); max-height: 72vh;
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+}
+.qa-people-head { padding: 14px 16px; border-bottom: 1px solid var(--color-border); }
+.qa-people-list { overflow-y: auto; padding: 8px; }
+/* Read receipt beside your own messages: a single tick for sent, a double tick
+   once the other participant has opened the thread. */
+.qa-receipt {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 6px;
+    font-size: 10.5px;
+    color: var(--color-text-muted);
+}
+.qa-receipt.is-read { color: var(--color-brand); }
+.qa-receipt i { font-size: 12px; }
+
+/* Marks the point the reader last left off, so a conversation opened after a
+   gap does not have to be re-read from the top. */
+.qa-new-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 2px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--color-brand);
+}
+.qa-new-divider::before,
+.qa-new-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+}
+
+.qa-person {
+    display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+    padding: 9px 11px; border: 0; border-radius: var(--radius-sm);
+    background: transparent; cursor: pointer;
+}
+.qa-person:hover { background: var(--color-overlay); }
+.qa-person-name { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+.qa-person-role { font-size: 11.5px; color: var(--color-text-secondary); }
+
+@media (max-width: 991px) {
+    .qa-agent { grid-template-columns: 1fr; height: auto; }
+    .qa-threads { max-height: 220px; }
+    .qa-chat { height: calc(100vh - 310px); min-height: 400px; }
+    .qa-row { max-width: 92%; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header mb-3">
+    <div>
+        <h2>Messages</h2>
+        <p>Message anyone in the QA Office directly.</p>
+    </div>
+</div>
+
+<div class="qa-agent">
+    <aside class="qa-threads">
+        <div class="qa-threads-head">
+            <div class="qa-threads-title">
+                <span>Conversations</span>
+                <button type="button" class="qa-new-btn" id="msgNew">
+                    <i class="bi bi-pencil-square"></i> New
+                </button>
+            </div>
+            <label for="msgSearch" class="visually-hidden">Search conversations</label>
+            <input type="search" id="msgSearch" class="qa-thread-search"
+                   placeholder="Search people or messages…" autocomplete="off">
+        </div>
+        <div class="qa-thread-list" id="msgThreads" role="list"></div>
+    </aside>
+
+    <section class="qa-chat">
+        <header class="qa-chat-head" id="msgHeader" hidden>
+            <div class="qa-person-avatar" id="msgHeadAvatar" aria-hidden="true"></div>
+            <div class="flex-grow-1 min-w-0">
+                <div class="qa-head-name" id="msgHeadName"></div>
+                <div class="qa-head-role" id="msgHeadRole"></div>
+            </div>
+        </header>
+
+        <div class="qa-messages" id="msgMessages" role="log" aria-live="polite"
+             aria-label="Conversation"></div>
+
+        <form class="qa-composer" id="msgComposer" hidden>
+            <label for="msgInput" class="visually-hidden">Write a message</label>
+            <input type="text" class="qa-input" id="msgInput" autocomplete="off"
+                   placeholder="Write a message…">
+            <button type="submit" class="qa-send" id="msgSend" aria-label="Send">
+                <i class="bi bi-send"></i>
+            </button>
+        </form>
+    </section>
+</div>
+
+<!-- recipient picker -->
+<div class="qa-people-backdrop" id="msgPeopleBackdrop" role="dialog" aria-modal="true"
+     aria-label="Choose someone to message">
+    <div class="qa-people">
+        <div class="qa-people-head">
+            <label for="msgPeopleSearch" class="visually-hidden">Search people</label>
+            <input type="search" id="msgPeopleSearch" class="qa-thread-search"
+                   placeholder="Search people…" autocomplete="off">
+        </div>
+        <div class="qa-people-list" id="msgPeopleList"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    /* The signed-in account, rendered by the server for this request. Message
+       payloads carry their sender_id, so the interface decides "mine" by
+       comparing the two ids rather than trusting a boolean it cannot verify --
+       and a payload built for a different account is ignored rather than drawn
+       as this user's own messages. */
+    var VIEWER_ID = {{ request.user.pk|default:0 }};
+    'use strict';
+
+    var threadsEl = document.getElementById('msgThreads');
+    var messagesEl = document.getElementById('msgMessages');
+    var headerEl = document.getElementById('msgHeader');
+    var composerEl = document.getElementById('msgComposer');
+    var inputEl = document.getElementById('msgInput');
+    var sendEl = document.getElementById('msgSend');
+    var searchEl = document.getElementById('msgSearch');
+    var newEl = document.getElementById('msgNew');
+    var backdropEl = document.getElementById('msgPeopleBackdrop');
+    var peopleListEl = document.getElementById('msgPeopleList');
+    var peopleSearchEl = document.getElementById('msgPeopleSearch');
+
+    var activeId = null;
+    var lastMessageId = 0;
+    var pollTimer = null;
+
+    function csrf() {
+        var m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s == null ? '' : String(s);
+        return d.innerHTML;
+    }
+    /* One person's picture, or their initials when they have no photo.
+
+       The element keeps its class either way, so it keeps the exact size,
+       shape and fallback colour the design already had -- the photo is laid
+       inside it rather than replacing it.
+
+       `who` is always the person the avatar is *for*: a thread's other
+       participant, a roster row, or a message's own sender. It is never the
+       signed-in reader, which is what stops one face being stamped on every
+       message in a conversation. */
+    function avatarHTML(who, cls) {
+        var url = who && who.avatar;
+        if (url) {
+            return '<span class="' + cls + ' has-photo">' +
+                     '<img src="' + esc(url) + '" alt="" loading="lazy" decoding="async">' +
+                   '</span>';
+        }
+        return '<span class="' + cls + '" aria-hidden="true">' +
+               esc((who && who.initials) || '') + '</span>';
+    }
+
+    /* The same decision applied to an element that already exists, so the
+       header's avatar node is reused across conversations instead of being
+       rebuilt (and losing its id) each time one is opened. */
+    function paintAvatar(el, who) {
+        if (!el) { return; }
+        var url = who && who.avatar;
+        el.classList.toggle('has-photo', !!url);
+        if (url) {
+            el.innerHTML = '<img src="' + esc(url) + '" alt="" decoding="async">';
+        } else {
+            el.textContent = (who && who.initials) || '';
+        }
+    }
+
+    function post(url, payload) {
+        return fetch(url, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+            body: JSON.stringify(payload || {})
+        }).then(function (r) { return r.json(); });
+    }
+    function scrollDown() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+
+    /* ------------------------------------------------------------- threads */
+
+    function renderThreads(list, newContacts, areaInfo) {
+        newContacts = newContacts || [];
+        areaInfo = areaInfo || {};
+        if (!list.length && !newContacts.length) {
+            var empty;
+            if (areaInfo.isArea) {
+                // The query named a real area, so say that rather than the
+                // generic "no match" -- the distinction tells the user their
+                // search was understood and the area simply has nobody in it.
+                empty = 'No users found in this area.';
+            } else if (searchEl.value.trim()) {
+                empty = 'Nobody and no messages match that.';
+            } else {
+                empty = 'No conversations yet.<br>Choose <strong>New</strong> to message someone.';
+            }
+            threadsEl.innerHTML = '<div class="qa-threads-empty">' + empty + '</div>';
+            return;
+        }
+
+        var html = '';
+        // Name the matched area once, above everything it matched. This used to
+        // sit only above the new-contact group, so an area whose members all had
+        // conversations already came back with no heading at all.
+        if (areaInfo.isArea && areaInfo.names && areaInfo.names.length) {
+            html += '<div class="qa-list-label">' + esc(areaInfo.names.join(', ')) + '</div>';
+        }
+        html += list.map(function (t) {
+            // In an area search the area is what identifies the person, so it
+            // replaces the message preview for these rows too -- otherwise
+            // people you already talk to would be the only ones unlabelled.
+            var sub = t.preview || 'No messages yet';
+            if (areaInfo.isArea) {
+                var wanted = (areaInfo.codes || []);
+                var hit = (t.areas || []).filter(function (c) { return wanted.indexOf(c) >= 0; });
+                if (hit.length) { sub = hit.join(', '); }
+            }
+            return '<button type="button" role="listitem" class="qa-thread' +
+                     (t.id === activeId ? ' is-active' : '') + '" data-id="' + t.id + '">' +
+                     avatarHTML(t, 'qa-person-avatar') +
+                     '<span class="qa-thread-body">' +
+                       '<span class="qa-thread-name">' + esc(t.name) + '</span>' +
+                       '<span class="qa-thread-preview">' + esc(sub) + '</span>' +
+                       '<span class="qa-thread-time">' + esc(t.updated) + '</span>' +
+                     '</span>' +
+                     (t.unread ? '<span class="qa-unread">' + t.unread + '</span>' : '') +
+                   '</button>';
+        }).join('');
+
+        // People matching the search who have no conversation yet. Listed under
+        // their own heading so it is obvious these start something new rather
+        // than opening an existing thread.
+        if (newContacts.length) {
+            // During an area search the heading names the area, and each row is
+            // labelled with it, so the result is self-explanatory.
+            // The area heading is already printed above; this group only needs
+            // its own label when it is not an area search.
+            var heading = (areaInfo.isArea && areaInfo.names && areaInfo.names.length)
+                ? (list.length ? 'Not yet messaged' : '')
+                : 'Start a conversation';
+            html += (heading ? '<div class="qa-list-label">' + esc(heading) + '</div>' : '') +
+                newContacts.map(function (p) {
+                    var sub = p.area_label || p.role;
+                    return '<button type="button" class="qa-thread qa-person" data-user="' + p.id + '">' +
+                             avatarHTML(p, 'qa-person-avatar') +
+                             '<span class="qa-thread-body">' +
+                               '<span class="qa-thread-name">' + esc(p.name) + '</span>' +
+                               '<span class="qa-thread-preview">' + esc(sub) + '</span>' +
+                             '</span>' +
+                             '<i class="bi bi-plus-lg" style="color:var(--color-brand)"></i>' +
+                           '</button>';
+                }).join('');
+        }
+        threadsEl.innerHTML = html;
+    }
+
+    // Responses can arrive out of order: the unfiltered request issued on page
+    // load is slower than the short search that follows it, so it landed last and
+    // repainted the full list over the search result. The list then appeared to
+    // ignore what had been typed. Each request takes a sequence number and only
+    // the newest one is allowed to paint.
+    var threadsRequestSeq = 0;
+
+    function loadThreads() {
+        var q = searchEl.value.trim();
+        var seq = ++threadsRequestSeq;
+        var threadsUrl = '{% url "messaging:thread_list" %}' + (q ? '?q=' + encodeURIComponent(q) : '');
+
+        if (!q) {
+            return fetch(threadsUrl, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (seq !== threadsRequestSeq) { return; }
+                    renderThreads(d.threads || []);
+                })
+                .catch(function () {});
+        }
+
+        // Searching should reach everyone, not only people already in a thread.
+        // Both lists are fetched and people who already have a conversation are
+        // dropped from the second, so nobody appears twice.
+        return Promise.all([
+            fetch(threadsUrl, { credentials: 'same-origin' }).then(function (r) { return r.json(); }),
+            fetch('{% url "messaging:people" %}?q=' + encodeURIComponent(q),
+                  { credentials: 'same-origin' }).then(function (r) { return r.json(); })
+        ]).then(function (results) {
+            if (seq !== threadsRequestSeq) { return; }
+            var threads = results[0].threads || [];
+            var people = results[1].people || [];
+            var known = {};
+            threads.forEach(function (t) { known[t.name] = true; });
+            var newContacts = people.filter(function (p) { return !known[p.name]; });
+            var areaNames = results[1].area_names || [];
+            renderThreads(threads, newContacts, {
+                isArea: !!results[1].area_search,
+                names: areaNames,
+                codes: areaNames.map(function (n) { return n.split(' - ')[0]; })
+            });
+        }).catch(function () {});
+    }
+
+    /* ------------------------------------------------------------ messages */
+
+    function messageHtml(m) {
+        var body = '<div class="min-w-0"><div class="qa-bubble">' + esc(m.body) + '</div>';
+        if (m.document) {
+            body += '<div class="qa-card">' +
+                      '<div class="qa-card-title">' + esc(m.document.title) + '</div>' +
+                      '<div>' +
+                        (m.document.area ? '<span class="qa-chip">' + esc(m.document.area) + '</span>' : '') +
+                        (m.document.year ? '<span class="qa-chip">' + esc(m.document.year) + '</span>' : '') +
+                      '</div>' +
+                      '<a class="qa-card-btn" href="' + esc(m.document.view_url) +
+                        '" target="_blank" rel="noopener">View Document</a>' +
+                    '</div>';
+        } else if (m.document_withheld) {
+            body += '<div class="qa-card is-withheld">' +
+                      '<i class="bi bi-lock"></i>' +
+                      '<span>A document you don\'t have access to</span>' +
+                    '</div>';
+        }
+        // Your own messages carry a read receipt; the full date is on the
+        // element title so hovering gives the absolute time without a request.
+        var receipt = '';
+        if (isMine(m)) {
+            receipt = m.read
+                ? '<span class="qa-receipt is-read" title="Read"><i class="bi bi-check2-all"></i>Read</span>'
+                : '<span class="qa-receipt" title="Sent"><i class="bi bi-check2"></i>Sent</span>';
+        }
+        body += '<div class="qa-msg-meta" title="' + esc(m.stamp || '') + '">' +
+                esc(m.time) + (m.edited ? ' · edited' : '') + receipt + '</div></div>';
+        return '<div class="qa-row ' + (isMine(m) ? 'is-mine' : 'is-theirs') +
+                 '" data-mid="' + m.id + '" data-iso="' + esc(m.iso || '') + '">' +
+                 avatarHTML(m, 'qa-mini-avatar') +
+                 body +
+               '</div>';
+    }
+
+    /* Sent by the account currently signed in?
+       Decided by comparing the message's stored sender against this page's
+       viewer. Falls back to the server's flag only when a payload predates the
+       ids, and refuses to claim a message whose payload was built for someone
+       else. */
+    function isMine(m) {
+        if (m == null) { return false; }
+        if (m.viewer_id != null && VIEWER_ID && m.viewer_id !== VIEWER_ID) {
+            return false;
+        }
+        if (m.sender_id != null && VIEWER_ID) {
+            return m.sender_id === VIEWER_ID;
+        }
+        return !!m.mine;
+    }
+
+    // Divider marking where the reader last left off.
+    function unreadDividerHtml() {
+        return '<div class="qa-new-divider"><span>New messages</span></div>';
+    }
+
+    function renderMessages(list, firstUnread) {
+        var html = '';
+        list.forEach(function (m) {
+            if (firstUnread && m.id === firstUnread) { html += unreadDividerHtml(); }
+            html += messageHtml(m);
+        });
+        messagesEl.innerHTML = html;
+        if (list.length) { lastMessageId = list[list.length - 1].id; }
+        var divider = messagesEl.querySelector('.qa-new-divider');
+        if (divider) { divider.scrollIntoView({ block: 'center' }); } else { scrollDown(); }
+    }
+
+    // True when the reader is already at the foot of the conversation. If they
+    // have scrolled up to read something older, an arriving message must not
+    // yank the view back down.
+    function isAtBottom() {
+        return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 60;
+    }
+
+    // Append messages that are not already on screen, keeping the reader's place.
+    function appendMessages(list) {
+        if (!list || !list.length) { return 0; }
+        var stick = isAtBottom();
+        var added = 0;
+        list.forEach(function (m) {
+            if (messagesEl.querySelector('[data-mid="' + m.id + '"]')) { return; }
+            var placeholder = messagesEl.querySelector('.qa-empty');
+            if (placeholder) { messagesEl.innerHTML = ''; }
+            messagesEl.insertAdjacentHTML('beforeend', messageHtml(m));
+            if (m.id > lastMessageId) { lastMessageId = m.id; }
+            added += 1;
+        });
+        if (added && stick) { scrollDown(); }
+        return added;
+    }
+
+    // Read receipts change with no new message arriving, so the ticks already on
+    // screen are refreshed from the other side's last-read stamp.
+    function refreshReceipts(readUpto) {
+        if (!readUpto) { return; }
+        var mark = new Date(readUpto);
+        messagesEl.querySelectorAll('.qa-row.is-mine .qa-receipt:not(.is-read)')
+            .forEach(function (el) {
+                var row = el.closest('.qa-row');
+                var iso = row && row.getAttribute('data-iso');
+                if (iso && new Date(iso) <= mark) {
+                    el.classList.add('is-read');
+                    el.title = 'Read';
+                    el.innerHTML = '<i class="bi bi-check2-all"></i>Read';
+                }
+            });
+    }
+
+    function openThread(id) {
+        activeId = id;
+        fetch('/messages/threads/' + id + '/', { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                headerEl.hidden = false;
+                composerEl.hidden = false;
+                paintAvatar(document.getElementById('msgHeadAvatar'), d.thread);
+                document.getElementById('msgHeadName').textContent = d.thread.name;
+                document.getElementById('msgHeadRole').textContent = d.thread.role;
+                renderMessages(d.messages || [], d.first_unread);
+                if (!(d.messages || []).length) {
+                    messagesEl.innerHTML = '<div class="qa-empty">' +
+                        '<div class="qa-empty-icon"><i class="bi bi-chat-dots"></i></div>' +
+                        '<p style="font-size:13px;color:var(--color-text-secondary);margin:0;">' +
+                        'No messages yet. Say hello.</p></div>';
+                }
+                loadThreads();
+                inputEl.focus();
+                startPolling();
+            });
+    }
+
+    function showEmpty() {
+        headerEl.hidden = true;
+        composerEl.hidden = true;
+        messagesEl.innerHTML = '<div class="qa-empty">' +
+            '<div class="qa-empty-icon"><i class="bi bi-chat-dots"></i></div>' +
+            '<div style="font-size:15px;font-weight:700;margin-bottom:5px;">Messages</div>' +
+            '<p style="font-size:13px;color:var(--color-text-secondary);margin:0;">' +
+            'Choose a conversation, or start a new one with anyone in the office.</p></div>';
+    }
+
+    /* -------------------------------------------------------------- sending */
+
+    composerEl.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var body = inputEl.value.trim();
+        if (!body || !activeId) { return; }
+        inputEl.value = '';
+        sendEl.disabled = true;
+        post('/messages/threads/' + activeId + '/send/', { body: body })
+            .then(function (d) {
+                if (d.message) {
+                    // Clear the "no messages yet" placeholder before appending,
+                    // otherwise it sits above the first real message.
+                    var placeholder = messagesEl.querySelector('.qa-empty');
+                    if (placeholder) { messagesEl.innerHTML = ''; }
+                    messagesEl.insertAdjacentHTML('beforeend', messageHtml(d.message));
+                    lastMessageId = d.message.id;
+                    scrollDown();
+                }
+                loadThreads();
+            })
+            .finally(function () { sendEl.disabled = false; inputEl.focus(); });
+    });
+
+    /* ------------------------------------------------------------ live sync */
+
+    /*
+     * There are no WebSockets in this stack, so the page asks the server for
+     * changes on a short interval. One request per tick carries everything:
+     * the badge counts, the conversation list, and any new messages in the
+     * thread on screen. The previous version polled only the open thread, and
+     * only every 20 seconds, so a message could sit unseen for that long and
+     * the conversation list never moved at all.
+     *
+     * The tick pauses while the tab is hidden -- nobody is reading it -- and
+     * fires immediately when the tab comes back, so returning to the window
+     * shows current state at once rather than after the next interval.
+     */
+    var SYNC_MS = 3000;
+    var syncInFlight = false;
+
+    function syncNow() {
+        if (syncInFlight || document.hidden) { return Promise.resolve(); }
+        syncInFlight = true;
+
+        var params = new URLSearchParams();
+        // The search owns the conversation list while it is active, so the tick
+        // does not ask for a filtered copy of it. Sending `q` here meant every
+        // tick came back with a list that could never match the stored
+        // signature, which re-ran the whole search -- three requests every three
+        // seconds -- for as long as anything was typed in the box.
+        var q = searchEl.value.trim();
+        if (activeId) {
+            params.set('thread', activeId);
+            params.set('after', lastMessageId || 0);
+        }
+
+        var qa = window.qaActivity;
+        return fetch('{% url "messaging:sync" %}?' + params.toString(),
+                     { credentials: 'same-origin', headers: qa ? qa.headers() : {} })
+            .then(function (r) {
+                if (qa && qa.expired(r)) { return null; }
+                return r.json();
+            })
+            .then(function (d) {
+                if (!d) { return; }
+                applyBadges(d);
+                refreshReceipts(d.read_upto);
+
+                var added = appendMessages(d.messages);
+                if (added) { notifyArrival(); }
+
+                // The list is only repainted when something actually changed,
+                // so a click or a hover is not interrupted every three seconds.
+                if (!q && d.threads) {
+                    var sig = threadsSignature(d.threads);
+                    if (sig !== lastThreadsSig) {
+                        lastThreadsSig = sig;
+                        renderThreads(d.threads);
+                    }
+                }
+            })
+            .catch(function () {})
+            .finally(function () { syncInFlight = false; });
+    }
+
+    var lastThreadsSig = '';
+    function threadsSignature(list) {
+        return list.map(function (t) {
+            return t.id + ':' + t.unread + ':' + t.preview + ':' + t.updated;
+        }).join('|');
+    }
+
+    // A short, quiet cue that something arrived while you were reading.
+    function notifyArrival() {
+        if (!document.hidden) { return; }
+        document.title = '● ' + baseTitle;
+    }
+    var baseTitle = document.title;
+
+    // This page polls for everything, so the global badge poller in realtime.js
+    // stands down and the counts come from this sync instead.
+    window.qaLiveOwner = true;
+
+    function applyBadges(d) {
+        if (typeof window.qaSetBadge !== 'function') { return; }
+        if (typeof d.unread_messages === 'number') {
+            window.qaSetBadge('messages', d.unread_messages);
+        }
+        if (typeof d.unread_notifications === 'number') {
+            window.qaSetBadge('bell', d.unread_notifications);
+        }
+    }
+
+    function startPolling() {
+        clearInterval(pollTimer);
+        pollTimer = setInterval(syncNow, SYNC_MS);
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) { document.title = baseTitle; syncNow(); }
+    });
+    window.addEventListener('focus', function () { document.title = baseTitle; syncNow(); });
+
+    /* --------------------------------------------------------------- people */
+
+    function loadPeople() {
+        var q = peopleSearchEl.value.trim();
+        fetch('{% url "messaging:people" %}' + (q ? '?q=' + encodeURIComponent(q) : ''),
+              { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                // An area search labels each person with the area, which is the
+                // point of searching by one; otherwise the role is shown.
+                var rows = (d.people || []).map(function (p) {
+                    var sub = p.area_label || p.role;
+                    return '<button type="button" class="qa-person" data-user="' + p.id + '">' +
+                             avatarHTML(p, 'qa-person-avatar') +
+                             '<span><span class="qa-person-name">' + esc(p.name) + '</span><br>' +
+                             '<span class="qa-person-role">' + esc(sub) + '</span></span>' +
+                           '</button>';
+                }).join('');
+                if (!rows) {
+                    rows = '<div class="qa-threads-empty">' +
+                           (d.area_search ? 'No users found in this area.'
+                                          : 'Nobody matches that.') +
+                           '</div>';
+                }
+                peopleListEl.innerHTML = rows;
+            });
+    }
+
+    function openPicker() {
+        backdropEl.classList.add('is-open');
+        peopleSearchEl.value = '';
+        loadPeople();
+        peopleSearchEl.focus();
+    }
+    function closePicker() { backdropEl.classList.remove('is-open'); }
+
+    newEl.addEventListener('click', openPicker);
+    backdropEl.addEventListener('click', function (e) {
+        if (e.target === backdropEl) { closePicker(); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { closePicker(); }
+    });
+
+    var peopleTimer = null;
+    peopleSearchEl.addEventListener('input', function () {
+        clearTimeout(peopleTimer);
+        peopleTimer = setTimeout(loadPeople, 200);
+    });
+
+    /* --------------------------------------------------------------- events */
+
+    document.addEventListener('click', function (e) {
+        var person = e.target.closest('.qa-person');
+        if (person) {
+            post('{% url "messaging:thread_start" %}',
+                 { user_id: person.getAttribute('data-user') })
+                .then(function (d) {
+                    closePicker();
+                    if (d.thread) { openThread(d.thread.id); }
+                });
+            return;
+        }
+        var thread = e.target.closest('.qa-thread[data-id]');
+        if (thread) { openThread(parseInt(thread.getAttribute('data-id'), 10)); }
+    });
+
+    var searchTimer = null;
+    searchEl.addEventListener('input', function () {
+        clearTimeout(searchTimer);
+        // The stored signature describes whatever is on screen now; typing or
+        // clearing the box replaces that, so it must not suppress the next paint.
+        lastThreadsSig = '';
+        searchTimer = setTimeout(loadThreads, 220);
+    });
+
+    // Deep link from a notification: /messages/?thread=12
+    var wanted = new URLSearchParams(window.location.search).get('thread');
+    showEmpty();
+    loadThreads().then(function () {
+        if (wanted) { openThread(parseInt(wanted, 10)); }
+    });
+    // The list and the badges stay live even with no conversation open, so a
+    // message arriving from someone you are not currently reading still shows up.
+    startPolling();
+})();
+</script>
+{% endblock %}

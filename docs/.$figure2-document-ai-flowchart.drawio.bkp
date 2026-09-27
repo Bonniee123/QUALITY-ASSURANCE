@@ -1,0 +1,130 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0" version="24.7.17">
+  <diagram name="Figure 2" id="fig2-doc-ai-flow">
+    <mxGraphModel dx="1100" dy="750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bg" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="0" y="0" width="827" height="1169" as="geometry" />
+        </mxCell>
+        <mxCell id="2" value="&lt;b&gt;Figure 2. Document Processing / AI Clustering Flowchart of the QA Archiving System&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontColor=#000000;fontSize=14;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="64" y="16" width="700" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="START&#xa;QA Staff uploads document&#xa;(Structured or Bulk)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#97d077;strokeColor=#2D7600;fontColor=#000000;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="274" y="62" width="280" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="Text extraction by file type&#xa;PDF -&gt; PyPDF2 | DOCX -&gt; python-docx | XLSX -&gt; openpyxl | Image -&gt; OCR&#xa;Scanned PDF -&gt; Tesseract if text &amp;lt; 120 chars" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6c8ebf;strokeColor=#23445d;fontColor=#ffffff;fontSize=10;fontStyle=0;" vertex="1" parent="1">
+          <mxGeometry x="194" y="140" width="440" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="Save Document&#xa;extracted_text, ocr_text, combined_text&#xa;(Bulk: auto metadata + background job)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#cccccc;strokeColor=#333333;fontColor=#000000;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="294" y="224" width="240" height="66" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="Documents&#xa;in repository?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffcd28;strokeColor=#d79b00;fontColor=#000000;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="314" y="308" width="200" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="END&#xa;Nothing to process" style="ellipse;whiteSpace=wrap;html=1;fillColor=#97d077;strokeColor=#2D7600;fontColor=#000000;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="610" y="318" width="160" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="TF-IDF keywords only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6c8ebf;strokeColor=#23445d;fontColor=#ffffff;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="30" y="318" width="170" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="END&#xa;No clustering (need 2+ docs)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#97d077;strokeColor=#2D7600;fontColor=#000000;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="380" width="170" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="Auto upload AND&#xa;repo &amp;gt; 75 docs?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffcd28;strokeColor=#d79b00;fontColor=#000000;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="314" y="412" width="200" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="LIGHT pipeline&#xa;TF-IDF + evidence suggestions&#xa;(new files only)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6c8ebf;strokeColor=#23445d;fontColor=#ffffff;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="580" y="420" width="210" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="12" value="END&#xa;Run full AI manually" style="ellipse;whiteSpace=wrap;html=1;fillColor=#97d077;strokeColor=#2D7600;fontColor=#000000;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="600" y="498" width="170" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="13" value="Clean text + TF-IDF vectorization&#xa;(scikit-learn) -&gt; keywords per document" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6c8ebf;strokeColor=#23445d;fontColor=#ffffff;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="194" y="520" width="440" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="TF-IDF&#xa;successful?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffcd28;strokeColor=#d79b00;fontColor=#000000;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="314" y="590" width="200" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="END&#xa;Failed - lack text" style="ellipse;whiteSpace=wrap;html=1;fillColor=#97d077;strokeColor=#2D7600;fontColor=#000000;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="610" y="604" width="160" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="Save tfidf_keywords&#xa;is_processed = True" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#cccccc;strokeColor=#333333;fontColor=#000000;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="294" y="696" width="240" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="17" value="Elbow Method -&gt; optimal_k&#xa;K-Means clustering on TF-IDF matrix" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6c8ebf;strokeColor=#23445d;fontColor=#ffffff;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="194" y="776" width="440" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="18" value="Save cluster_label + ClusterResult&#xa;(top keywords per cluster)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#cccccc;strokeColor=#333333;fontColor=#000000;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="284" y="840" width="260" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="19" value="Duplicate detection (cosine &amp;gt;= 0.85)&#xa;Recommendations + evidence mapping suggestions&#xa;Notify users (bell icon)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6c8ebf;strokeColor=#23445d;fontColor=#ffffff;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="154" y="920" width="520" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="20" value="Outputs: Repository, Dashboard, Smart Search,&#xa;Evidence Mapping, AI Processing, Reports" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#ffe599;strokeColor=#d6b656;fontColor=#000000;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="174" y="996" width="480" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="21" value="END&#xa;AI Processing Complete" style="ellipse;whiteSpace=wrap;html=1;fillColor=#97d077;strokeColor=#2D7600;fontColor=#000000;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="294" y="1064" width="240" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="22" value="&lt;b&gt;Legend&lt;/b&gt;&#xa;Ellipse = Start/End&#xa;Rectangle = Process&#xa;Rhombus = Decision&#xa;Parallelogram = Data&#xa;Cylinder = Database" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;dashed=1;fontColor=#000000;fontSize=9;align=left;verticalAlign=top;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="30" y="460" width="140" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;" edge="1" parent="1" source="3" target="4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;" edge="1" parent="1" source="4" target="5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;" edge="1" parent="1" source="5" target="6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="6" target="7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="6" target="8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="2+" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="6" target="10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;" edge="1" parent="1" source="8" target="9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="10" target="11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="10" target="13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;" edge="1" parent="1" source="11" target="12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;" edge="1" parent="1" source="13" target="14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="14" target="15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;fontSize=11;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="14" target="16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;" edge="1" parent="1" source="16" target="17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;" edge="1" parent="1" source="17" target="18">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;" edge="1" parent="1" source="18" target="19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;" edge="1" parent="1" source="19" target="20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;endFill=1;fontColor=#000000;" edge="1" parent="1" source="20" target="21">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

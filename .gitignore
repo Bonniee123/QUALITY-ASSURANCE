@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual env
+venv/
+.env
+.env.*
+
+# Django / local data
+db.sqlite3
+media/
+staticfiles/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+Desktop.ini
+
+venv/
+__pycache__/
+*.pyc
+*.bak
+*.sqlite3
+backups/
+media/
+tmp/
+.cursor/
+--list-langs.txt
+.env
+cripts/sqlite_export_\*.json
+scripts/sqlite_export_*.json 

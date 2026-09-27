@@ -1,0 +1,25 @@
+{% if selected %}
+<div class="card qa-sel-detail-card" id="cluster-detail">
+    <div class="card-body">
+        <div class="qa-sel-detail-head">
+            <div>
+                <h5>{{ selected.display_label|default:"Cluster" }} <span class="text-muted fw-normal">(C{{ selected.number }})</span></h5>
+                <p>{{ selected.count }} document{{ selected.count|pluralize }} in this group</p>
+            </div>
+            <a href="{% url 'documents:repository' %}?cluster={{ selected.number }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-box-arrow-up-right"></i> Repository
+            </a>
+        </div>
+
+        {% if selected.documents %}
+        {% include 'documents/_area_submission_files.html' with documents=selected.documents %}
+        {% else %}
+        <p class="text-muted mb-0 small">No documents in this cluster.</p>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="qa-sel-detail-empty">
+    <i class="bi bi-cursor me-1"></i>Select a cluster above to view its documents.
+</div>
+{% endif %}

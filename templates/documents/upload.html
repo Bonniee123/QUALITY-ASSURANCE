@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}Upload Document{% endblock %}
+{% block content %}
+<div class="page-header"><div><h2>Upload Document</h2><p>Upload a new document with metadata for archiving</p></div>
+<a href="{% url 'documents:repository' %}" class="btn btn-outline-primary"><i class="bi bi-archive"></i> Repository</a></div>
+
+<div class="card" style="max-width:720px">
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data" id="upload-form">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-12">
+                    <label for="doc-file" class="form-label">File</label>
+                    {{ form.file }}
+                    <div class="form-text">Accepted: PDF, DOCX, XLSX, JPG, PNG (max 25MB)</div>
+                    {% if form.file.errors %}<div class="text-danger small">{{ form.file.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="col-12">
+                    <label for="doc-title" class="form-label">Document Title</label>
+                    {{ form.title }}
+                    {% if form.title.errors %}<div class="text-danger small">{{ form.title.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="col-md-6">
+                    <label for="doc-year" class="form-label">Year</label>
+                    {{ form.year }}
+                </div>
+                <div class="col-md-6">
+                    <label for="doc-type" class="form-label">Document Type</label>
+                    {{ form.document_type }}
+                </div>
+                <div class="col-md-6">
+                    <label for="doc-qa-area" class="form-label">QA Area</label>
+                    {{ form.qa_area }}
+                </div>
+                <div class="col-md-6">
+                    <label for="doc-criterion" class="form-label">Criterion</label>
+                    {{ form.criterion }}
+                </div>
+                <div class="col-md-6">
+                    <label for="doc-indicator" class="form-label">Indicator</label>
+                    {{ form.indicator }}
+                </div>
+                <div class="col-12">
+                    <label for="doc-description" class="form-label">Description</label>
+                    {{ form.description }}
+                </div>
+
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary" id="upload-submit"><i class="bi bi-cloud-arrow-up"></i> Upload Document</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var form = document.getElementById('upload-form');
+    var btn = document.getElementById('upload-submit');
+    if (!form || !btn) return;
+    form.addEventListener('submit', function() {
+        // Let native validation run; only show loading on a real submit.
+        if (typeof form.checkValidity === 'function' && !form.checkValidity()) return;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="width:14px;height:14px;border-width:2px;"></span>Uploading & processing…';
+    });
+})();
+</script>
+{% endblock %}

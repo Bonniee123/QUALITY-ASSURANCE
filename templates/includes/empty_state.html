@@ -1,0 +1,12 @@
+{% comment %}Reusable empty state. Usage:
+    {% include 'includes/empty_state.html' with empty_icon='bi-archive' empty_title='No documents yet' empty_text='Upload a file to get started.' empty_action_url=upload_url empty_action_label='Upload Document' %}
+Only `empty_icon` and `empty_title` are required; text and action are optional.
+{% endcomment %}
+<div class="empty-state">
+    <i class="bi {{ empty_icon|default:'bi-inbox' }}"></i>
+    <p class="empty-title">{{ empty_title|default:'Nothing here yet' }}</p>
+    {% if empty_text %}<p class="empty-text">{{ empty_text }}</p>{% endif %}
+    {% if empty_action_url and empty_action_label %}
+    <a href="{{ empty_action_url }}" class="empty-action"><i class="bi {{ empty_action_icon|default:'bi-plus-lg' }}"></i>{{ empty_action_label }}</a>
+    {% endif %}
+</div>

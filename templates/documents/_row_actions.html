@@ -1,0 +1,73 @@
+{% comment %}
+One menu per row instead of five loose icons.
+
+Five 32px chips plus their gaps took ~176px of every row, on tables that are
+already wide enough to scroll sideways; the eye also had to decode five glyphs
+per row, 22 rows at a time, with the meaning carried only by colour and a
+tooltip. A single kebab gives the width back to the columns that hold the
+reading matter, and the menu labels each action in words.
+
+Nothing about the actions themselves changes: the same URLs, the same
+`js-qa-*` hooks the panels and the delete modal already listen for, and the
+same two permission conditions the Repository has always used -- Admin and QA
+Head may edit and delete anything, Faculty only their own uploads. The server
+enforces that independently in `user_can_modify_document`.
+
+`data-bs-popper-config` pins the menu with position:fixed so it is not cut off
+by the `overflow` on `.table-responsive`; without it the last rows' menus were
+clipped by the panel edge.
+
+No `title` on the toggle. The column header says "Actions" in the open, on
+every row at once, so a tooltip repeated it one row at a time and only for
+someone using a mouse. `aria-label` stays: it is the button's accessible name,
+not a tooltip, and an icon-only control has to carry one.
+{% endcomment %}
+<div class="dropdown qa-row-menu">
+    <button class="act qa-row-menu-toggle" type="button" data-bs-toggle="dropdown"
+            data-bs-popper-config='{"strategy":"fixed"}' data-bs-auto-close="true"
+            aria-expanded="false"
+            aria-label="Actions for {{ doc.title|truncatechars:40 }}">
+        <i class="bi bi-three-dots-vertical"></i>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end qa-row-menu-list">
+        <li>
+            <a class="dropdown-item" href="{% url 'documents:view' doc.pk %}" target="_blank" rel="noopener">
+                <i class="bi bi-eye qa-mi qa-mi-view"></i><span>View file</span>
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item js-qa-doc-detail" href="#"
+               data-doc-id="{{ doc.pk }}"
+               data-doc-title="{{ doc.title|truncatechars:80 }}"
+               data-doc-download="{% url 'documents:download' doc.pk %}">
+                <i class="bi bi-info-circle qa-mi qa-mi-info"></i><span>Details</span>
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="{% url 'documents:download' doc.pk %}">
+                <i class="bi bi-download qa-mi qa-mi-download"></i><span>Download</span>
+            </a>
+        </li>
+        {% if not rbac_is_faculty or doc.uploaded_by_id == user.id %}
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <a class="dropdown-item js-qa-doc-edit" href="#"
+               data-doc-id="{{ doc.pk }}"
+               data-doc-title="{{ doc.title|truncatechars:80 }}"
+               data-doc-download="{% url 'documents:download' doc.pk %}">
+                <i class="bi bi-pencil qa-mi qa-mi-edit"></i><span>Edit</span>
+            </a>
+        </li>
+        {% endif %}
+        {% if rbac_is_qa_staff_or_admin or rbac_is_faculty and doc.uploaded_by_id == user.id %}
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <a class="dropdown-item qa-mi-danger js-qa-delete-confirm" href="#"
+               data-qa-delete-url="{% url 'documents:delete' doc.pk %}"
+               data-qa-delete-title="{{ doc.title|truncatechars:80 }}">
+                <i class="bi bi-trash3 qa-mi qa-mi-delete"></i><span>Delete</span>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</div>

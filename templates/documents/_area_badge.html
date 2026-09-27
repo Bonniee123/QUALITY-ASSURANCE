@@ -1,0 +1,7 @@
+{% if doc.acc_area %}
+<span class="badge bg-light text-dark border" title="{{ doc.acc_area.area_name }}">{{ doc.acc_area.area_code }}</span>
+{% elif doc.qa_area %}
+<span class="badge bg-light text-dark border">{{ doc.qa_area }}</span>
+{% else %}
+<span class="text-muted">-</span>
+{% endif %}

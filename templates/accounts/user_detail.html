@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}{{ user_obj.get_full_name|default:user_obj.username }} · User{% endblock %}
+
+{% block extra_css %}
+<style>
+.ud-shell { max-width: 920px; }
+.ud-hero {
+    background: hsl(220, 28%, 22%);
+    border-radius: 18px; padding: 30px 32px; color: #fff;
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+}
+.ud-avatar {
+    width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
+    border: 3px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 34px; font-weight: 700; color:#fff; flex-shrink:0;
+}
+.ud-hero-meta { flex: 1; min-width: 220px; }
+.ud-hero h2 { font-size: 24px; font-weight: 700; margin: 0 0 4px; }
+.ud-hero .ud-username { color: rgba(255,255,255,.75); font-size: 14px; }
+.ud-badges { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+.ud-chip { padding:5px 12px; border-radius:999px; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+.ud-chip.admin { background: rgba(239,68,68,.2); color:#fecaca; }
+.ud-chip.qa { background: rgba(59,130,246,.2); color:#bfdbfe; }
+.ud-chip.faculty { background: rgba(139,92,246,.2); color:#ddd6fe; }
+.ud-chip.active { background: rgba(16,185,129,.2); color:#a7f3d0; }
+.ud-chip.inactive { background: rgba(148,163,184,.2); color:#e2e8f0; }
+.ud-hero-actions { display:flex; gap:10px; }
+
+.ud-grid { display:grid; grid-template-columns: 1fr 1fr; gap:18px; margin-top:22px; }
+@media (max-width: 700px){ .ud-grid { grid-template-columns:1fr; } }
+.ud-card { background:#fff; border:1px solid hsl(220,13%,91%); border-radius:14px; box-shadow:0 4px 18px rgba(0,0,0,.04); overflow:hidden; }
+.ud-card h3 { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:hsl(220,10%,45%); padding:16px 20px; margin:0; border-bottom:1px solid hsl(220,13%,94%); }
+.ud-row { display:flex; justify-content:space-between; gap:16px; padding:12px 20px; border-bottom:1px solid hsl(220,13%,96%); font-size:14px; }
+.ud-row:last-child { border-bottom:none; }
+.ud-row .k { color:hsl(220,10%,50%); }
+.ud-row .v { color:hsl(220,20%,22%); font-weight:600; text-align:right; word-break:break-word; }
+.ud-activity { margin-top:22px; }
+.ud-act-item { display:flex; gap:12px; padding:12px 20px; border-bottom:1px solid hsl(220,13%,96%); font-size:13.5px; }
+.ud-act-item:last-child { border-bottom:none; }
+.ud-act-dot { width:9px; height:9px; border-radius:50%; background:hsl(215,60%,55%); margin-top:5px; flex-shrink:0; }
+.ud-act-time { color:hsl(220,10%,55%); font-size:12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4" style="border-bottom:none;">
+    <div>
+        <h2 style="font-size:26px; font-weight:700; color:hsl(220,20%,15%);">User Profile</h2>
+        <p style="color:hsl(220,10%,45%);">Account overview and recent activity.</p>
+    </div>
+    <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i> Back to Users</a>
+</div>
+
+<div class="ud-shell">
+    <div class="ud-hero">
+        {% if user_obj.profile.avatar_url %}
+        <img class="ud-avatar" src="{{ user_obj.profile.avatar_url }}" alt="{{ user_obj.get_full_name|default:user_obj.username }}">
+        {% else %}
+        <span class="ud-avatar">{{ user_obj.profile.initials }}</span>
+        {% endif %}
+        <div class="ud-hero-meta">
+            <h2>{{ user_obj.get_full_name|default:user_obj.username }}</h2>
+            <div class="ud-username"><i class="bi bi-at"></i>{{ user_obj.username }}</div>
+            <div class="ud-badges">
+                {% if user_obj.profile.role == 'admin' %}
+                <span class="ud-chip admin"><i class="bi bi-shield-lock"></i> Administrator</span>
+                {% elif user_obj.profile.role == 'faculty' %}
+                <span class="ud-chip faculty"><i class="bi bi-mortarboard"></i> Faculty</span>
+                {% else %}
+                <span class="ud-chip qa"><i class="bi bi-person-badge"></i> QA Head</span>
+                {% endif %}
+                {% if user_obj.profile.status == 'active' %}
+                <span class="ud-chip active"><i class="bi bi-check-circle"></i> Active</span>
+                {% else %}
+                <span class="ud-chip inactive"><i class="bi bi-pause-circle"></i> Inactive</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="ud-hero-actions">
+            <a href="{% url 'accounts:user_edit' user_obj.pk %}" class="btn btn-light"><i class="bi bi-pencil-square me-1"></i> Edit</a>
+            <a href="{% url 'accounts:user_delete' user_obj.pk %}" class="btn btn-outline-light"><i class="bi bi-trash3"></i></a>
+        </div>
+    </div>
+
+    <div class="ud-grid">
+        <div class="ud-card">
+            <h3><i class="bi bi-person-vcard me-1"></i> Contact &amp; Identity</h3>
+            <div class="ud-row"><span class="k">Full name</span><span class="v">{{ user_obj.get_full_name|default:"—" }}</span></div>
+            <div class="ud-row"><span class="k">Email</span><span class="v">{{ user_obj.email|default:"—" }}</span></div>
+            <div class="ud-row"><span class="k">Contact number</span><span class="v">{{ user_obj.profile.phone|default:"—" }}</span></div>
+            <div class="ud-row"><span class="k">Department</span><span class="v">{{ user_obj.profile.department|default:"Unassigned" }}</span></div>
+        </div>
+        <div class="ud-card">
+            <h3><i class="bi bi-shield-check me-1"></i> Access &amp; Account</h3>
+            <div class="ud-row"><span class="k">Role</span><span class="v">{{ user_obj.profile.get_role_display }}</span></div>
+            {% if user_obj.profile.role == 'faculty' %}
+            <div class="ud-row"><span class="k">Assigned areas</span><span class="v">{% for area in user_obj.profile.assigned_areas.all %}{{ area.area_code }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">None assigned</span>{% endfor %}</span></div>
+            {% endif %}
+            <div class="ud-row"><span class="k">Status</span><span class="v">{{ user_obj.profile.get_status_display }}</span></div>
+            <div class="ud-row"><span class="k">Can sign in</span><span class="v">{% if user_obj.is_active %}Yes{% else %}No{% endif %}</span></div>
+            <div class="ud-row"><span class="k">Password</span><span class="v" title="Encrypted — cannot be displayed"><i class="bi bi-lock me-1"></i>Encrypted</span></div>
+            <div class="ud-row"><span class="k">Joined</span><span class="v">{{ user_obj.date_joined|date:"M d, Y" }}</span></div>
+            <div class="ud-row"><span class="k">Last login</span><span class="v">{{ user_obj.last_login|date:"M d, Y H:i"|default:"Never" }}</span></div>
+        </div>
+    </div>
+
+    <div class="ud-card ud-activity">
+        <h3><i class="bi bi-clock-history me-1"></i> Recent Activity</h3>
+        {% for log in recent_activity %}
+        <div class="ud-act-item">
+            <span class="ud-act-dot"></span>
+            <div>
+                <div>{{ log.description }}</div>
+                <div class="ud-act-time">{{ log.created_at|date:"M d, Y H:i" }} · {{ log.action }}</div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="ud-act-item"><span class="text-muted">No recorded activity for this user yet.</span></div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,150 @@
+<mxfile host="app.diagrams.net" agent="QA Capstone" background="#ffffff">
+  <diagram name="Context DFD" id="fig7-context-dfd">
+    <mxGraphModel dx="1373" dy="831" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1100" background="#FFFFFF" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=none;" value="" vertex="1">
+          <mxGeometry height="1100" width="827" as="geometry" />
+        </mxCell>
+        <mxCell id="p0" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#EEF6FF;strokeColor=#23445d;strokeWidth=3;fontColor=#000000;fontSize=12;fontFamily=Helvetica;align=center;" value="&lt;b&gt;0&lt;/b&gt;&lt;br&gt;&lt;br&gt;QA Archiving&lt;br&gt;System" vertex="1">
+          <mxGeometry height="220" width="220" x="304" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="e_qa" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#23445d;strokeWidth=2;fontColor=#000000;fontSize=12;fontStyle=1;fontFamily=Helvetica;align=center;" value="QA Head" vertex="1">
+          <mxGeometry height="44" width="180" x="324" y="72" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ad" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#23445d;strokeWidth=2;fontColor=#000000;fontSize=12;fontStyle=1;fontFamily=Helvetica;align=center;" value="Administrator" vertex="1">
+          <mxGeometry height="44" width="180" x="324" y="944" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ext" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;strokeWidth=2;fontColor=#000000;fontSize=11;fontStyle=1;fontFamily=Helvetica;align=center;" value="External AI &amp;&lt;br&gt;OCR Tools" vertex="1">
+          <mxGeometry height="52" width="160" x="630" y="492" as="geometry" />
+        </mxCell>
+        <mxCell id="e_extsub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#666666;fontSize=8;fontStyle=2;fontFamily=Helvetica;align=center;" value="Tesseract · Ollama (optional)" vertex="1">
+          <mxGeometry height="14" width="160" x="630" y="546" as="geometry" />
+        </mxCell>
+        <mxCell id="f1" edge="1" parent="1" source="e_qa" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;exitX=0.25;exitY=1;entryX=0.2;entryY=0;" target="p0" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="369" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f1lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=10;fontFamily=Helvetica;align=right;" value="Login credentials" vertex="1">
+          <mxGeometry height="18" width="120" x="188" y="268" as="geometry" />
+        </mxCell>
+        <mxCell id="f2" edge="1" parent="1" source="e_qa" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;exitX=0.75;exitY=1;entryX=0.8;entryY=0;" target="p0" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="459" y="300" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f2lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=10;fontFamily=Helvetica;align=left;" value="Documents, metadata&lt;br&gt;&amp; search / chat queries" vertex="1">
+          <mxGeometry height="32" width="168" x="472" y="282" as="geometry" />
+        </mxCell>
+        <mxCell id="f3" edge="1" parent="1" source="p0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;exitX=0;exitY=0.18;entryX=0.1;entryY=1;" target="e_qa" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="160" y="460" />
+              <mxPoint x="160" y="180" />
+              <mxPoint x="342" y="180" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f3lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=10;fontFamily=Helvetica;align=right;" value="Dashboard, notifications&lt;br&gt;&amp; duplicate alerts" vertex="1">
+          <mxGeometry height="32" width="118" x="36" y="448" as="geometry" />
+        </mxCell>
+        <mxCell id="f4" edge="1" parent="1" source="p0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.18;entryX=0.9;entryY=1;" target="e_qa" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="668" y="460" />
+              <mxPoint x="668" y="180" />
+              <mxPoint x="486" y="180" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f4lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=10;fontFamily=Helvetica;align=left;" value="Search results&lt;br&gt;&amp; document files" vertex="1">
+          <mxGeometry height="32" width="130" x="676" y="448" as="geometry" />
+        </mxCell>
+        <mxCell id="f5" edge="1" parent="1" source="e_ad" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;exitX=0.35;exitY=0;entryX=0.35;entryY=1;" target="p0" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="387" y="820" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f5lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=10;fontFamily=Helvetica;align=right;" value="User account data&lt;br&gt;&amp; admin requests" vertex="1">
+          <mxGeometry height="32" width="140" x="228" y="808" as="geometry" />
+        </mxCell>
+        <mxCell id="f6" edge="1" parent="1" source="p0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;exitX=0.65;exitY=1;entryX=0.65;entryY=0;" target="e_ad" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="450" y="635" />
+              <mxPoint x="450" y="820" />
+              <mxPoint x="441" y="820" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f6lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=10;fontFamily=Helvetica;align=left;" value="Administrative reports&lt;br&gt;&amp; system status" vertex="1">
+          <mxGeometry height="32" width="150" x="460" y="808" as="geometry" />
+        </mxCell>
+        <mxCell id="f7" edge="1" parent="1" source="p0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.35;entryX=0;entryY=0.3;" target="e_ext" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="580" y="497" />
+              <mxPoint x="580" y="508" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f7lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;" value="Document files&lt;br&gt;for OCR / AI" vertex="1">
+          <mxGeometry height="28" width="72" x="548" y="464" as="geometry" />
+        </mxCell>
+        <mxCell id="f8" edge="1" parent="1" source="e_ext" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#23445d;strokeWidth=2;endArrow=block;endFill=1;exitX=0;exitY=0.7;entryX=1;entryY=0.65;" target="p0" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="528" />
+              <mxPoint x="600" y="574" />
+              <mxPoint x="560" y="574" />
+              <mxPoint x="560" y="561" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f8lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;" value="OCR text&lt;br&gt;&amp; AI responses" vertex="1">
+          <mxGeometry height="28" width="72" x="548" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fac" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c3483;strokeWidth=2;fontColor=#000000;fontSize=12;fontStyle=1;fontFamily=Helvetica;align=center;" value="Faculty" vertex="1">
+          <mxGeometry height="44" width="160" x="40" y="700" as="geometry" />
+        </mxCell>
+        <mxCell id="e_facsub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#6c3483;fontSize=8;fontStyle=2;fontFamily=Helvetica;align=center;" value="scoped to assigned area(s)" vertex="1">
+          <mxGeometry height="14" width="160" x="40" y="744" as="geometry" />
+        </mxCell>
+        <mxCell id="ff1" edge="1" parent="1" source="e_fac" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6c3483;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.25;entryX=0;entryY=0.82;" target="p0" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="260" y="711" />
+              <mxPoint x="260" y="590" />
+              <mxPoint x="300" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ff1lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;" value="Login &amp; area-scoped&lt;br&gt;uploads / search queries" vertex="1">
+          <mxGeometry height="28" width="90" x="160" y="636" as="geometry" />
+        </mxCell>
+        <mxCell id="ff2" edge="1" parent="1" source="p0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6c3483;strokeWidth=2;endArrow=block;endFill=1;exitX=0;exitY=0.95;entryX=1;entryY=0.6;" target="e_fac" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="288" y="629" />
+              <mxPoint x="288" y="726" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ff2lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;" value="Scoped dashboard, files,&lt;br&gt;search results &amp; notifications" vertex="1">
+          <mxGeometry height="28" width="160" x="206" y="752" as="geometry" />
+        </mxCell>
+        <mxCell id="I6K6LIMNXspYZx6YXsf3-1" edge="1" parent="1" source="ff1lbl" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="ff1lbl">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

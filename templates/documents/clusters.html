@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% load asset_tags %}
+{% load static %}
+{% block title %}Document Clusters{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static_v 'css/selection-cards.css' %}">
+{% endblock %}
+{% block content %}
+<div class="page-header qa-sel-page">
+    <div>
+        <h2>Document Clusters</h2>
+        <p>Documents grouped by similar content — select a cluster to inspect its files</p>
+    </div>
+</div>
+
+{% if clusters %}
+<div class="qa-sel-stats qa-sel-page">
+    <div class="qa-sel-stat"><span class="qa-sel-stat-n">{{ summary.cluster_count }}</span><span class="qa-sel-stat-l">Clusters</span></div>
+    <div class="qa-sel-stat"><span class="qa-sel-stat-n">{{ summary.clustered_docs }}</span><span class="qa-sel-stat-l">Clustered</span></div>
+    <div class="qa-sel-stat"><span class="qa-sel-stat-n">{{ summary.unclustered }}</span><span class="qa-sel-stat-l">Unclustered</span></div>
+    {% if summary.singletons %}
+    <div class="qa-sel-stat" title="Groups holding a single document">
+        <span class="qa-sel-stat-n">{{ summary.singletons }}</span><span class="qa-sel-stat-l">Single-document</span>
+    </div>
+    {% endif %}
+
+    {% comment %}
+    The grid is ordered largest group first, because the cluster number is the
+    index K-Means assigned and means nothing to a reader. That order was applied
+    silently, which leaves the numbers looking shuffled -- C14, C5, C26 -- with
+    nothing on the page to say why. The control names the order in force and
+    lets a reader pick another; sorting by number puts them back in sequence.
+    {% endcomment %}
+    <div class="dropdown qa-sel-sort">
+        <button class="qa-sel-sort-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-sort-down" aria-hidden="true"></i>
+            <span class="qa-sel-sort-caption">Sorted by</span>
+            <span class="qa-sel-sort-current">{{ sort_label }}</span>
+            <i class="bi bi-chevron-down qa-sel-sort-caret" aria-hidden="true"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            {% for key, label in sort_options %}
+            <li><a class="dropdown-item{% if key == sort_value %} active{% endif %}"
+                   href="?sort={{ key }}{% if selected_cluster %}&amp;cluster={{ selected_cluster }}{% endif %}">
+                {{ label }}
+            </a></li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+<div class="qa-sel-grid qa-sel-page">
+    {% for c in clusters %}
+    <a href="{% url 'documents:clusters' %}?cluster={{ c.number }}&amp;sort={{ sort_value }}"
+       class="qa-sel-card js-cluster-card{% if selected_cluster == c.number|stringformat:'s' %} qa-sel-card--active{% endif %}"
+       data-cluster="{{ c.number }}">
+        {% comment %}
+        The stored label reads "Area II · Certificate · eg. Some document". As one
+        clipped line it was cut before "eg." on all thirty-two cards, so every
+        card showed its category and none showed which cluster it was. The view
+        splits it: the facets sit above as small meta, the example document gets
+        the title, and the bar puts the group's size next to the largest.
+        {% endcomment %}
+        <div class="qa-sel-card-head">
+            <span class="qa-sel-card-code"><i class="bi bi-diagram-2"></i>C{{ c.number }}</span>
+        </div>
+        <div class="qa-sel-card-facets">
+            {% for facet in c.facets %}<span class="qa-sel-card-facet">{{ facet }}</span>{% endfor %}
+        </div>
+        <div class="qa-sel-card-title" title="{{ c.display_label }}">{{ c.sample|default:c.display_label }}</div>
+        <div class="qa-sel-card-progress">
+            <div class="qa-sel-card-progress-bar" role="progressbar"
+                 aria-valuenow="{{ c.count }}" aria-valuemin="0" aria-valuemax="{{ summary.largest_cluster }}"
+                 aria-label="{{ c.count }} of {{ summary.largest_cluster }} documents in the largest cluster">
+                <span style="width: {{ c.size_pct }}%;"></span>
+            </div>
+            <span class="qa-sel-card-metric">{{ c.count }} <small>doc{{ c.count|pluralize }}</small></span>
+        </div>
+        <div class="qa-sel-card-foot">
+            {% if c.last_upload %}Updated {{ c.last_upload|date:"M j, Y" }}{% else %}No uploads{% endif %}
+        </div>
+    </a>
+    {% empty %}
+    <div style="grid-column: 1 / -1;">
+        {% include 'includes/empty_state.html' with empty_icon='bi-diagram-2' empty_title='No clusters yet' empty_text='Clusters appear after the AI processes documents. Upload more files or run AI Processing, then check back.' %}
+    </div>
+    {% endfor %}
+</div>
+
+<div id="areaDetailWrap" class="position-relative qa-sel-page"
+     data-base-url="{% url 'documents:clusters' %}" data-sort="{{ sort_value }}">
+    <div class="qa-sel-detail-spinner">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading…</span></div>
+    </div>
+    <div id="areaDetailContent">
+        {% include 'documents/_cluster_detail.html' %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const wrap = document.getElementById('areaDetailWrap');
+    const content = document.getElementById('areaDetailContent');
+    if (!wrap || !content) return;
+    const baseUrl = wrap.dataset.baseUrl;
+    let loadToken = 0;
+    let controller = null;
+
+    function setActiveCard(value) {
+        document.querySelectorAll('.js-cluster-card').forEach(function (card) {
+            card.classList.toggle('qa-sel-card--active', card.dataset.cluster === value);
+            card.classList.remove('is-pending');
+        });
+    }
+
+    function scrollToDetail() {
+        const target = content.querySelector('.qa-sel-detail-card');
+        if (!target) return;
+        const top = target.getBoundingClientRect().top + window.pageYOffset - 80;
+        window.scrollTo({ top: top, behavior: 'smooth' });
+    }
+
+    function loadCluster(value, opts) {
+        opts = opts || {};
+        const myToken = ++loadToken;
+        // Keep the chosen order in the URL the history entry records, so a
+        // refresh or a Back does not silently drop it.
+        const params = new URLSearchParams();
+        if (value !== '' && value != null) params.set('cluster', value);
+        if (wrap.dataset.sort) params.set('sort', wrap.dataset.sort);
+        const query = params.toString();
+        const url = query ? (baseUrl + '?' + query) : baseUrl;
+        if (controller) { try { controller.abort(); } catch (e) {} }
+        controller = new AbortController();
+        wrap.classList.add('is-loading');
+        return fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            signal: controller.signal,
+        })
+            .then(function (res) { if (!res.ok) throw new Error('Request failed (' + res.status + ')'); return res.text(); })
+            .then(function (html) {
+                if (myToken !== loadToken) return;
+                content.innerHTML = html;
+                setActiveCard(value);
+                if (!opts.skipPush) window.history.pushState({ cluster: value }, '', url);
+                if (opts.scroll !== false) scrollToDetail();
+            })
+            .catch(function (err) {
+                if (err && err.name === 'AbortError') return;
+                if (typeof window.qaToast === 'function') window.qaToast(err.message || 'Could not load cluster.', 'error');
+            })
+            .finally(function () {
+                if (myToken === loadToken) {
+                    wrap.classList.remove('is-loading');
+                    document.querySelectorAll('.js-cluster-card').forEach(function (c) { c.classList.remove('is-pending'); });
+                }
+                controller = null;
+            });
+    }
+
+    document.querySelectorAll('.js-cluster-card').forEach(function (card) {
+        card.addEventListener('click', function (e) {
+            e.preventDefault();
+            const value = card.dataset.cluster;
+            if (card.classList.contains('qa-sel-card--active')) { scrollToDetail(); return; }
+            document.querySelectorAll('.js-cluster-card').forEach(function (c) { c.classList.remove('is-pending'); });
+            card.classList.add('is-pending');
+            loadCluster(value);
+        });
+    });
+
+    window.addEventListener('popstate', function () {
+        const params = new URLSearchParams(window.location.search);
+        loadCluster(params.get('cluster') || '', { skipPush: true, scroll: false });
+    });
+});
+</script>
+{% endblock %}

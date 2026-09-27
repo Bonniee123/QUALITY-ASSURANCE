@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+{% block title %}Settings{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Settings Page Custom CSS */
+/* A borderless card floating on a 24px blur, rising four pixels on hover, was
+   the heaviest card in the system -- and these two hold forms, which nobody
+   hovers over to admire. Same surface as everywhere else. */
+.settings-card {
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    background: var(--card-bg);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    transition: box-shadow var(--transition-base), border-color var(--transition-base);
+}
+.settings-card:hover {
+    box-shadow: var(--card-shadow-hover);
+}
+.settings-card-header {
+    background: hsl(215, 65%, 98%);
+    padding: 24px;
+    border-bottom: 1px solid hsl(220, 10%, 94%);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.settings-icon-box {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    background: hsl(215, 65%, 48%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+.settings-icon-box.purple {
+    background: hsl(262, 50%, 50%);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+.settings-header-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: hsl(220, 20%, 18%);
+}
+.settings-header-subtitle {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+}
+
+/* Feature List Rows */
+.feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.feature-item {
+    padding: 20px 24px;
+    border-bottom: 1px solid hsl(220, 10%, 94%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.2s;
+}
+.feature-item:last-child {
+    border-bottom: none;
+}
+.feature-item:hover {
+    background: hsl(220, 20%, 98%);
+}
+.feature-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.feature-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: hsl(215, 30%, 95%);
+    color: hsl(215, 60%, 50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+.feature-text h6 {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: hsl(220, 20%, 20%);
+}
+.feature-text p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.status-badge.active {
+    background: hsl(142, 50%, 94%);
+    color: hsl(142, 60%, 35%);
+    border: 1px solid hsl(142, 50%, 85%);
+}
+.status-badge.inactive {
+    background: hsl(0, 50%, 96%);
+    color: hsl(0, 60%, 45%);
+    border: 1px solid hsl(0, 50%, 90%);
+}
+/* Installed, but its latest run failed. Same pill; amber between the two. */
+.status-badge.degraded {
+    background: hsl(38, 90%, 94%);
+    color: hsl(30, 80%, 32%);
+    border: 1px solid hsl(38, 80%, 82%);
+}
+.feature-text p.engine-last-run { margin-top: 2px; color: var(--color-text-muted); }
+.feature-text p.engine-last-run.is-failed { color: hsl(0, 60%, 45%); }
+
+/* File Type Badges */
+.file-badge {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border: 1px solid hsl(220, 10%, 90%);
+    color: hsl(220, 20%, 30%);
+    transition: all 0.2s;
+}
+.file-badge i { font-size: 16px; }
+.file-badge.pdf { color: #e11d48; border-color: #ffe4e6; background: #fff1f2; }
+.file-badge.docx { color: #2563eb; border-color: #dbeafe; background: #eff6ff; }
+.file-badge.xlsx { color: #16a34a; border-color: #dcfce7; background: #f0fdf4; }
+.file-badge.image { color: #9333ea; border-color: #f3e8ff; background: #faf5ff; }
+.file-badge:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header mb-5">
+    <div>
+        <h2 style="font-size: 28px; font-weight: 700; color: hsl(220, 20%, 15%); margin-bottom: 8px;">Settings</h2>
+        <p style="color: hsl(220, 10%, 45%); font-size: 15px;">Platform settings, AI engines, and operational limits (read-only; set in the server configuration).</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Document Settings Card -->
+    <div class="col-xl-6">
+        <div class="settings-card h-100">
+            <div class="settings-card-header">
+                <div class="settings-icon-box">
+                    <i class="bi bi-folder-check"></i>
+                </div>
+                <div>
+                    <h3 class="settings-header-title">Document Policies</h3>
+                    <p class="settings-header-subtitle">Global file restrictions and handling</p>
+                </div>
+            </div>
+            
+            <div class="p-4">
+                <h6 style="font-size: 13px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 16px; letter-spacing: 0.5px;">Supported Formats</h6>
+                <div class="d-flex flex-wrap gap-3 mb-5">
+                    <div class="file-badge pdf"><i class="bi bi-file-earmark-pdf"></i> PDF</div>
+                    <div class="file-badge docx"><i class="bi bi-file-earmark-word"></i> DOCX</div>
+                    <div class="file-badge xlsx"><i class="bi bi-file-earmark-excel"></i> XLSX</div>
+                    <div class="file-badge image"><i class="bi bi-image"></i> JPG / PNG</div>
+                </div>
+
+                <h6 style="font-size: 13px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 16px; letter-spacing: 0.5px;">Storage Limits</h6>
+                {% comment %}
+                The value here was hardcoded "25 MB" and sat above a progress bar
+                pinned to width:25% with aria-valuenow="25" - a meter for a static
+                limit, which announced "25 percent" to screen readers and would have
+                gone stale the moment the setting changed. Now it reads the real
+                configured limit and drops the bar.
+                {% endcomment %}
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span style="font-weight: 500; color: var(--color-text-primary); font-size: 14px;">Maximum upload size</span>
+                    <span style="font-weight: 700; color: var(--color-brand); font-size: 16px;">{{ max_upload_mb }} MB</span>
+                </div>
+                <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 8px;">Hard limit per single file upload, applied on every upload form.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Processing Card -->
+    <div class="col-xl-6">
+        <div class="settings-card h-100">
+            <div class="settings-card-header">
+                <div class="settings-icon-box purple">
+                    <i class="bi bi-cpu"></i>
+                </div>
+                <div>
+                    <h3 class="settings-header-title">AI Engine Status</h3>
+                    <p class="settings-header-subtitle">Installed engines and how their latest run went</p>
+                </div>
+            </div>
+            
+            <ul class="feature-list">
+                {% for engine in ai_engines %}
+                <li class="feature-item">
+                    <div class="feature-info">
+                        <div class="feature-icon"><i class="bi {{ engine.icon }}"></i></div>
+                        <div class="feature-text">
+                            <h6>{{ engine.name }}</h6>
+                            <p>{{ engine.desc }}</p>
+                            {% if engine.last_run %}<p class="engine-last-run{% if engine.degraded %} is-failed{% endif %}">{{ engine.last_run }}</p>{% endif %}
+                        </div>
+                    </div>
+                    {% if engine.online and engine.degraded %}
+                    <div class="status-badge degraded"><i class="bi bi-circle-fill" style="font-size:8px"></i> Degraded</div>
+                    {% elif engine.online %}
+                    <div class="status-badge active"><i class="bi bi-circle-fill" style="font-size:8px"></i> Online</div>
+                    {% else %}
+                    <div class="status-badge inactive"><i class="bi bi-circle-fill" style="font-size:8px"></i> Offline</div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

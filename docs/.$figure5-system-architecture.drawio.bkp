@@ -1,0 +1,121 @@
+<mxfile host="app.diagrams.net" agent="QA Capstone" background="#ffffff">
+  <diagram name="System Architecture" id="fig5-architecture">
+    <mxGraphModel dx="1084" dy="656" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="#FFFFFF" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=none;pointerEvents=0;" value="" vertex="1">
+          <mxGeometry height="827" width="1169" as="geometry" />
+        </mxCell>
+        <mxCell id="client_box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="380" width="220" x="48" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="client_hdr" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=10;fontStyle=1;fontFamily=Helvetica;" value="CLIENT LAYER" vertex="1">
+          <mxGeometry height="28" width="120" x="68" y="116" as="geometry" />
+        </mxCell>
+        <mxCell id="browser" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;arcSize=6;" value="" vertex="1">
+          <mxGeometry height="100" width="140" x="88" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_scr" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1;" value="" vertex="1">
+          <mxGeometry height="72" width="120" x="98" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_base" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1;" value="" vertex="1">
+          <mxGeometry height="8" width="80" x="118" y="286" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=10;fontStyle=1;fontFamily=Helvetica;align=center;" value="Web Browser&#xa;(HTML5 · HTTPS)" vertex="1">
+          <mxGeometry height="32" width="160" x="78" y="312" as="geometry" />
+        </mxCell>
+        <mxCell id="users_lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;" value="QA Head · Administrator" vertex="1">
+          <mxGeometry height="20" width="180" x="68" y="352" as="geometry" />
+        </mxCell>
+        <mxCell id="client_note" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=8;fontStyle=2;fontFamily=Helvetica;align=center;" value="Bootstrap 5 UI via&#xa;Django Templates" vertex="1">
+          <mxGeometry height="28" width="180" x="68" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="app_box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="420" width="500" x="320" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="app_hdr" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=10;fontStyle=1;fontFamily=Helvetica;" value="APPLICATION LAYER" vertex="1">
+          <mxGeometry height="28" width="150" x="340" y="96" as="geometry" />
+        </mxCell>
+        <mxCell id="engine_box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;arcSize=6;" value="" vertex="1">
+          <mxGeometry height="340" width="444" x="348" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="engine_hdr" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=10;fontStyle=1;fontFamily=Helvetica;align=center;" value="DJANGO 4.2 APPLICATION SERVER (WSGI)" vertex="1">
+          <mxGeometry height="20" width="380" x="380" y="152" as="geometry" />
+        </mxCell>
+        <mxCell id="mid_lbl" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=8;fontFamily=Helvetica;" value="Middleware: Security · Sessions · CSRF · Authentication" vertex="1">
+          <mxGeometry height="24" width="404" x="368" y="178" as="geometry" />
+        </mxCell>
+        <mxCell id="mod1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;spacingTop=2;arcSize=10;" value="Document Management&#xa;─────────────&#xa;Upload &amp; bulk processing&#xa;Repository &amp; metadata&#xa;Text extraction · OCR" vertex="1">
+          <mxGeometry height="88" width="192" x="368" y="216" as="geometry" />
+        </mxCell>
+        <mxCell id="mod2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;spacingTop=2;arcSize=10;" value="AI Processing&#xa;─────────────&#xa;TF-IDF · Elbow · K-Means&#xa;Duplicate detection&#xa;Background jobs (in-process)" vertex="1">
+          <mxGeometry height="88" width="192" x="580" y="216" as="geometry" />
+        </mxCell>
+        <mxCell id="mod3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;spacingTop=2;arcSize=10;" value="Search &amp; Dashboard&#xa;─────────────&#xa;Smart search &amp; filters&#xa;KPIs · insights · reports&#xa;Hybrid search reranking" vertex="1">
+          <mxGeometry height="88" width="192" x="368" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="mod4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;spacingTop=2;arcSize=10;" value="Auth &amp; Support Services&#xa;─────────────&#xa;Accounts · RBAC&#xa;Notifications · chatbot&#xa;Activity logging" vertex="1">
+          <mxGeometry height="88" width="192" x="580" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="data_box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="380" width="280" x="872" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="data_hdr" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=10;fontStyle=1;fontFamily=Helvetica;" value="DATA LAYER" vertex="1">
+          <mxGeometry height="28" width="100" x="892" y="116" as="geometry" />
+        </mxCell>
+        <mxCell id="db" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontSize=9;fontStyle=1;fontFamily=Helvetica;" value="Database&#xa;(SQLite / MySQL)" vertex="1">
+          <mxGeometry height="70" width="100" x="900" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="fs" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontSize=9;fontStyle=1;fontFamily=Helvetica;" value="File Storage&#xa;(Media volume)" vertex="1">
+          <mxGeometry height="70" width="100" x="900" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="ent1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;arcSize=12;" value="User Accounts&#xa;&amp; Roles" vertex="1">
+          <mxGeometry height="44" width="110" x="1020" y="168" as="geometry" />
+        </mxCell>
+        <mxCell id="ent2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;arcSize=12;" value="Documents&#xa;&amp; Metadata" vertex="1">
+          <mxGeometry height="44" width="110" x="1020" y="228" as="geometry" />
+        </mxCell>
+        <mxCell id="ent3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;arcSize=12;" value="Cluster &amp;&#xa;Duplicate Results" vertex="1">
+          <mxGeometry height="44" width="110" x="1020" y="288" as="geometry" />
+        </mxCell>
+        <mxCell id="ent4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;arcSize=12;" value="Notifications&#xa;&amp; Activity Logs" vertex="1">
+          <mxGeometry height="44" width="110" x="1020" y="348" as="geometry" />
+        </mxCell>
+        <mxCell id="ent5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;arcSize=12;" value="Uploaded&#xa;Document Files" vertex="1">
+          <mxGeometry height="44" width="110" x="1020" y="408" as="geometry" />
+        </mxCell>
+        <mxCell id="arr1" edge="1" parent="1" source="client_box" style="startArrow=block;startFill=1;endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;rounded=0;" target="app_box" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr1_lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;" value="upload documents, search repository,&#xa;view dashboard, manage users" vertex="1">
+          <mxGeometry height="27.49" width="159" x="222" y="241" as="geometry" />
+        </mxCell>
+        <mxCell id="arr2" edge="1" parent="1" source="app_box" style="startArrow=block;startFill=1;endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=2;rounded=0;" target="data_box" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr2_lbl" parent="1" style="text;html=1;strokeColor=none;fillColor=#FFFFFF;fontColor=#000000;fontSize=9;fontFamily=Helvetica;align=center;" value="read/write document metadata,&#xa;AI results, user accounts" vertex="1">
+          <mxGeometry height="26.13" width="133" x="764" y="246.93" as="geometry" />
+        </mxCell>
+        <mxCell id="de1" edge="1" parent="1" source="db" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=1;rounded=1;curved=1;" target="ent1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="de2" edge="1" parent="1" source="db" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=1;rounded=1;curved=1;" target="ent2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="de3" edge="1" parent="1" source="db" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=1;rounded=1;curved=1;entryX=0;entryY=0;entryDx=0;entryDy=0;" target="ent3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="de4" edge="1" parent="1" source="db" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=1;rounded=1;curved=1;entryX=0;entryY=0;entryDx=0;entryDy=0;" target="ent4" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="de5" edge="1" parent="1" source="fs" style="endArrow=block;endFill=1;html=1;strokeColor=#000000;strokeWidth=1;rounded=1;curved=1;entryX=0;entryY=0;entryDx=0;entryDy=0;" target="ent5" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="de6" edge="1" parent="1" source="db" style="endArrow=none;html=1;strokeColor=#000000;strokeWidth=1;dashed=1;dashPattern=4 3;rounded=1;curved=1;" target="fs" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

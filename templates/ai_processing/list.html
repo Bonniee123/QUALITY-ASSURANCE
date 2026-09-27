@@ -1,0 +1,338 @@
+{% extends 'base.html' %}
+{% load asset_tags %}
+{% load static %}
+{% block title %}AI Processing{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static_v 'css/ai-processing.css' %}">
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>AI Processing</h2>
+        <p>Smart clustering, keyword extraction, duplicate detection, and recommendations</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'documents:clusters' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-diagram-3 me-1"></i>Document Clusters
+        </a>
+        <a href="{% url 'documents:repository' %}?duplicate=review" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-files me-1"></i>Review Duplicates
+        </a>
+        <form method="post" action="{% url 'ai_processing:run' %}" class="d-inline" id="reprocessAllForm">{% csrf_token %}
+            <button type="button" class="btn btn-primary btn-sm" id="reprocessAllBtn"
+                    data-bs-toggle="modal" data-bs-target="#reprocessAllModal">
+                <i class="bi bi-arrow-repeat me-1"></i>Reprocess All
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg">
+        <div class="card h-100"><div class="card-body d-flex align-items-center gap-3 py-3">
+            <div class="stat-icon" style="background:hsl(215,60%,92%);color:hsl(215,60%,45%)"><i class="bi bi-file-earmark-text"></i></div>
+            <div><div class="stat-value">{{ total_count }}</div><div class="stat-label">Documents</div></div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg">
+        <div class="card h-100"><div class="card-body d-flex align-items-center gap-3 py-3">
+            <div class="stat-icon" style="background:hsl(142,45%,90%);color:hsl(142,45%,38%)"><i class="bi bi-check-circle"></i></div>
+            <div><div class="stat-value">{{ processed_count }}</div><div class="stat-label">AI Processed</div></div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg">
+        <div class="card h-100"><div class="card-body d-flex align-items-center gap-3 py-3">
+            <div class="stat-icon" style="background:hsl(262,45%,92%);color:hsl(262,45%,48%)"><i class="bi bi-diagram-3"></i></div>
+            <div><div class="stat-value">{{ cluster_total }}</div><div class="stat-label">Clusters</div></div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg">
+        <div class="card h-100"><div class="card-body d-flex align-items-center gap-3 py-3">
+            <div class="stat-icon" style="background:hsl(38,70%,92%);color:hsl(38,70%,40%)"><i class="bi bi-exclamation-circle"></i></div>
+            <div><div class="stat-value">{{ dup_count }}</div><div class="stat-label">Needs Review</div></div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg">
+        <div class="card h-100"><div class="card-body d-flex align-items-center gap-3 py-3">
+            <div class="stat-icon" style="background:hsl(220,15%,92%);color:hsl(220,15%,45%)"><i class="bi bi-dash-circle"></i></div>
+            <div><div class="stat-value">{{ unclustered_count }}</div><div class="stat-label">Unclustered</div></div>
+        </div></div>
+    </div>
+</div>
+
+{% if cluster_summaries %}
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-collection me-2"></i>Largest Clusters</span>
+        <a href="{% url 'documents:clusters' %}" class="btn btn-sm btn-outline-primary">View all {{ cluster_total }} cluster{{ cluster_total|pluralize }}</a>
+    </div>
+    <div class="card-body">
+        <div class="ai-cluster-grid">
+            {% for c in cluster_summaries %}
+            <a href="{% url 'documents:clusters' %}?cluster={{ c.number }}" class="ai-cluster-card">
+                <div class="ai-cluster-card-code">C{{ c.number }} · {{ c.count }} doc{{ c.count|pluralize }}</div>
+                <div class="ai-cluster-card-title">{{ c.label|truncatechars:56 }}</div>
+                {% if c.keywords %}
+                <div class="ai-cluster-card-meta">{{ c.keywords|slice:":3"|join:", " }}</div>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if recent_jobs %}
+<div class="card mb-3">
+    <div class="card-header"><i class="bi bi-list-task me-2"></i>Recent Processing Runs</div>
+    <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="Recent processing runs">
+        <table class="table mb-0 table-sm">
+            <thead><tr><th>Type</th><th>Status</th><th>Run</th><th>Result</th></tr></thead>
+            <tbody>
+            {% for job in recent_jobs %}
+            <tr>
+                <td>{{ job.get_job_type_display }}</td>
+                <td>
+                    {% if job.status == 'completed' %}<span class="badge badge-complete">Completed</span>
+                    {% elif job.status == 'failed' %}<span class="badge badge-review">Failed</span>
+                    {% elif job.status == 'running' %}<span class="badge badge-suggested">Running</span>
+                    {% else %}<span class="badge badge-unmapped">Pending</span>{% endif %}
+                </td>
+                <td>{{ job.created_at|date:"M d, H:i" }}</td>
+                <td style="font-size:12px;">{{ job.result|default:job.error|truncatechars:80 }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Charts -->
+<div class="row g-3 mb-3">
+    {% if elbow_data %}
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-graph-up me-2"></i>Optimal k (Elbow) = {{ elbow_data.optimal_k }}</div>
+            <div class="card-body" style="padding:16px">
+                <div style="height:220px"><canvas id="elbowChart"></canvas></div>
+                {% if elbow_data.group %}
+                <p class="text-muted mb-0" style="font-size:12px;margin-top:8px;">
+                    Elbow curve of the largest group, {{ elbow_data.group }} ({{ elbow_data.group_size }} documents).
+                    {% if elbow_data.chosen_k %}Its clusters used k = {{ elbow_data.chosen_k }}, chosen by {% if elbow_data.k_method == 'silhouette' %}the silhouette score{% else %}the Elbow method{% endif %}{% if elbow_data.formed and elbow_data.formed != elbow_data.chosen_k %}; {{ elbow_data.formed }} remain after merging near-identical clusters{% endif %}.{% endif %}
+                    {% if elbow_data.group != 'All documents' %}Each area and document type is clustered separately.{% endif %}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% if cluster_labels %}
+    <div class="col-lg-{% if elbow_data %}6{% else %}12{% endif %}">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Cluster Distribution</div>
+            <div class="card-body" style="padding:16px">
+                <div style="height:220px"><canvas id="clusterChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Documents Table -->
+<div class="card">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span><i class="bi bi-table me-2"></i>Document Results</span>
+        <div class="ai-filter-tabs btn-group btn-group-sm" role="group" aria-label="Filter documents">
+            <a href="?filter=all" class="btn btn-outline-secondary {% if filter_key == 'all' %}active{% endif %}">All ({{ filter_counts.all }})</a>
+            <a href="?filter=review" class="btn btn-outline-secondary {% if filter_key == 'review' %}active{% endif %}">Review ({{ filter_counts.review }})</a>
+            <a href="?filter=unclustered" class="btn btn-outline-secondary {% if filter_key == 'unclustered' %}active{% endif %}">Unclustered ({{ filter_counts.unclustered }})</a>
+            <a href="?filter=pending" class="btn btn-outline-secondary {% if filter_key == 'pending' %}active{% endif %}">Pending ({{ filter_counts.pending }})</a>
+        </div>
+    </div>
+    <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="Document AI processing results">
+        <table class="table table-sm mb-0">
+            <thead><tr>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Area</th>
+                <th>Keywords</th>
+                <th>Cluster</th>
+                <th>Duplicate</th>
+                <th></th>
+            </tr></thead>
+            <tbody>
+            {% for doc in documents %}
+            <tr>
+                <td><strong>{{ doc.title|truncatechars:32 }}</strong></td>
+                <td>{% include '_file_type.html' with ft=doc.file_type %}</td>
+                <td>{% include 'documents/_area_badge.html' with doc=doc %}</td>
+                <td style="max-width:180px;">
+                    {% for kw in doc.tfidf_keywords|slice:":3" %}
+                        {% if kw.0 %}<span class="badge badge-unmapped ai-kw-chip">{{ kw.0 }}</span>{% endif %}
+                    {% empty %}<span class="text-muted">—</span>{% endfor %}
+                </td>
+                <td>
+                    {% if doc.cluster_label is not None %}
+                    <span class="badge badge-suggested">C{{ doc.cluster_label }}</span>
+                    {% if doc.ai_cluster_display %}
+                    <span class="ai-table-cluster-label" title="{{ doc.ai_cluster_display }}">{{ doc.ai_cluster_display }}</span>
+                    {% endif %}
+                    {% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+                <td>{% include 'documents/_duplicate_status_badge.html' with status=doc.duplicate_status %}</td>
+                <td class="text-end">
+                    <a href="{% url 'ai_processing:detail' doc.pk %}" class="btn btn-sm btn-outline-primary py-0">Details</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="empty-state py-4">
+                <i class="bi bi-cpu"></i><p>No documents match this filter.</p>
+            </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer d-flex justify-content-between align-items-center py-2">
+        <span class="text-muted" style="font-size:12px;">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        <div class="btn-group btn-group-sm">
+            {% if page_obj.has_previous %}
+            <a class="btn btn-outline-secondary" href="?filter={{ filter_key }}&page={{ page_obj.previous_page_number }}">Prev</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a class="btn btn-outline-secondary" href="?filter={{ filter_key }}&page={{ page_obj.next_page_number }}">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Reprocess All confirmation modal -->
+<div class="modal fade" id="reprocessAllModal" tabindex="-1" aria-labelledby="reprocessAllModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content ai-reprocess-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title d-flex align-items-center gap-2" id="reprocessAllModalLabel">
+                    <span class="ai-reprocess-modal-icon"><i class="bi bi-arrow-repeat"></i></span>
+                    Reprocess all documents?
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="text-muted mb-2" style="font-size:14px;line-height:1.55;">
+                    This reruns <strong>keywords</strong>, <strong>smart clustering</strong>,
+                    <strong>duplicate detection</strong>, and <strong>recommendations</strong>
+                    for the full repository.
+                </p>
+                <p class="mb-0" style="font-size:13px;">
+                    <span class="badge badge-suggested">{{ total_count }} document{{ total_count|pluralize }}</span>
+                    will be updated. Large repositories may take a few minutes.
+                </p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="reprocessAllConfirmBtn">
+                    <i class="bi bi-arrow-repeat me-1"></i>Reprocess All
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-icon {
+    width: 40px; height: 40px; border-radius: var(--radius-md);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+}
+.stat-value { font-size: 20px; font-weight: 700; color: var(--color-text-primary); line-height: 1.2; }
+.stat-label { font-size: var(--text-xs); color: var(--color-text-muted); font-weight: 500; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const reprocessForm = document.getElementById('reprocessAllForm');
+    const reprocessBtn = document.getElementById('reprocessAllBtn');
+    const reprocessModalEl = document.getElementById('reprocessAllModal');
+    const reprocessConfirmBtn = document.getElementById('reprocessAllConfirmBtn');
+    const hasBootstrapModal = typeof bootstrap !== 'undefined' && bootstrap.Modal && reprocessModalEl;
+
+    function startReprocess() {
+        if (typeof window.qaToast === 'function') {
+            window.qaToast('Reprocess started. Large repositories may take a few minutes.', 'info');
+        }
+        if (reprocessBtn) {
+            reprocessBtn.disabled = true;
+            reprocessBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Running…';
+        }
+        if (reprocessForm) {
+            reprocessForm.submit();
+        }
+    }
+
+    if (reprocessConfirmBtn && hasBootstrapModal) {
+        reprocessConfirmBtn.addEventListener('click', function () {
+            bootstrap.Modal.getOrCreateInstance(reprocessModalEl).hide();
+            startReprocess();
+        });
+    } else if (reprocessForm && reprocessBtn) {
+        reprocessBtn.addEventListener('click', function () {
+            if (window.confirm('Reprocess all documents? This reruns keywords, smart clustering, duplicates, and recommendations for the full repository.')) {
+                startReprocess();
+            }
+        });
+    }
+});
+
+{% if elbow_data %}
+new Chart(document.getElementById('elbowChart'), {
+    type: 'line',
+    data: {
+        labels: {{ elbow_data.k_values|safe }},
+        datasets: [{
+            label: 'Inertia',
+            data: {{ elbow_data.inertias|safe }},
+            borderColor: 'hsl(215, 65%, 50%)',
+            backgroundColor: 'rgba(59,130,246,0.08)',
+            fill: true, tension: 0.3, pointRadius: 4, borderWidth: 2,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+            x: { title: { display: true, text: 'k', font: { size: 11 }}},
+            y: { title: { display: true, text: 'Inertia', font: { size: 11 }}},
+        },
+        plugins: { legend: { display: false } }
+    }
+});
+{% endif %}
+
+{% if cluster_labels %}
+const clusterColors = [
+    'hsl(215, 65%, 55%)', 'hsl(142, 50%, 45%)', 'hsl(262, 50%, 55%)',
+    'hsl(38, 70%, 50%)', 'hsl(340, 60%, 55%)', 'hsl(180, 50%, 42%)',
+    'hsl(20, 65%, 50%)', 'hsl(290, 45%, 55%)',
+];
+new Chart(document.getElementById('clusterChart'), {
+    type: 'doughnut',
+    data: {
+        labels: {{ cluster_labels|safe }},
+        datasets: [{
+            data: {{ cluster_counts|safe }},
+            backgroundColor: clusterColors,
+            borderWidth: 2, borderColor: 'white',
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 10 } } }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

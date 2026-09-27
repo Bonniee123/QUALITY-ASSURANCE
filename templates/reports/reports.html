@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+{% load dict_extras %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>Reports</h2>
+        <p>Generate and export system reports</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'reports:export_excel' %}?type={{ report_type }}" class="btn rpt-btn-excel"><i class="bi bi-file-earmark-excel me-1"></i>Export Excel</a>
+    </div>
+</div>
+
+<!-- Report Type Tabs -->
+<div class="mb-4 text-center text-md-start">
+    <div class="rpt-tabs-container">
+        <a href="?type=inventory" class="rpt-tab {% if report_type == 'inventory' %}active{% endif %}">
+            <i class="bi bi-file-earmark-text"></i>Document Inventory
+        </a>
+        <a href="?type=cluster" class="rpt-tab {% if report_type == 'cluster' %}active{% endif %}">
+            <i class="bi bi-diagram-3"></i>Cluster Report
+        </a>
+        <a href="?type=recent" class="rpt-tab {% if report_type == 'recent' %}active{% endif %}">
+            <i class="bi bi-clock"></i>Recent Activity
+        </a>
+    </div>
+</div>
+
+<!-- Report Summary Bar -->
+<div class="rpt-summary">
+    <span class="rpt-chip"><i class="bi bi-collection"></i>{{ record_count|default:0 }} record{{ record_count|pluralize }}</span>
+    <span class="rpt-chip"><i class="bi bi-clock-history"></i>Generated {{ generated_at|time:"g:i A" }}</span>
+    <span class="rpt-chip rpt-chip-muted"><i class="bi bi-calendar3"></i>{{ generated_at|date:"M d, Y" }}</span>
+</div>
+
+<!-- Report Content -->
+<div class="card rpt-card shadow-sm">
+    <div class="rpt-card-header">
+        <i class="bi bi-file-earmark-bar-graph"></i>
+        <span>{{ title }}</span>
+    </div>
+    <div class="table-container" style="margin:0;border-radius:0 0 12px 12px;overflow:visible;padding:0">
+
+    {% if report_type == 'inventory' or report_type == 'recent' %}
+        <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="Report table">
+        <table class="table mb-0 align-middle rpt-table">
+            <thead><tr>
+                <th class="ps-4">#</th><th>Title</th><th>Type</th><th>Year</th><th>Accreditation</th><th>Cluster</th><th>Uploaded</th>
+            </tr></thead>
+            <tbody>
+            {% for doc in documents %}
+            <tr>
+                <td class="ps-4" style="color:var(--color-text-muted)">{{ forloop.counter }}</td>
+                <td><strong>{{ doc.title|truncatechars:28 }}</strong></td>
+                <td>{% include '_file_type.html' with ft=doc.file_type %}</td>
+                <td>{{ doc.year }}</td>
+                <td style="font-size:var(--text-xs)">
+                    {% if doc.acc_area %}{{ doc.acc_area.area_code }}
+                    {% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+                <td>{% if doc.cluster_label is not None %}<span class="badge badge-suggested" title="{{ cluster_names|get_item:doc.cluster_label|default:'' }}">C{{ doc.cluster_label }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                <td style="font-size:var(--text-xs);color:var(--color-text-muted)">{{ doc.uploaded_at|date:"M d, Y" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="text-center text-muted py-4">No documents found.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+
+    {% elif report_type == 'cluster' %}
+        <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="Cluster report">
+        <table class="table mb-0 align-middle rpt-table">
+            <thead><tr>
+                <th class="ps-4">Cluster</th><th>Document Count</th><th>Top Keywords</th>
+            </tr></thead>
+            <tbody>
+            {% for item in cluster_data %}
+            <tr>
+                <td class="ps-4"><span class="badge badge-suggested" style="font-size:13px" title="{{ cluster_names|get_item:item.cluster_label|default:'' }}">Cluster {{ item.cluster_label }}</span></td>
+                <td><strong>{{ item.count }}</strong> documents</td>
+                <td>
+                    <div class="d-flex flex-wrap gap-1">
+                    {% for cr in cluster_keywords %}
+                        {% if cr.cluster_number == item.cluster_label %}
+                            {% for kw in cr.top_keywords|slice:":5" %}
+                                <span class="badge" style="background:hsl(210,20%,94%);color:hsl(215,20%,30%);border:1px solid hsl(210,15%,85%)">{{ kw }}</span>
+                            {% endfor %}
+                        {% endif %}
+                    {% empty %}
+                        <span class="text-muted">—</span>
+                    {% endfor %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-4">No clusters generated yet. Upload documents to see AI clustering.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    {% endif %}
+
+    </div>
+</div>
+
+<style>
+.rpt-tabs-container {
+    display: inline-flex;
+    background: hsl(210, 20%, 96%);
+    padding: 6px;
+    border-radius: 12px;
+    border: 1px solid hsl(210, 20%, 90%);
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.rpt-tab {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    color: hsl(215, 15%, 45%);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rpt-tab i {
+    font-size: 16px;
+    margin-right: 6px;
+    transition: transform 0.2s;
+    color: hsl(215, 15%, 60%);
+}
+.rpt-tab:hover {
+    color: hsl(215, 25%, 20%);
+    background: rgba(0,0,0,0.03);
+}
+.rpt-tab:hover i {
+    color: hsl(215, 25%, 30%);
+}
+.rpt-tab.active {
+    background: white;
+    color: hsl(215, 65%, 45%);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    font-weight: 600;
+}
+.rpt-tab.active i {
+    color: hsl(215, 65%, 50%);
+    transform: scale(1.1);
+}
+
+/* Excel export button */
+/* Matches the Dashboard's Export Excel control; this was a green gradient while
+   the identical action on the Dashboard was brand blue. */
+.rpt-btn-excel {
+    background: var(--color-brand);
+    color: #fff;
+    border: none;
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+}
+.rpt-btn-excel:hover { background: var(--color-brand-hover); color: #fff; }
+
+/* Summary chips */
+.rpt-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.rpt-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: #fff;
+    border: 1px solid hsl(210, 20%, 88%);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(215, 20%, 25%);
+}
+.rpt-chip i { color: hsl(190, 55%, 40%); font-size: 14px; }
+.rpt-chip-muted { color: hsl(215, 12%, 50%); }
+.rpt-chip-muted i { color: hsl(215, 12%, 60%); }
+
+/* Report card + colored header */
+.rpt-card { border: 1px solid var(--card-border); border-radius: var(--card-radius); overflow: hidden; }
+.rpt-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 20px;
+    font-weight: 600;
+    font-size: 16px;
+    /* Was a solid dark gradient bar - the only filled section header anywhere in
+       the system, which made Reports look like a different product. */
+    color: var(--color-text-primary);
+    background: var(--color-overlay);
+    border-bottom: 1px solid var(--color-border);
+}
+.rpt-card-header i { font-size: 18px; color: var(--color-brand); }
+
+/* Styled, organized report table */
+.rpt-table thead th {
+    background: var(--color-overlay);
+    color: var(--color-text-secondary);
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid hsl(200, 40%, 85%);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.rpt-table tbody tr:nth-child(even) { background: var(--color-canvas); }
+.rpt-table tbody tr:hover { background: var(--color-overlay); }
+.rpt-table tbody td { border-bottom: 1px solid hsl(210, 20%, 93%); }
+</style>
+{% endblock %}

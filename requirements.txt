@@ -1,0 +1,29 @@
+# Pinned versions per Security Policy (Dependency Hygiene).
+#
+# These pins match the versions this project is developed and tested against on
+# Python 3.12 (see `python --version`). Verified with `pip freeze` — do not edit a
+# pin without reinstalling and re-running `python manage.py test`.
+Django==4.2.30
+
+# AI / ML stack
+scikit-learn==1.8.0
+scipy==1.17.1
+pandas==3.0.2
+numpy==2.4.4
+
+# Document parsing and imaging
+Pillow==12.2.0
+python-docx==1.2.0
+openpyxl==3.1.5
+PyPDF2==3.0.1
+pytesseract==0.3.13
+PyMuPDF==1.27.2.3
+pdf2image==1.17.0
+
+requests==2.32.3
+
+# Optional (Windows + Microsoft Word): faithful DOCX→PDF with headers/logos
+#   pip install docx2pdf pywin32
+#
+# Optional: semantic document clustering — see requirements-ai.txt. Without it the
+# clustering falls back to the hybrid TF-IDF + metadata backend automatically.

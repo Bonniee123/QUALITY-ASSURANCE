@@ -1,0 +1,291 @@
+{% extends 'base.html' %}
+{% block title %}User Management{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Premium User List CSS */
+.user-management-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    overflow: visible;
+    margin-bottom: 32px;
+}
+.user-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.user-table th {
+    background: hsl(220, 20%, 98%);
+    color: hsl(220, 10%, 45%);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 16px 24px;
+    border-bottom: 1px solid hsl(220, 10%, 90%);
+}
+.user-table td {
+    padding: 16px 24px;
+    vertical-align: middle;
+    border-bottom: 1px solid hsl(220, 10%, 94%);
+    color: hsl(220, 20%, 30%);
+    font-size: 14px;
+    transition: background 0.2s;
+}
+.user-table tr:hover td {
+    background: hsl(220, 20%, 99%);
+}
+.user-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* User Profile Row styling */
+.user-profile-cell {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.user-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.user-avatar--img {
+    object-fit: cover;
+    background: hsl(220, 20%, 95%);
+}
+.user-details {
+    display: flex;
+    flex-direction: column;
+}
+.user-name:hover { color: hsl(215, 60%, 50%); }
+.user-name {
+    font-weight: 600;
+    color: hsl(220, 20%, 18%);
+    font-size: 14px;
+}
+.user-email {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+/* Role Badges */
+.role-badge {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+/* Role is a category, not a status. Administrator used to be red, which reads as an
+   error state on a healthy account; red is reserved for destructive and error UI.
+   Privilege is now shown by weight of emphasis: dark = highest, brand = staff,
+   neutral = scoped, muted = read-only. */
+.role-admin { background: var(--color-sidebar); color: #fff; border: 1px solid var(--color-sidebar); }
+.role-qa { background: var(--color-brand-light); color: var(--color-brand-dark); border: 1px solid var(--color-brand-light); }
+.role-faculty { background: var(--color-overlay); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
+.role-viewer { background: var(--color-canvas); color: var(--color-text-muted); border: 1px solid var(--color-border); }
+
+/* Status Indicators */
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+}
+.status-active .status-dot { background: #10b981; box-shadow: 0 0 0 3px #d1fae5; }
+.status-inactive .status-dot { background: #ef4444; box-shadow: 0 0 0 3px #fee2e2; }
+
+/* Row actions use the shared .act pattern from style.css - this page used to
+   define a second, near-identical .action-btn family of its own. */
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4" style="border-bottom:none; padding-bottom:0;">
+    <div>
+        <h2 style="font-size: 28px; font-weight: 700; color: hsl(220, 20%, 15%); margin-bottom: 8px;">User Management</h2>
+        <p style="color: hsl(220, 10%, 45%); font-size: 15px;">Control access, assign roles, and manage departments.</p>
+    </div>
+    <a href="{% url 'accounts:user_create' %}" class="btn btn-primary shadow-sm" style="padding: 10px 20px; font-weight: 500;">
+        <i class="bi bi-person-plus me-2"></i> Add New User
+    </a>
+</div>
+
+<div class="user-management-card">
+    <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="System users">
+    <div class="table-responsive">
+        <table class="user-table">
+            <thead>
+                <tr>
+                    <th>User Profile</th>
+                    <th>System Role</th>
+                    <th>Department</th>
+                    <th>Status</th>
+                    <th>Joined Date</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>
+                        <div class="user-profile-cell">
+                            {% if u.profile.avatar_url %}
+                            <img class="user-avatar user-avatar--img" src="{{ u.profile.avatar_url }}" alt="{{ u.get_full_name|default:u.username }}">
+                            {% else %}
+                            <div class="user-avatar" style="background: hsl({{ u.username|length|add:200 }}, 55%, 38%);">
+                                {{ u.profile.initials }}
+                            </div>
+                            {% endif %}
+                            <div class="user-details">
+                                <a href="{% url 'accounts:user_detail' u.pk %}" class="user-name" style="text-decoration:none;">{{ u.get_full_name|default:u.username }}</a>
+                                <span class="user-email">{{ u.email|default:"No email provided" }}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% if u.profile.role == 'admin' %}
+                        <span class="role-badge role-admin"><i class="bi bi-shield-lock"></i> Administrator</span>
+                        {% elif u.profile.role == 'faculty' %}
+                        <span class="role-badge role-faculty"><i class="bi bi-mortarboard"></i> Faculty</span>
+                        {% else %}
+                        <span class="role-badge role-qa"><i class="bi bi-person-badge"></i> QA Head</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="font-weight: 500; color: hsl(220, 20%, 30%);">
+                            {{ u.profile.department|default:"<span class='text-muted'>Unassigned</span>"|safe }}
+                        </div>
+                    </td>
+                    <td>
+                        {% comment %}
+                        The switch sets both is_active and profile.status together, because
+                        both refuse a sign-in. Your own row shows the state without a switch:
+                        an Administrator cannot turn off their own access.
+                        {% endcomment %}
+                        {% if u.pk == request.user.pk %}
+                        <span class="status-active" style="font-size:13px; font-weight:500; color:#059669;"><span class="status-dot"></span>Active</span>
+                        <div style="font-size:11px; color:hsl(220,10%,55%); margin-top:2px;">your account</div>
+                        {% else %}
+                        <div class="form-check form-switch user-active-switch mb-0">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="userActive{{ u.pk }}"
+                                   data-user-toggle="{% url 'accounts:user_toggle_active' u.pk %}"
+                                   data-username="{{ u.username }}"
+                                   {% if u.profile.status == 'active' and u.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="userActive{{ u.pk }}"
+                                   id="userActiveLabel{{ u.pk }}"
+                                   style="font-size:13px; font-weight:500; {% if u.profile.status == 'active' and u.is_active %}color:#059669;{% else %}color:#dc2626;{% endif %}">
+                                {% if u.profile.status == 'active' and u.is_active %}Active{% else %}Inactive{% endif %}
+                            </label>
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td><span style="font-size:13px; color:hsl(220,10%,45%);"><i class="bi bi-calendar3 me-2"></i>{{ u.date_joined|date:"M d, Y" }}</span></td>
+                    <td>
+                        <div class="action-group justify-content-end">
+                            <a href="{% url 'accounts:user_detail' u.pk %}" class="act view" title="View User">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'accounts:user_edit' u.pk %}" class="act edit" title="Edit User">
+                                <i class="bi bi-pencil-square"></i>
+                            </a>
+                            <a href="{% url 'accounts:user_delete' u.pk %}" class="act delete" title="Delete User">
+                                <i class="bi bi-trash3"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">
+                        {% url 'accounts:user_create' as create_user_url %}
+                        {% include 'includes/empty_state.html' with empty_icon='bi-people' empty_title='No users yet' empty_text='Create the first user account to get started.' empty_action_url=create_user_url empty_action_label='Add User' %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Turning an account's access on or off from the table.
+
+   The switch is optimistic: it moves the moment it is clicked, then reverts if
+   the server refuses. Waiting for the round trip made it feel broken, and a
+   refusal here is rare -- the only one is trying to switch off your own access,
+   which the table does not offer a switch for in the first place. */
+(function () {
+    var switches = document.querySelectorAll('[data-user-toggle]');
+    if (!switches.length) { return; }
+
+    function csrfToken() {
+        var name = 'csrftoken=';
+        var parts = document.cookie.split(';');
+        for (var i = 0; i < parts.length; i++) {
+            var part = parts[i].trim();
+            if (part.indexOf(name) === 0) { return part.substring(name.length); }
+        }
+        var field = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        return field ? field.value : '';
+    }
+
+    function paint(input, active) {
+        var label = document.getElementById('userActiveLabel' + input.id.replace('userActive', ''));
+        if (!label) { return; }
+        label.textContent = active ? 'Active' : 'Inactive';
+        label.style.color = active ? '#059669' : '#dc2626';
+    }
+
+    switches.forEach(function (input) {
+        input.addEventListener('change', function () {
+            var wanted = input.checked;
+            input.disabled = true;
+            paint(input, wanted);
+
+            fetch(input.getAttribute('data-user-toggle'), {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            }).then(function (response) {
+                return response.json().then(function (data) { return { ok: response.ok, data: data }; });
+            }).then(function (result) {
+                input.disabled = false;
+                if (!result.ok || !result.data.ok) {
+                    input.checked = !wanted;
+                    paint(input, !wanted);
+                    window.alert((result.data && result.data.error) || 'Could not change that account.');
+                    return;
+                }
+                input.checked = result.data.active;
+                paint(input, result.data.active);
+            }).catch(function () {
+                input.disabled = false;
+                input.checked = !wanted;
+                paint(input, !wanted);
+                window.alert('Could not reach the server. Check your connection and try again.');
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}
