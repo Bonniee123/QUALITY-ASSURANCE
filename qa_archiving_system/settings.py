@@ -242,6 +242,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'accounts.middleware.SessionIdleTimeoutMiddleware',
+    'accounts.middleware.PresenceMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 

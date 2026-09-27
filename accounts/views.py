@@ -22,6 +22,7 @@ from .forms import DepartmentForm, LoginForm, UserCreateForm, UserEditForm
 from .models import Department, UserProfile
 from .decorators import admin_required
 from .permissions import ROLE_ADMIN, get_user_role
+from .presence import presence
 from .auth_security import (
     clear_login_attempts,
     is_login_locked,
@@ -156,8 +157,23 @@ def user_list(request):
                  output_field=IntegerField(),
              ))
              .order_by('is_enabled', '-date_joined'))
+    now = timezone.now()
+    users = list(users)
+    for u in users:
+        u.presence = presence(u, now)
     return render(request, 'accounts/user_list.html', {
         'users': users,
+    })
+
+
+@login_required
+@admin_required
+@never_cache
+def user_presence(request):
+    """Online / offline for every account, polled by User Management to stay current."""
+    now = timezone.now()
+    return JsonResponse({
+        'users': {str(u.pk): presence(u, now) for u in User.objects.select_related('profile')},
     })
 
 

@@ -1782,3 +1782,33 @@ built-in answers match still go to the model as before.
 Verified: the 17 new tests (13 fail on the previous code); the chat page shows
 the suggestion buttons and answers from them in a browser. Full suite: **964 /
 964** (19 skipped by their own conditions).
+
+## 26. Dashboard export for Administrators only; User Management shows who is online
+
+**Export Excel is an Administrator's tool.** The Dashboard's Export Excel button
+is no longer shown to QA Heads or Faculty, and `?export=excel` / `?export=csv`
+render the dashboard for them instead of a file.
+
+**Status is now presence, and it updates by itself.** The Status column
+repeated what the Access switch already says (Active/Inactive). It now shows:
+
+- **Online** — the person has the system open (any request in the last 3 minutes;
+  every open page refreshes its badges every few seconds);
+- **Last seen … ago** — offline, with when; signing out, by the button or by the
+  idle timeout, shows Offline at once;
+- **Never signed in**;
+- **Inactive** — the account is switched off.
+
+The page refreshes the column every 15 seconds without reloading
+(`accounts:user_presence`, Administrators only). Each session writes the time at
+most every 30 seconds, so presence adds one small UPDATE per user per
+half-minute. Accounts that signed in before this change show their last sign-in
+until their next visit.
+
+**Migration:** `accounts 0008` adds `UserProfile.last_seen` and `last_logout`.
+Run `python manage.py migrate`.
+
+Verified in a browser with two sessions: with User Management open, a Faculty
+member signing in turned their row to Online and signing out turned it to "Last
+seen just now", both without a reload. Full suite: **977 / 977** (19 skipped by
+their own conditions).
