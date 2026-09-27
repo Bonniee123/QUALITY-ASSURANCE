@@ -1664,3 +1664,26 @@ Verified on MariaDB 10.11: the new tie test fails on the old code and passes
 on the new; in a browser, a sent message showed "Sent" and turned "Read" on
 its own when the other person opened the conversation. Full suite: **940 /
 940** (19 skipped by their own conditions).
+
+## 23. User Management: status and access in separate columns, a smaller table
+
+**Status and the switch were one column.** The on/off switch and the
+Active/Inactive text shared the Status cell, so the switch read as part of the
+status label. Status now only reports the state (a dot and "Active" or
+"Inactive"); a new **Access** column holds the switch. Its tooltip says what a
+click will do ("On — click to deactivate"), and a screen reader hears "Account
+access for <name>". Flipping it updates the Status column at once. Your own
+row shows "Your account" in Access and no switch, as before.
+
+**Smaller table.** Cell padding 16×24 → 9×16 px, photos 42 → 32 px, text 14 →
+13 px, smaller role badges; role, joined date and headers no longer wrap.
+Measured at 1280 px with six users: rows 76 px → 57 px (the Administrator's
+row was 95 px), table 548 px → 381 px tall. No horizontal overflow at 1280 or
+1024 px.
+
+**The Administrator badge was invisible.** It used `--color-sidebar` as its
+fill, and the sidebar is now white, so it was white text on white. It now uses
+`--color-brand-dark`, keeping "dark = highest privilege".
+
+Verified in a browser: switching an account off and on changes its Status
+cell, survives a reload, and raises no script errors; `accounts` tests pass.

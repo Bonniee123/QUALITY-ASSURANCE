@@ -20,21 +20,23 @@
 .user-table th {
     background: hsl(220, 20%, 98%);
     color: hsl(220, 10%, 45%);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding: 16px 24px;
+    padding: 10px 16px;
     border-bottom: 1px solid hsl(220, 10%, 90%);
+    white-space: nowrap;
 }
 .user-table td {
-    padding: 16px 24px;
+    padding: 9px 16px;
     vertical-align: middle;
     border-bottom: 1px solid hsl(220, 10%, 94%);
     color: hsl(220, 20%, 30%);
-    font-size: 14px;
+    font-size: 13px;
     transition: background 0.2s;
 }
+.user-table .col-tight { white-space: nowrap; }
 .user-table tr:hover td {
     background: hsl(220, 20%, 99%);
 }
@@ -46,20 +48,21 @@
 .user-profile-cell {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
 }
 .user-avatar {
-    width: 42px;
-    height: 42px;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     font-weight: 600;
-    font-size: 14px;
-    letter-spacing: 1px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 .user-avatar--img {
     object-fit: cover;
@@ -73,28 +76,29 @@
 .user-name {
     font-weight: 600;
     color: hsl(220, 20%, 18%);
-    font-size: 14px;
+    font-size: 13px;
 }
 .user-email {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--color-text-secondary);
 }
 
 /* Role Badges */
 .role-badge {
-    padding: 6px 12px;
+    padding: 3px 9px;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
+    white-space: nowrap;
 }
 /* Role is a category, not a status. Administrator used to be red, which reads as an
    error state on a healthy account; red is reserved for destructive and error UI.
    Privilege is now shown by weight of emphasis: dark = highest, brand = staff,
    neutral = scoped, muted = read-only. */
-.role-admin { background: var(--color-sidebar); color: #fff; border: 1px solid var(--color-sidebar); }
+.role-admin { background: var(--color-brand-dark); color: #fff; border: 1px solid var(--color-brand-dark); }
 .role-qa { background: var(--color-brand-light); color: var(--color-brand-dark); border: 1px solid var(--color-brand-light); }
 .role-faculty { background: var(--color-overlay); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
 .role-viewer { background: var(--color-canvas); color: var(--color-text-muted); border: 1px solid var(--color-border); }
@@ -109,6 +113,11 @@
 }
 .status-active .status-dot { background: #10b981; box-shadow: 0 0 0 3px #d1fae5; }
 .status-inactive .status-dot { background: #ef4444; box-shadow: 0 0 0 3px #fee2e2; }
+.user-status { font-size: 13px; font-weight: 500; white-space: nowrap; }
+.user-status.status-active { color: var(--color-success-text); }
+.user-status.status-inactive { color: var(--color-danger); }
+.user-active-switch .form-check-input { cursor: pointer; }
+.access-self { font-size: 11.5px; color: var(--color-text-muted); white-space: nowrap; }
 
 /* Row actions use the shared .act pattern from style.css - this page used to
    define a second, near-identical .action-btn family of its own. */
@@ -136,6 +145,7 @@
                     <th>System Role</th>
                     <th>Department</th>
                     <th>Status</th>
+                    <th>Access</th>
                     <th>Joined Date</th>
                     <th class="text-end">Actions</th>
                 </tr>
@@ -158,7 +168,7 @@
                             </div>
                         </div>
                     </td>
-                    <td>
+                    <td class="col-tight">
                         {% if u.profile.role == 'admin' %}
                         <span class="role-badge role-admin"><i class="bi bi-shield-lock"></i> Administrator</span>
                         {% elif u.profile.role == 'faculty' %}
@@ -172,31 +182,35 @@
                             {{ u.profile.department|default:"<span class='text-muted'>Unassigned</span>"|safe }}
                         </div>
                     </td>
+                    {% if u.pk == request.user.pk or u.profile.status == 'active' and u.is_active %}
+                    <td>
+                        <span class="user-status status-active" id="userStatus{{ u.pk }}"><span class="status-dot"></span>Active</span>
+                    </td>
+                    {% else %}
+                    <td>
+                        <span class="user-status status-inactive" id="userStatus{{ u.pk }}"><span class="status-dot"></span>Inactive</span>
+                    </td>
+                    {% endif %}
                     <td>
                         {% comment %}
                         The switch sets both is_active and profile.status together, because
-                        both refuse a sign-in. Your own row shows the state without a switch:
-                        an Administrator cannot turn off their own access.
+                        both refuse a sign-in. Your own row has no switch: an Administrator
+                        cannot turn off their own access.
                         {% endcomment %}
                         {% if u.pk == request.user.pk %}
-                        <span class="status-active" style="font-size:13px; font-weight:500; color:#059669;"><span class="status-dot"></span>Active</span>
-                        <div style="font-size:11px; color:hsl(220,10%,55%); margin-top:2px;">your account</div>
+                        <span class="access-self" title="You cannot turn off your own access">Your account</span>
                         {% else %}
                         <div class="form-check form-switch user-active-switch mb-0">
                             <input class="form-check-input" type="checkbox" role="switch"
                                    id="userActive{{ u.pk }}"
                                    data-user-toggle="{% url 'accounts:user_toggle_active' u.pk %}"
                                    data-username="{{ u.username }}"
-                                   {% if u.profile.status == 'active' and u.is_active %}checked{% endif %}>
-                            <label class="form-check-label" for="userActive{{ u.pk }}"
-                                   id="userActiveLabel{{ u.pk }}"
-                                   style="font-size:13px; font-weight:500; {% if u.profile.status == 'active' and u.is_active %}color:#059669;{% else %}color:#dc2626;{% endif %}">
-                                {% if u.profile.status == 'active' and u.is_active %}Active{% else %}Inactive{% endif %}
-                            </label>
+                                   aria-label="Account access for {{ u.get_full_name|default:u.username }}"
+                                   {% if u.profile.status == 'active' and u.is_active %}checked title="On — click to deactivate"{% else %}title="Off — click to activate"{% endif %}>
                         </div>
                         {% endif %}
                     </td>
-                    <td><span style="font-size:13px; color:hsl(220,10%,45%);"><i class="bi bi-calendar3 me-2"></i>{{ u.date_joined|date:"M d, Y" }}</span></td>
+                    <td class="col-tight"><span style="font-size:12.5px; color:hsl(220,10%,45%);"><i class="bi bi-calendar3 me-1"></i>{{ u.date_joined|date:"M d, Y" }}</span></td>
                     <td>
                         <div class="action-group justify-content-end">
                             <a href="{% url 'accounts:user_detail' u.pk %}" class="act view" title="View User">
@@ -213,7 +227,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6">
+                    <td colspan="7">
                         {% url 'accounts:user_create' as create_user_url %}
                         {% include 'includes/empty_state.html' with empty_icon='bi-people' empty_title='No users yet' empty_text='Create the first user account to get started.' empty_action_url=create_user_url empty_action_label='Add User' %}
                     </td>
@@ -250,10 +264,11 @@
     }
 
     function paint(input, active) {
-        var label = document.getElementById('userActiveLabel' + input.id.replace('userActive', ''));
-        if (!label) { return; }
-        label.textContent = active ? 'Active' : 'Inactive';
-        label.style.color = active ? '#059669' : '#dc2626';
+        input.title = active ? 'On — click to deactivate' : 'Off — click to activate';
+        var status = document.getElementById('userStatus' + input.id.replace('userActive', ''));
+        if (!status) { return; }
+        status.className = 'user-status ' + (active ? 'status-active' : 'status-inactive');
+        status.lastChild.textContent = active ? 'Active' : 'Inactive';
     }
 
     switches.forEach(function (input) {
