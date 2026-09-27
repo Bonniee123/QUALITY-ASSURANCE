@@ -1812,3 +1812,21 @@ Verified in a browser with two sessions: with User Management open, a Faculty
 member signing in turned their row to Online and signing out turned it to "Last
 seen just now", both without a reload. Full suite: **977 / 977** (19 skipped by
 their own conditions).
+
+## 27. Spreadsheet descriptions
+
+A spreadsheet's description was its column headings and first rows run
+together ("Title File Type Year Document Type Cluster Acc Area Uploaded At …"),
+because the description is taken from the first paragraph of the extracted text
+and a spreadsheet's text is its cells joined row by row. A spreadsheet is now
+described as "Spreadsheet — <title>, <n> rows." Titles taken from file names
+keep area numerals in capitals ("Area VII", not "Area Vii").
+
+For spreadsheets uploaded before this, run
+`python manage.py refresh_descriptions --spreadsheets-only`. It rewrites only
+XLSX descriptions, and replaces a title only when it is exactly the sheet's
+first row (the automatic title from before section 24) — a title someone typed
+is left alone. Without the option the command still rewrites every document's
+description, hand-edited ones included.
+
+Full suite: **981 / 981** (19 skipped by their own conditions).
