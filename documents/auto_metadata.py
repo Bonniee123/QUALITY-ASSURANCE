@@ -52,6 +52,7 @@ _TYPE_PATTERNS = {
 # A file name's separators are word characters to a regex, which would stop
 # "annual_report_2025.pdf" from matching the whole word "report".
 _TYPE_SEPARATORS = re.compile(r'[_\-./\\]+')
+_SPREADSHEET_EXTENSIONS = {'.xlsx', '.xls', '.xlsm', '.csv'}
 
 
 def _type_haystack(text_lower):
@@ -326,7 +327,9 @@ def extract_metadata_from_text(text, filename=''):
         name = re.sub(r'\s+', ' ', name).strip()
         metadata['title'] = name.title()
 
-    if text:
+    # A spreadsheet's first line is its column headings, not a title.
+    is_spreadsheet = os.path.splitext(filename or '')[1].lower() in _SPREADSHEET_EXTENSIONS
+    if text and not (is_spreadsheet and metadata['title']):
         derived = _title_from_text(text)
         if derived:
             metadata['title'] = derived
@@ -451,7 +454,9 @@ def detect_area_code(text_lower, filename=''):
     """
     areas = _configured_areas()
     codes = {code.upper(): code for code, _name in areas}
-    haystack = f'{(filename or "").lower()} {text_lower or ""}'
+    # Underscores are word characters, so "Area_VII_Library.xlsx" would match
+    # neither "area vii" nor "library" until its separators become spaces.
+    haystack = f'{_type_haystack((filename or "").lower())} {text_lower or ""}'
 
     explicit = _EXPLICIT_AREA.search(haystack)
     if explicit:

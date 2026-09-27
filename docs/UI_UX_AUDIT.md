@@ -1687,3 +1687,59 @@ fill, and the sidebar is now white, so it was white text on white. It now uses
 
 Verified in a browser: switching an account off and on changes its Status
 cell, survives a reload, and raises no script errors; `accounts` tests pass.
+
+## 24. Full system check (after sections 22–23)
+
+A full pass on a MariaDB 10.11 copy with sample data only (no live data): 15
+sample files (PDF, DOCX, XLSX, a scanned PNG, an exact copy and a near-copy)
+uploaded through the real Bulk Upload page by an Administrator and a Faculty
+member, then every page opened in a browser as Administrator, QA Head and two
+Faculty accounts (636 page loads).
+
+**What held.** No server error on any of the 636 loads. No script error or
+sideways overflow on any page. Faculty were kept to their own areas everywhere
+checked: documents of other areas redirect to the Repository, their downloads,
+area ZIPs and notifications are refused, and search and the QA Assistant do not
+reveal them. Administrator-only pages send QA Head and Faculty back to the
+Repository. Endpoints that only accept POST refuse a GET (405 or redirect),
+never with a 500. The exact copy was refused before upload ("1 file(s) removed
+from selection"); the near-copy was stored and flagged "Needs review" at 99 %;
+the scanned certificate was read by OCR, titled, typed and filed under Area
+VIII. Workflows exercised end to end: marking a duplicate clear, editing and
+deleting one's own upload, Smart Search (including OCR text), the QA
+Assistant, and Reprocess All.
+
+**Fixed: a document title could run as script in the Administrator's
+browser.** The AI Processing and Dashboard charts wrote their data into inline
+JavaScript with `|safe`. Each cluster label ends with a member document's title
+("eg. <title>"), and uploaders — Faculty included — set titles, so a title
+containing `</script><script>…` ran in the browser of whoever opened AI
+Processing after the next AI run. Proven on the test copy before fixing. All
+chart data on both pages now goes through Django's `json_script`, which escapes
+`<`, `>` and `&`; QA programme names on the Dashboard had the same exposure.
+The department name on User Management was also marked `|safe` and is now
+escaped.
+
+**Fixed: areas named in file names with underscores were not detected.**
+Underscores are word characters to a regex, so `Area_VII_Library_Holdings.xlsx`
+matched neither "area vii" nor "library", and a file whose text did not repeat
+its area was left without one. The file name's separators now become spaces
+first, as document-type detection already did.
+
+**Fixed: spreadsheets were titled by their column headings** ("Title Call
+Number Copies Year"). A spreadsheet now keeps the title taken from its file
+name.
+
+Documents uploaded before these fixes keep their stored title and area; edit
+them to correct.
+
+**Not changed, worth knowing.** The Cluster Distribution legend on AI
+Processing is cut off on the right once the labels need a second column. With
+very few documents per area and type, most clusters hold a single document
+(13 clusters for 13 documents here); this is the per-group clustering working
+as designed and evens out with real volumes. `scripts/ui_feature_check.py`
+reports 2 stale failures: it looks for a `---------` anywhere on the upload page
+(one is a code-comment divider in the floating messages panel) and for per-row
+icon classes the Repository replaced with a row menu.
+
+Full suite: **947 / 947** (19 skipped by their own conditions).

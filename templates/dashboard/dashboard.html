@@ -445,13 +445,20 @@
 
 {% block extra_js %}
 <script src="{% static_v 'js/dashboard-calendar.js' %}"></script>
+{{ monthly_labels|json_script:"monthly-labels" }}
+{{ monthly_counts|json_script:"monthly-counts" }}
+{{ monthly_program_lines|json_script:"monthly-program-lines" }}
+{{ file_format_labels|json_script:"file-format-labels" }}
+{{ file_format_counts|json_script:"file-format-counts" }}
+{{ spark_counts|json_script:"spark-counts" }}
 <script>
-var monthlyLabels = {{ monthly_labels|safe }};
-var monthlyCounts = {{ monthly_counts|safe }};
-var programLines = {{ monthly_program_lines|safe }};
-var fmtLabels = {{ file_format_labels|safe }};
-var fmtCounts = {{ file_format_counts|safe }};
-var sparkCounts = {{ spark_counts|safe }};
+function pageData(id) { return JSON.parse(document.getElementById(id).textContent); }
+var monthlyLabels = pageData('monthly-labels');
+var monthlyCounts = pageData('monthly-counts');
+var programLines = pageData('monthly-program-lines');
+var fmtLabels = pageData('file-format-labels');
+var fmtCounts = pageData('file-format-counts');
+var sparkCounts = pageData('spark-counts');
 
 var formatPalette = [
     'hsl(180, 60%, 35%)', 'hsl(220, 70%, 58%)', 'hsl(265, 65%, 60%)',

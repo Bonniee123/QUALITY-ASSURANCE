@@ -53,6 +53,28 @@ class AreaDetectionTests(TestCase):
                                           'librarian updated the circulation desk hours.', 'library_report.docx')
         self.assertEqual(meta['qa_area'], 'Area VII')
 
+    def test_an_area_named_in_a_file_name_with_underscores(self):
+        """Underscores join words, so "Area_VII" read as neither "area vii" nor anything."""
+        holdings = 'Title\tCall Number\tCopies\nDatabase Systems\tQA76.9\t5'
+        self.assertEqual(extract_metadata_from_text(holdings, 'Area_VII_Holdings.xlsx')['qa_area'], 'Area VII')
+        self.assertEqual(extract_metadata_from_text(holdings, 'area-7-holdings.xlsx')['qa_area'], 'Area VII')
+
+    def test_a_subject_in_a_file_name_with_underscores(self):
+        text = 'Inventory of holdings. Title, call number and copies for each library title.'
+        self.assertEqual(extract_metadata_from_text(text, 'Library_Holdings_2025.xlsx')['qa_area'], 'Area VII')
+
+
+class SpreadsheetTitleTests(SimpleTestCase):
+
+    def test_a_spreadsheet_is_titled_by_its_file_name_not_its_column_headings(self):
+        text = 'Research Title Author Year Status\nMachine learning study Dela Cruz 2024 Published'
+        meta = extract_metadata_from_text(text, 'Area_V_Research_Agenda_and_Output.xlsx')
+        self.assertEqual(meta['title'], 'Area V Research Agenda And Output')
+
+    def test_other_documents_still_take_their_title_from_the_text(self):
+        meta = extract_metadata_from_text('Faculty Development Plan\nbody text here', 'scan_0042.pdf')
+        self.assertEqual(meta['title'], 'Faculty Development Plan')
+
 
 class YearTests(SimpleTestCase):
 

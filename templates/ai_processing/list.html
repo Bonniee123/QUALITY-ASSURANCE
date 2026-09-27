@@ -253,7 +253,10 @@
 {% endblock %}
 
 {% block extra_js %}
+{% if elbow_data %}{{ elbow_data.k_values|json_script:"elbow-k-values" }}{{ elbow_data.inertias|json_script:"elbow-inertias" }}{% endif %}
+{% if cluster_labels %}{{ cluster_labels|json_script:"cluster-labels" }}{{ cluster_counts|json_script:"cluster-counts" }}{% endif %}
 <script>
+function pageData(id) { return JSON.parse(document.getElementById(id).textContent); }
 document.addEventListener('DOMContentLoaded', function () {
     const reprocessForm = document.getElementById('reprocessAllForm');
     const reprocessBtn = document.getElementById('reprocessAllBtn');
@@ -292,10 +295,10 @@ document.addEventListener('DOMContentLoaded', function () {
 new Chart(document.getElementById('elbowChart'), {
     type: 'line',
     data: {
-        labels: {{ elbow_data.k_values|safe }},
+        labels: pageData('elbow-k-values'),
         datasets: [{
             label: 'Inertia',
-            data: {{ elbow_data.inertias|safe }},
+            data: pageData('elbow-inertias'),
             borderColor: 'hsl(215, 65%, 50%)',
             backgroundColor: 'rgba(59,130,246,0.08)',
             fill: true, tension: 0.3, pointRadius: 4, borderWidth: 2,
@@ -321,9 +324,9 @@ const clusterColors = [
 new Chart(document.getElementById('clusterChart'), {
     type: 'doughnut',
     data: {
-        labels: {{ cluster_labels|safe }},
+        labels: pageData('cluster-labels'),
         datasets: [{
-            data: {{ cluster_counts|safe }},
+            data: pageData('cluster-counts'),
             backgroundColor: clusterColors,
             borderWidth: 2, borderColor: 'white',
         }]
