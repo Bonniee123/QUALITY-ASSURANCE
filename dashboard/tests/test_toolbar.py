@@ -100,3 +100,31 @@ class ToolbarStyleTests(SimpleTestCase):
 
     def test_the_old_chip_class_is_gone_rather_than_left_behind(self):
         self.assertNotIn('.nx-chip', self.css)
+
+
+class ExportIsForAdministratorsTests(TestCase):
+    """The dashboard summary export is offered to, and served for, Administrators only."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin = make_user('export_admin', 'admin')
+        cls.qa_head = make_user('export_qa', 'qa_staff')
+        cls.faculty = make_user('export_fac', 'faculty')
+
+    def get(self, user, query=''):
+        self.client.force_login(user)
+        return self.client.get(reverse('dashboard:home') + query)
+
+    def test_qa_head_and_faculty_have_no_export_button(self):
+        for user in (self.qa_head, self.faculty):
+            self.assertNotIn('Export Excel', self.get(user).content.decode(), msg=user.username)
+
+    def test_qa_head_and_faculty_cannot_export_by_address(self):
+        for user in (self.qa_head, self.faculty):
+            for kind in ('excel', 'csv'):
+                response = self.get(user, f'?export={kind}')
+                self.assertTrue(response['Content-Type'].startswith('text/html'), msg=(user.username, kind))
+
+    def test_the_administrator_still_exports(self):
+        self.assertIn('Export Excel', self.get(self.admin).content.decode())
+        self.assertIn('spreadsheetml', self.get(self.admin, '?export=excel')['Content-Type'])

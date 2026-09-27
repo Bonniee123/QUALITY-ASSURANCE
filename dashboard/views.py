@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.decorators import repository_access_required
-from accounts.permissions import scope_documents_for_user, faculty_area_scope
+from accounts.permissions import is_admin, scope_documents_for_user, faculty_area_scope
 from ai_processing.dashboard_utils import cluster_label_map
 from documents.models import ActivityLog, Document
 from documents.excel_export import (
@@ -404,8 +404,9 @@ def dashboard_home(request):
     duplicate_repo_url = reverse('documents:repository') + '?duplicate=review' + program_param
     week_repo_url = reverse('documents:repository') + '?uploaded=7d' + program_param
 
+    # The dashboard summary export is for Administrators only.
     export_kind = request.GET.get('export')
-    if export_kind in ('excel', 'csv'):
+    if export_kind in ('excel', 'csv') and is_admin(request.user):
         metrics = {
             'total_documents': total_documents,
             'docs_last7': docs_last7,

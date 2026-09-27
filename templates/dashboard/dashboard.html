@@ -110,12 +110,14 @@
                 </ul>
             </div>
 
+            {% if rbac_is_admin %}
             <!-- Export -->
             <a href="?period={{ period_value }}{% if current_program %}&program={{ current_program.pk }}{% endif %}&export=excel"
                class="nx-btn nx-btn-primary" title="Download a styled Excel summary of this dashboard">
                 <i class="bi bi-file-earmark-excel"></i>
                 <span>Export Excel</span>
             </a>
+            {% endif %}
         </div>
     </div>
 
