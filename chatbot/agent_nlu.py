@@ -99,6 +99,8 @@ SUMMARIZE = 'summarize'
 EXPLAIN_CLASSIFICATION = 'explain_classification'
 COUNT_DOCUMENTS = 'count_documents'
 LIST_CATEGORIES = 'list_categories'
+AREA_INFO = 'area_info'
+UPLOADED_IN_PERIOD = 'uploaded_in_period'
 NAVIGATION = 'navigation'
 UNKNOWN = 'unknown'
 
@@ -121,6 +123,9 @@ _INTENT_SIGNALS: dict[str, list[tuple[int, str]]] = {
     ],
     EXPLAIN_CLASSIFICATION: [
         (5, r'\bwhy (is|was|are)\b.*\b(classif|categor|group|cluster|tag)\w*'),
+        # "why was the certificate put in Area VIII?", "why is it under ISO?"
+        (6, r'\bwhy (is|was|are|did)\b.*\b(put|placed|filed|assigned|sorted|in|under)\b'
+            r'.*\b(area|program|programme|cluster|category|type)\b'),
         (5, r'\bwhat (category|classification|cluster|group|type)\b.*\b(belong|is|does)\b'),
         (4, r'\bhow (was|is) (this|that|it) (classif|categor|group)\w*'),
         (3, r'\b(classification|classified|categorized|clustered)\b'),
@@ -130,6 +135,23 @@ _INTENT_SIGNALS: dict[str, list[tuple[int, str]]] = {
         # scores on "documents" and "do we have" in the same sentence.
         (8, r'\bhow many\b'),
         (4, r'\b(total|count|number) of\b.*\b(document|file|record|evidence)'),
+    ],
+    AREA_INFO: [
+        # "what are the accreditation areas?", "list the areas"
+        (7, r'\b(what|which) are the (\w+ )?areas\b'),
+        (7, r'\blist (all |the )?(\w+ )?areas\b'),
+        # "what is Area IX about?", "what does area 4 cover?"
+        (7, r'\bwhat (is|does)\s+area\s+([ivx]+|\d+)\b'),
+        (5, r'\barea\s+([ivx]+|\d+)\b.*\b(about|cover|covers|mean|means|stand for)\b'),
+        # "what should I upload for Area IV?"
+        (7, r'\bwhat (should|do|must|can|shall) (i|we)\b.*\b(upload|submit|put|provide)\b.*\barea\b'),
+    ],
+    UPLOADED_IN_PERIOD: [
+        # A time window. Bare "recent"/"latest" stays with the live-data tier.
+        (8, r'\b(upload|uploads|uploaded|added|submitted|new)\b.*'
+            r'\b(today|yesterday|this week|last week|this month|last month)\b'),
+        (8, r'\b(today|yesterday|this week|last week|this month|last month)\b.*'
+            r'\b(upload|uploads|uploaded|added|submitted)\b'),
     ],
     LIST_CATEGORIES: [
         (5, r'\b(what|which|list).*(categor|program|area|cluster)\w*\b.*\b(are there|do we have|exist|available)\b'),
@@ -222,6 +244,8 @@ class Understanding:
     # "... that mention rainwater harvesting"), whether or not it is one of the
     # office's known topics.
     subject: str = ''
+    # 'today', 'yesterday', 'this week', 'last week', 'this month' or 'last month'.
+    period: Optional[str] = None
     raw: str = ''
 
     def search_query(self) -> str:
@@ -302,6 +326,14 @@ def _extract_area(text: str) -> Optional[str]:
     if token in _ARABIC_TO_ROMAN:
         return f'Area {_ARABIC_TO_ROMAN[token]}'
     return None
+
+
+_PERIOD_RE = re.compile(r'\b(today|yesterday|this week|last week|this month|last month)\b', re.I)
+
+
+def _extract_period(text: str) -> Optional[str]:
+    match = _PERIOD_RE.search(text)
+    return match.group(1).lower() if match else None
 
 
 def _extract_ordinal(text: str) -> Optional[int]:
@@ -393,8 +425,10 @@ def understand(message: str) -> Understanding:
         ordinal=_extract_ordinal(repaired),
         refers_to_previous=bool(_ANAPHORA.search(repaired)),
         corrections=corrections,
-        free_text=_strip_stopwords(repaired),
+        # An area and a year are filters, not words a document must contain.
+        free_text=_strip_stopwords(re.sub(r'\b(?:19|20)\d{2}\b', ' ', _AREA_RE.sub(' ', repaired))),
         subject=_extract_subject(repaired),
+        period=_extract_period(repaired),
         raw=raw,
     )
 

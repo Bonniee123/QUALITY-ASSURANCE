@@ -36,9 +36,14 @@ class ChatbotResponseTests(TestCase):
         self.assertEqual(r['category'], 'out_of_scope')
         self.assertIn('QA Archiving System', r['answer'])
 
-    def test_off_topic_hello_refused_quickly(self):
-        r = get_chatbot_response('hello there', self.request)
-        self.assertEqual(r['category'], 'out_of_scope')
+    def test_hello_answered_quickly_without_the_language_model(self):
+        """A greeting used to be refused as off-topic; it is now greeted back, still without a model call."""
+        from unittest import mock
+        with mock.patch('chatbot.chatbot_rules._model_answer',
+                        side_effect=AssertionError('a greeting must not wait on the model')):
+            r = get_chatbot_response('hello there', self.request)
+        self.assertEqual(r['category'], 'small_talk')
+        self.assertIn('QA Assistant', r['answer'])
 
     def test_off_topic_general_question(self):
         r = get_chatbot_response('who is the president of the united states', self.request)

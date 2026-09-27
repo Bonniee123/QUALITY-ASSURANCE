@@ -34,7 +34,74 @@ def navigation_topics(request) -> list[dict[str, Any]]:
 
 
 def _all_topics() -> list[dict[str, Any]]:
+    # The specific topics come first: on a tie the earlier topic wins, and
+    # "download all documents of Area II" scores the same on "download" and
+    # "documents" (Repository) as on "download all" and "all documents of area".
     return [
+        {
+            "id": "password",
+            "keywords": {
+                "password", "passwords", "forgot my password", "reset password", "change password", "locked out",
+            },
+            "answer": (
+                "Passwords are managed by an Administrator — there is no self-service password page.\n"
+                "1) Ask an Administrator to reset it.\n"
+                "2) Administrator: open User Management, click Edit (pencil) on the account, type a new "
+                "password, and Save. Give the new password to the user directly.\n"
+                "If sign-in says the account is deactivated, the Administrator can switch it back on in the "
+                "Access column of User Management."
+            ),
+        },
+        {
+            "id": "visibility",
+            "keywords": {
+                "who can see", "who sees", "can see my", "see my upload", "see my document",
+                "visible", "visibility", "who has access",
+            },
+            "answer": (
+                "Who can see a document depends on its accreditation area:\n"
+                "- Administrators and QA Heads can see every document in every area.\n"
+                "- Faculty can see only the documents in the area(s) assigned to them — including other "
+                "Faculty members' uploads in those same areas.\n"
+                "- Faculty can edit or delete only their own uploads; Administrators and QA Heads can edit or "
+                "delete any document.\n"
+                "Area assignments are set by an Administrator in User Management."
+            ),
+        },
+        {
+            "id": "duplicate_review",
+            "keywords": {
+                "duplicate", "duplicates", "needs review", "mark as clear", "as clear",
+                "confirm duplicate", "not a duplicate", "exact copy", "same file",
+            },
+            "answer": (
+                "Every upload is checked for duplicates:\n"
+                "- An exact copy of a file already in the archive is refused at upload.\n"
+                "- A file whose wording or image is very similar to another is kept and marked Needs review.\n"
+                "- Clear means no duplicate was found, or a reviewer decided it is not one. Confirmed duplicate "
+                "means a reviewer decided it is one.\n"
+                "To review (QA Head or Administrator):\n"
+                "1) Open Repository and set the Duplicate filter to Needs review.\n"
+                "2) Open the document's Details — Similar Documents shows what it matches and how closely.\n"
+                "3) Click Mark as clear to keep both, or Confirm duplicate.\n"
+                "Faculty uploads are reviewed by the QA Head."
+            ),
+        },
+        {
+            "id": "area_zip",
+            "keywords": {
+                "zip", "download all", "download area", "area zip", "all documents of area",
+                "all files of area", "whole area", "entire area",
+            },
+            "answer": (
+                "To download a whole area at once:\n"
+                "1) Open Repository.\n"
+                "2) Choose the area in the Area filter.\n"
+                "3) Click Download area as ZIP at the top — every file in that area comes in one ZIP.\n"
+                "With no area chosen, the same button reads Download all areas as ZIP and gives every area "
+                "you can access, one folder per area. Faculty get only their assigned area(s)."
+            ),
+        },
         {
             "id": "dashboard",
             "keywords": {

@@ -1743,3 +1743,42 @@ reports 2 stale failures: it looks for a `---------` anywhere on the upload page
 icon classes the Repository replaced with a row menu.
 
 Full suite: **947 / 947** (19 skipped by their own conditions).
+
+## 25. QA Assistant: answers it got wrong or refused
+
+Thirty questions a QA Office user or Faculty member would ask — including
+typos, Taglish and follow-ups — were put to the assistant with sample data
+loaded, as an Administrator and as a Faculty member. About half were answered
+well. These were not:
+
+| Question | Before | Now |
+|---|---|---|
+| "Summarize the fire safety certificate" | Summarised **a different document** — whatever the previous answer was about | Finds the named document (title, text or OCR text) and summarises it; if nothing matches the name, says so instead of guessing |
+| "Why was the certificate put in Area VIII?" | "I could not match that…" | Explains the type, area, cluster and keywords of the named document |
+| "How many documents are in Area II?" | The archive-wide total | The count for Area II (also by year, type, programme or subject) |
+| "What are the accreditation areas?" | Described QA programmes | Lists Area I–X from the database, with document counts |
+| "What is Area IX about?" / "What should I upload for Area IV?" | General help / the upload steps | The area's name, description and what is archived in it; says plainly that required evidence is not tracked |
+| "Which documents were uploaded this week?" | The upload steps | The documents uploaded in the last 7 days (as the Dashboard counts a week); also today, yesterday, last week, this/last month |
+| "hi", "thanks", "salamat po" | "I only answer questions about this system…" | A greeting or you're-welcome, with suggestions the user can click |
+| "How do I change my password?" | Refused | An Administrator resets it in User Management (there is no self-service page) |
+| "Who can see my uploads?" | The upload steps | Visibility by role and area |
+| "What does Needs review mean?" / "How do I mark a duplicate as clear?" | Refused / the Repository overview | Duplicate statuses and the review steps |
+| "How do I download all documents of Area II?" | The Repository overview | The area ZIP download |
+
+Summaries also no longer repeat a sentence that appears more than once in the
+file (page headers, repeated paragraphs). An area and a year in a question are
+now used as filters only, not as words a matching document must contain.
+
+Everything stays inside the asker's permissions: for Faculty, a document
+outside their areas is "not found in your area(s)", counts and period lists
+cover their areas only, and other areas are listed by name without counts.
+Plain "how many documents" and "recent / latest uploads" are still answered by
+the live-data tier as before; the test that expected "hello there" to be
+refused now expects a greeting, still without a language-model call.
+
+Not changed: with Ollama or Gemini configured, questions that none of the
+built-in answers match still go to the model as before.
+
+Verified: the 17 new tests (13 fail on the previous code); the chat page shows
+the suggestion buttons and answers from them in a browser. Full suite: **964 /
+964** (19 skipped by their own conditions).
