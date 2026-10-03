@@ -47,10 +47,22 @@ def _lockout_seconds() -> int:
     return int(getattr(settings, 'LOGIN_RATE_LIMIT_LOCKOUT', 900))
 
 
+def _account_key(username: str) -> str:
+    """
+    One counter per account, whichever name was typed for it.
+
+    An account can be signed into by its username or its email address, so
+    keying on the typed text gave each account two separate allowances of
+    failed guesses. The address is resolved to the username it belongs to.
+    """
+    from .auth_backends import resolve_login_name
+    return resolve_login_name(username).strip().lower()
+
+
 def is_login_locked(request, username: str) -> bool:
     """True when IP or username is temporarily locked after too many failures."""
     ip = get_client_ip(request)
-    username_key = (username or '').strip().lower()
+    username_key = _account_key(username)
     keys = [_lock_key('ip', ip)]
     if username_key:
         keys.append(_lock_key('user', username_key))
@@ -71,7 +83,7 @@ def record_failed_login(request, username: str) -> int:
     Returns remaining attempts before lockout (minimum across keys), or 0 if locked.
     """
     ip = get_client_ip(request)
-    username_key = (username or '').strip().lower()
+    username_key = _account_key(username)
     window = _attempt_window()
     lockout = _lockout_seconds()
     max_attempts = _max_attempts()
@@ -98,7 +110,7 @@ def record_failed_login(request, username: str) -> int:
 def clear_login_attempts(request, username: str) -> None:
     """Reset counters after a successful login."""
     ip = get_client_ip(request)
-    username_key = (username or '').strip().lower()
+    username_key = _account_key(username)
     for kind, ident in [('ip', ip), ('user', username_key)]:
         if not ident:
             continue

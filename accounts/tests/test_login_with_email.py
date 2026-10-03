@@ -76,3 +76,23 @@ class LoginWithEmailTests(TestCase):
     def test_the_field_says_both_are_accepted(self):
         page = self.client.get(self.url)
         self.assertContains(page, 'Username or email')
+
+
+class SharedLockoutTests(TestCase):
+    """The username and the email address of one account share one allowance of failed guesses."""
+
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        User.objects.create_user('lock_user', 'Lock@Example.com', 'pass12345')
+
+    def test_failures_by_email_and_by_username_count_together(self):
+        from django.test import RequestFactory
+        from accounts.auth_security import is_login_locked, record_failed_login
+        for n in range(5):
+            # Each guess from a different address, so only the account counter can lock.
+            request = RequestFactory().post('/', REMOTE_ADDR=f'10.0.0.{n}')
+            record_failed_login(request, 'lock_user' if n % 2 else 'LOCK@example.com')
+        fresh = RequestFactory().post('/', REMOTE_ADDR='10.0.0.99')
+        self.assertTrue(is_login_locked(fresh, 'lock_user'))
+        self.assertTrue(is_login_locked(fresh, 'lock@example.com'))
