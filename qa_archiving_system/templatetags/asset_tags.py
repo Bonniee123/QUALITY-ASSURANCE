@@ -23,27 +23,36 @@ from django.templatetags.static import static
 
 register = template.Library()
 
-# Resolving a path through the finders touches the filesystem, so the answer is
-# kept for the life of the process. runserver restarts on a code change, and a
-# static-file edit changes the mtime, not the resolved path.
-_stamp_cache: dict[str, str] = {}
+# Where each file lives is looked up once: searching the finders walks the
+# static directories. Its modification time is read on every use -- one stat
+# call -- because the stamp is the whole point. It used to be cached for the
+# life of the process, so files replaced while the server was running (copied
+# in from an updated checkout, say) kept their old ?v= stamp, the browser kept
+# serving its cached copy under that address, and the update looked missing
+# until the server was restarted.
+_path_cache: dict[str, str] = {}
+
+
+def _resolve(path: str) -> str:
+    if path not in _path_cache:
+        absolute = finders.find(path)
+        if isinstance(absolute, (list, tuple)):
+            absolute = absolute[0] if absolute else ''
+        _path_cache[path] = absolute or ''
+    return _path_cache[path]
 
 
 def _stamp(path: str) -> str:
     """The file's mtime as a short string, or '' if it cannot be located."""
-    if path in _stamp_cache:
-        return _stamp_cache[path]
-    stamp = ''
     try:
-        absolute = finders.find(path)
-        if absolute:
-            if isinstance(absolute, (list, tuple)):
-                absolute = absolute[0]
-            stamp = str(int(os.path.getmtime(absolute)))
-    except (OSError, ValueError):  # pragma: no cover - missing file, odd storage
-        stamp = ''
-    _stamp_cache[path] = stamp
-    return stamp
+        absolute = _resolve(path)
+        if not absolute:
+            _path_cache.pop(path, None)   # it may appear later; look again next time
+            return ''
+        return str(int(os.path.getmtime(absolute)))
+    except (OSError, ValueError):  # missing file, odd storage
+        _path_cache.pop(path, None)
+        return ''
 
 
 @register.simple_tag
