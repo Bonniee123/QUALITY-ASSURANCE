@@ -410,7 +410,7 @@ def _extractive_summary(text: str, doc: Document, max_sentences: int = 3) -> str
     Extractive on purpose: the sentences come from the file itself, so nothing in
     a summary is language the agent invented. Sentences are ranked by how many of
     the document's own TF-IDF keywords they carry -- reusing the keyword set the
-    AI pipeline already computed rather than scoring from scratch.
+    analysis pipeline already computed rather than scoring from scratch.
     """
     clean = re.sub(r'\s+', ' ', text).strip()
     sentences, seen = [], set()
@@ -479,13 +479,13 @@ def _handle_explain(request, u: Understanding, ctx: AgentContext) -> dict:
         grounded = True
 
     if doc.cluster_label is not None:
-        result = (ClusterResult.objects.filter(cluster_number=doc.cluster_label)
+        result = (ClusterResult.objects.live().filter(cluster_number=doc.cluster_label)
                   .order_by('-created_at').first())
         label = (result.cluster_label if result and result.cluster_label
                  else f'Cluster {doc.cluster_label}')
         # Peers the asker may see, not counting this document ("N other").
         peers = scope_documents_for_user(
-            Document.objects.filter(cluster_label=doc.cluster_label, is_archived=False),
+            Document.objects.live().filter(cluster_label=doc.cluster_label, is_archived=False),
             getattr(request, 'user', None),
         ).exclude(pk=doc.pk).count()
         lines.append(
@@ -551,7 +551,7 @@ def _area_record(code: Optional[str]):
 def _area_documents(request, code: str):
     from documents.area_utils import build_area_filter_q
     return scope_documents_for_user(
-        Document.objects.filter(is_archived=False), getattr(request, 'user', None),
+        Document.objects.live().filter(is_archived=False), getattr(request, 'user', None),
     ).filter(build_area_filter_q([code]))
 
 
@@ -648,7 +648,7 @@ def _period_bounds(period: str):
 
 def _handle_period(request, u: Understanding, ctx: AgentContext) -> dict:
     start, end = _period_bounds(u.period)
-    qs = scope_documents_for_user(Document.objects.filter(is_archived=False),
+    qs = scope_documents_for_user(Document.objects.live().filter(is_archived=False),
                                   getattr(request, 'user', None)).filter(uploaded_at__gte=start)
     if end is not None:
         qs = qs.filter(uploaded_at__lt=end)
@@ -698,7 +698,7 @@ def _handle_count(request, u: Understanding, ctx: AgentContext) -> dict:
 def _handle_categories(request, u: Understanding, ctx: AgentContext) -> dict:
     from qa_mapping.models import QAProgram
     programs = list(QAProgram.objects.filter(is_active=True).values_list('code', 'name'))
-    types = (scope_documents_for_user(Document.objects.filter(is_archived=False),
+    types = (scope_documents_for_user(Document.objects.live().filter(is_archived=False),
                                       getattr(request, 'user', None))
              .exclude(document_type='')
              .values('document_type').annotate(n=Count('id')).order_by('-n')[:10])

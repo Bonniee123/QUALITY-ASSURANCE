@@ -127,7 +127,7 @@ SYSTEM_KNOWLEDGE = {
         "and file format breakdown. Filter by program and period; Export Excel downloads a styled summary."
     ),
     r"\b(duplicate)\b": (
-        "AI flags possible duplicate uploads. Confirming or dismissing one is QA Head and Administrator "
+        "The system flags possible duplicate uploads. Confirming or dismissing one is QA Head and Administrator "
         "work: they see the count on the Dashboard, the Duplicate column and filter in the Repository, "
         "and the Confirm or Mark as clear buttons in document details. An exact copy is refused at "
         "upload, so nothing identical reaches the archive."
@@ -212,7 +212,7 @@ def _fetch_document_context(message_lower: str, request=None) -> str:
     # prompt, so an unscoped query could put another area's text in an answer.
     from accounts.permissions import scope_documents_for_user
     docs = scope_documents_for_user(
-        Document.objects.filter(query, is_archived=False), user,
+        Document.objects.live().filter(query, is_archived=False), user,
     ).distinct()[:3]
     if not docs:
         return ""
@@ -476,7 +476,7 @@ def _compute_response(user_message: str, request=None) -> dict[str, Any]:
     except requests.exceptions.ReadTimeout:
         return {
             "answer": (
-                "The AI model took too long. Try a shorter question, or ask where to find a page "
+                "The assistant took too long. Try a shorter question, or ask where to find a page "
                 "(Dashboard, Upload, Repository, Search, Reports)."
             ),
             "category": "general",

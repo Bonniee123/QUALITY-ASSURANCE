@@ -297,7 +297,7 @@ class ClusteringWhenShortOfMemoryTests(_CacheIsolation, TestCase):
                 self.assertLogs('ai_processing.embedding_service', 'WARNING'):
             message = run_full_ai_pipeline(None)
         load.assert_not_called()
-        self.assertIn('AI processing complete', message)
+        self.assertIn('Document analysis complete', message)
         self.assertIn('hybrid', message)
         self.assertFalse(Document.objects.filter(cluster_label__isnull=True).exists())
 

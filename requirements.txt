@@ -27,3 +27,8 @@ requests==2.34.2
 #
 # Optional: semantic document clustering — see requirements-ai.txt. Without it the
 # clustering falls back to the hybrid TF-IDF + metadata backend automatically.
+
+# Production serving. Development does not need these: settings.py adds the
+# WhiteNoise middleware only when the package is installed.
+waitress==3.0.2        # production WSGI server on Windows
+whitenoise==6.12.0     # serves /static/ when DEBUG is False

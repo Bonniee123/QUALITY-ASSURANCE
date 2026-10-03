@@ -1,6 +1,6 @@
 """
-Full and light AI processing pipelines for documents.
-Used after upload and from the AI Processing admin UI.
+Full and light document analysis pipelines for documents.
+Used after upload and from the Document Analysis admin UI.
 """
 import logging
 
@@ -12,7 +12,7 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-# One full run at a time, whoever asks: the upload worker, the AI Processing
+# One full run at a time, whoever asks: the upload worker, the Document Analysis
 # page, a single-file upload. Each run rewrites every cluster label and clears
 # and rebuilds ClusterResult, so two overlapping runs interleaved those writes
 # and the survivor depended on which finished last.
@@ -44,7 +44,7 @@ def _run_full_ai_pipeline(request):
     Document.objects.filter(is_archived=True).exclude(cluster_label__isnull=True).update(cluster_label=None)
     Document.objects.filter(is_archived=True).exclude(duplicate_status='none').update(
         duplicate_status='none', similar_documents=[])
-    documents = Document.objects.filter(is_archived=False)
+    documents = Document.objects.live().filter(is_archived=False)
     n = documents.count()
     if n == 0:
         return 'No documents in repository.'
@@ -163,12 +163,12 @@ def _run_full_ai_pipeline(request):
     _notify_duplicate_alerts(new_duplicate_alerts)
 
     for doc in doc_list:
-        cluster_docs = Document.objects.filter(cluster_label=doc.cluster_label)
+        cluster_docs = Document.objects.live().filter(cluster_label=doc.cluster_label)
         doc.recommendation = generate_document_recommendation(doc, cluster_docs)
         doc.save(update_fields=['recommendation'])
 
     return (
-        f'AI processing complete — {len(doc_list)} documents clustered into '
+        f'Document analysis complete — {len(doc_list)} documents clustered into '
         f'{optimal_k} groups (smart clustering, {backend_note})'
     )
 
@@ -252,7 +252,7 @@ def _cluster_single_threaded(run, *args):
 def run_light_post_upload(request, new_documents):
     """
     For large corpora: update TF-IDF keywords only for newly uploaded documents.
-    Skips global clustering/duplicates — staff should run full AI from the AI Processing page.
+    Skips global clustering/duplicates — staff should run the full analysis from the Document Analysis page.
     """
     from ai_processing.tfidf_service import compute_tfidf_keywords
     from documents.models import Document
@@ -283,12 +283,12 @@ def run_light_post_upload(request, new_documents):
             doc.save(update_fields=['is_processed'])
 
     n = len(doc_list)
-    total = Document.objects.count()
+    total = Document.objects.live().count()
     max_full = getattr(settings, 'AI_AUTO_FULL_PIPELINE_MAX_DOCS', 75)
     return (
         f'Keywords updated for {n} new file(s). Repository has {total} documents '
         f'(over auto full-pipeline limit of {max_full}). '
-        f'Use AI Processing → Run AI processing to refresh clusters, duplicates, and recommendations.'
+        f'Use Document Analysis → Run document analysis to refresh clusters, duplicates, and recommendations.'
     )
 
 

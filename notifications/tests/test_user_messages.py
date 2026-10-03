@@ -53,7 +53,14 @@ class BulkUploadNotificationMessageTests(TestCase):
     def test_legacy_notification_display_strips_job_ids(self):
         from notifications.user_messages import display_notification_message
 
+        # Notifications already in the database carry the old wording.
         raw = '4/4 document(s) processed. AI processing completed (job #45)'
         clean = display_notification_message(raw)
         self.assertNotIn('job #', clean.lower())
         self.assertIn('processed', clean.lower())
+
+        # New notifications say it the way the interface does now.
+        current = display_notification_message(
+            '4/4 document(s) processed. Document analysis completed (job #46)')
+        self.assertNotIn('job #', current.lower())
+        self.assertIn('processed', current.lower())

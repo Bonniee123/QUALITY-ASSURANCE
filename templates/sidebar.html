@@ -102,21 +102,21 @@
             {% endif %}
 
             {% comment %}
-            Section: AI & Analysis. The divider and label are rendered only when at
+            Section: Analysis. The divider and label are rendered only when at
             least one item below them is visible. They used to render unconditionally,
-            so a QA Head - who cannot see AI Processing - got a heading with nothing
+            so a QA Head - who cannot see Document Analysis - got a heading with nothing
             under it.
             {% endcomment %}
             {% if rbac_can_view_ai_processing or not hide_advanced_qa_tools or rbac_is_admin %}
             <li class="sidebar-divider"></li>
-            <li class="sidebar-menu-label">{% if simple_ui_mode %}Tools{% else %}AI &amp; Analysis{% endif %}</li>
+            <li class="sidebar-menu-label">{% if simple_ui_mode %}Tools{% else %}Analysis{% endif %}</li>
             {% endif %}
 
             {% if rbac_can_view_ai_processing %}
             <li class="sidebar-menu-item {% if request.resolver_match.app_name == 'ai_processing' %}active{% endif %}">
-                <a href="{% url 'ai_processing:list' %}" class="sidebar-link" data-tooltip="AI Processing">
+                <a href="{% url 'ai_processing:list' %}" class="sidebar-link" data-tooltip="Document Analysis">
                     <i class="bi bi-cpu"></i>
-                    <span class="sidebar-link-text">AI Processing</span>
+                    <span class="sidebar-link-text">Document Analysis</span>
                 </a>
             </li>
 

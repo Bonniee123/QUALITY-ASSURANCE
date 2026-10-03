@@ -7,7 +7,7 @@ import re
 from typing import Any, Optional
 # Pages a Faculty member cannot open. Every one of these topics walked them
 # through a screen that is not in their sidebar and that the server refuses:
-# Reports, AI Processing, User Management and Settings are admin only, Area
+# Reports, Document Analysis, User Management and Settings are admin only, Area
 # Submissions and Clusters are QA Head and Admin. The answers said so in
 # passing ("admin only"), but still gave the steps.
 _STAFF_ONLY_TOPICS = frozenset({
@@ -286,7 +286,7 @@ def _all_topics() -> list[dict[str, Any]]:
             },
             "answer": (
                 "There are three roles:\n"
-                "- Administrator: full access (User Management, Settings, Audit Log, AI Processing, Reports).\n"
+                "- Administrator: full access (User Management, Settings, Audit Log, Document Analysis, Reports).\n"
                 "- QA Head: the daily workflow across ALL accreditation areas (dashboard, upload, repository, "
                 "search, area submissions, clusters, consolidation), including deleting documents.\n"
                 "- Faculty: a contributor limited to assigned accreditation area(s) — upload, repository, "
@@ -306,12 +306,12 @@ def _all_topics() -> list[dict[str, Any]]:
             },
             "answer": (
                 "Clusters (QA Head/Admin) is in the left sidebar under Main, below Area Submissions.\n"
-                "1) Each card is an AI document group (Cluster 0, 1, 2, …) with a document count.\n"
+                "1) Each card is a document cluster (Cluster 0, 1, 2, …) with a document count.\n"
                 "2) Click a cluster to see every document in that group.\n"
                 "3) You can also filter by cluster in the Repository.\n"
                 "How clusters are formed: documents are grouped within each accreditation area and document "
                 "type; in each group the number of clusters is chosen by the silhouette score (the Elbow method "
-                "is the fallback), and near-identical clusters are merged. An Admin can re-run it from AI Processing.\n"
+                "is the fallback), and near-identical clusters are merged. An Admin can re-run it from Document Analysis.\n"
                 "Faculty do not have a Clusters page — they use Repository to view files in their assigned area."
             ),
         },
@@ -388,7 +388,7 @@ def _all_topics() -> list[dict[str, Any]]:
                 "duplicate",
             },
             "answer": (
-                "1) Open AI Processing in the left sidebar.\n"
+                "1) Open Document Analysis in the left sidebar.\n"
                 "2) Check status of runs on your documents (TF-IDF, clustering, duplicate checks).\n"
                 "3) When processing completes, open a document to see its keywords, cluster, and duplicate results."
             ),
@@ -417,7 +417,7 @@ def _all_topics() -> list[dict[str, Any]]:
             "keywords": {"setting", "settings", "configuration", "system"},
             "answer": (
                 "1) Open Settings in the left sidebar (admin only).\n"
-                "2) It shows the supported file formats, the upload size limit, and each AI engine's status and "
+                "2) It shows the supported file formats, the upload size limit, and each analysis engine's status and "
                 "last run.\n"
                 "Settings is read-only: these values are set in the server configuration."
             ),
@@ -426,7 +426,7 @@ def _all_topics() -> list[dict[str, Any]]:
             "id": "chatbot",
             "keywords": {"chatbot", "chat", "assistant", "help", "guide"},
             "answer": (
-                "You are already in AI Chatbot Guidance. Ask about any sidebar item by name "
+                "You are already in Chatbot Guidance. Ask about any sidebar item by name "
                 "(e.g. upload, repository, search, reports) for step-by-step help."
             ),
         },

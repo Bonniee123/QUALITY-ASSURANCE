@@ -109,11 +109,11 @@ def display_notification_message(raw: str) -> str:
             flags=re.I,
         ).strip()
         msg = re.sub(
-            r'AI processing (completed|queued)[^.]*\.?\s*',
+            r'(?:AI processing|Document analysis) (completed|queued)[^.]*\.?\s*',
             '',
             msg,
             flags=re.I,
         ).strip()
-        if not msg or re.match(r'^AI processing', msg, re.I):
+        if not msg or re.match(r'^(?:AI processing|Document analysis)', msg, re.I):
             return 'Your documents were processed. Open the Repository to review.'
     return msg or raw

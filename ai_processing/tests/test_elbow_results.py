@@ -1,5 +1,5 @@
 """
-The Elbow chart on the AI Processing page: the right k, seen by every Admin,
+The Elbow chart on the Document Analysis page: the right k, seen by every Admin,
 and honest about what actually chose each group's k.
 
 * The elbow was reported one k too high: the curvature index was offset by 2

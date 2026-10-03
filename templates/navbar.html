@@ -25,9 +25,15 @@
             <button class="btn btn-light position-relative notif-bell" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications" style="border-radius:10px;padding:8px 12px;"
                     data-live-badge="bell">
                 <i class="bi bi-bell"></i>
+                {% comment %}
+                Only rendered when something is unread. A badge showing "0" is
+                a badge saying "nothing needs you", which is what no badge
+                already says. Counts above 99 read "99+" so the pill cannot
+                grow wide enough to drag itself off the bell.
+                {% endcomment %}
                 {% if notifications_unread_count and notifications_unread_count > 0 %}
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:10px;">
-                    {{ notifications_unread_count }}
+                <span class="qa-count-badge qa-count-badge-pin">
+                    {% if notifications_unread_count > 99 %}99+{% else %}{{ notifications_unread_count }}{% endif %}
                     <span class="visually-hidden">unread notifications</span>
                 </span>
                 {% endif %}

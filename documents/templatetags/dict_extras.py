@@ -78,3 +78,28 @@ def readable_ink(background):
     against_white = 1.05 / (luminance + 0.05)
     against_dark = (luminance + 0.05) / 0.05
     return LIGHT if against_white >= against_dark else DARK
+
+
+@register.filter(name='current_wording')
+def current_wording(text):
+    """
+    Show a stored job result in the wording the interface uses now.
+
+    Runs recorded before the page was renamed say "AI processing complete", and
+    those rows sit in the same table as runs recorded since, which say
+    "Document analysis complete". The stored text is left as it is -- this
+    rewrites only what is displayed, the same approach
+    `display_notification_message` takes for notifications written earlier.
+    """
+    if not text:
+        return text
+    result = str(text)
+    for old, new in (
+        ('AI processing complete', 'Document analysis complete'),
+        ('AI processing is running', 'Document analysis is running'),
+        ('AI processing will run', 'Document analysis will run'),
+        ('AI processing queued', 'Document analysis queued'),
+        ('Auto AI after', 'Automatic analysis after'),
+    ):
+        result = result.replace(old, new)
+    return result

@@ -201,7 +201,7 @@ document.addEventListener('click', function (e) {
     if (!url || !form || !modalEl || !body) {
         return;
     }
-    body.textContent = 'Are you sure you want to delete "' + title + '"? This action cannot be undone.';
+    body.textContent = 'Delete "' + title + '"? You can undo this for ten seconds afterwards.';
     form.action = url;
     if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
         bootstrap.Modal.getOrCreateInstance(modalEl).show();

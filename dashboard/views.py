@@ -198,8 +198,8 @@ def _excel_export(now, metrics, monthly_labels, monthly_counts,
         ['Uploaded (last 30 days)', metrics['docs_last30']],
         ['Duplicates to review', metrics['duplicate_review_count']],
         ['Document clusters', metrics['cluster_count']],
-        ['AI-processed (%)', metrics['ai_processed_pct']],
-        ['AI-processed documents', metrics['ai_processed_count']],
+        ['Analyzed (%)', metrics['ai_processed_pct']],
+        ['Analyzed documents', metrics['ai_processed_count']],
     ]
     ws = wb.active
     ws.title = 'Summary'
@@ -246,7 +246,7 @@ def dashboard_home(request):
     if program_filter_id.isdigit():
         current_program = QAProgram.objects.filter(pk=int(program_filter_id)).first()
 
-    docs_qs = Document.objects.filter(is_archived=False)
+    docs_qs = Document.objects.live().filter(is_archived=False)
     docs_qs = scope_documents_for_user(docs_qs, request.user)
     if current_program:
         docs_qs = docs_qs.filter(program=current_program)
@@ -279,9 +279,9 @@ def dashboard_home(request):
         .count()
     )
 
-    # AI-processed = documents that have been through processing -- the AI
-    # Processing page's own definition, so the two pages give the same number.
-    # This counted "has extracted text" under an "AI-Processed" label.
+    # Analyzed = documents that have been through processing -- the Document
+    # Analysis page's own definition, so the two pages give the same number.
+    # This counted "has extracted text" under the old "AI-Processed" label.
     ai_processed_count = docs_qs.filter(is_processed=True).count()
     ai_processed_pct = round((ai_processed_count / total_documents) * 100) if total_documents else 0
 

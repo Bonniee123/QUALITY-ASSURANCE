@@ -575,7 +575,7 @@ class MatchedDocumentLabelTests(TestCase):
 
     def test_staff_see_the_title(self):
         from documents.views import matched_document_label
-        self.assertEqual(matched_document_label(make_user('head', 'qa_staff'), self.doc), '"Faculty Development Plan"')
+        self.assertEqual(matched_document_label(make_user('head', 'qa_staff'), self.doc), '“Faculty Development Plan”')
 
     def test_faculty_of_another_area_do_not(self):
         from documents.views import matched_document_label
@@ -587,4 +587,4 @@ class MatchedDocumentLabelTests(TestCase):
         from documents.views import matched_document_label
         faculty = make_user('fac2', 'faculty')
         faculty.profile.assigned_areas.add(self.area2)
-        self.assertEqual(matched_document_label(faculty, self.doc), '"Faculty Development Plan"')
+        self.assertEqual(matched_document_label(faculty, self.doc), '“Faculty Development Plan”')

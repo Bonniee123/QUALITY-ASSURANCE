@@ -77,6 +77,16 @@ class VersionTests(TestCase):
         self.assertFalse(self.a.is_archived)
 
     def test_deleting_both_versions_restores_nothing(self):
+        """
+        Deleting a whole version pair leaves nothing behind in the repository.
+
+        Both rows survive, because a bulk delete is reversible, but neither is
+        reachable: there is no half-restored chain where the older version
+        reappears because the newer one went away.
+        """
         self.supersede(self.b, self.a)
         self.client.post(reverse('documents:bulk_delete'), {'document_ids': [self.a.pk, self.b.pk]})
-        self.assertFalse(Document.objects.filter(pk__in=[self.a.pk, self.b.pk]).exists())
+        self.assertFalse(
+            Document.objects.live().filter(pk__in=[self.a.pk, self.b.pk]).exists())
+        self.assertEqual(
+            Document.objects.deleted().filter(pk__in=[self.a.pk, self.b.pk]).count(), 2)

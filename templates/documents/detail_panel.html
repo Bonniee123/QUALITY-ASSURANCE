@@ -66,7 +66,7 @@
                         {% endcomment %}
                         {% if document.cluster_label is not None and not rbac_is_faculty %}
                         <li class="list-group-item d-flex justify-content-between align-items-center px-3 py-2">
-                            <span class="text-muted">AI Cluster</span>
+                            <span class="text-muted">Cluster</span>
                             <span class="badge badge-suggested">Cluster {{ document.cluster_label }}</span>
                         </li>
                         {% endif %}
@@ -92,7 +92,7 @@
 
         <div class="col-md-6">
             <div class="card h-100 mb-0" style="border-radius: 12px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-                <div class="card-header py-2" style="background: white; border-bottom: 2px solid hsl(220,10%,95%); font-weight: 600; font-size: 14px;"><i class="bi bi-cpu me-2 text-primary"></i>AI Processing</div>
+                <div class="card-header py-2" style="background: white; border-bottom: 2px solid hsl(220,10%,95%); font-weight: 600; font-size: 14px;"><i class="bi bi-cpu me-2 text-primary"></i>Document Analysis</div>
                 <div class="card-body p-0">
                     <ul class="list-group list-group-flush" style="font-size: 13px;">
                         <li class="list-group-item d-flex justify-content-between align-items-center px-3 py-2">
@@ -158,9 +158,11 @@
             The list is capped at five. With nine drafts of one manuscript the
             reader saw five rows and no hint that four more existed.
             {% endcomment %}
-            {% if similar_total > similar_docs|length %}
-            <span class="text-muted" style="font-weight:500;font-size:11px;">Closest {{ similar_docs|length }} of {{ similar_total }}</span>
-            {% endif %}
+            {% comment %}
+            The count lives in the summary line below, which also gives the
+            measurement. Two headers saying overlapping things read as two
+            different facts.
+            {% endcomment %}
         </div>
         {% comment %}
         The answer, before the evidence for it. Seven rows each repeating "99%
@@ -178,7 +180,8 @@
             <span class="text-muted">
                 <strong class="text-body">{{ similar_summary.count }}</strong>
                 similar document{{ similar_summary.count|pluralize }} ·
-                {{ similar_summary.band }} {{ similar_summary.measure }}
+                <span title="{{ similar_summary.band }} {{ similar_summary.measure }}">{{ similar_summary.band }} {{ similar_summary.measure }}</span>{% if similar_total > similar_docs|length %} · showing the closest {{ similar_docs|length }}{% endif %}
+                {% if similar_summary.shared_note %}<br><span style="font-size:11px;">{{ similar_summary.shared_note }}</span>{% endif %}
             </span>
             {% if similar_summary.state %}
             <span class="text-{{ similar_summary.tone }}" style="font-weight:600;">
@@ -200,46 +203,49 @@
                    data-doc-id="{{ sdoc.document.pk }}"
                    data-doc-title="{{ sdoc.document.title|truncatechars:80 }}"
                    data-doc-download="{% url 'documents:download' sdoc.document.pk %}">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:58%;">
-                            <i class="bi bi-file-earmark-text me-1"></i>{{ sdoc.document.title }}
+                    {% comment %}
+                    The file name leads. Several drafts of one manuscript share
+                    a title long enough to be cut off at the same word, so a
+                    list headed by titles was five copies of one row. The name
+                    is what tells them apart, and it is how their author already
+                    tells them apart: Chapter_1_2_3_QA_FINAL_AUTOMATIC_TOC_FINAL.docx
+                    is not Chapter_1_2_3_QA_FIXED_3.docx.
+
+                    The badge carries a verdict rather than a percentage. Every
+                    row of that list measured 99%, so the number ranked nothing
+                    while looking precise enough to be worth reading. It is kept
+                    on hover, where it stays available as the evidence for the
+                    verdict.
+                    {% endcomment %}
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                        <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%;"
+                             title="{{ sdoc.document.filename|default:sdoc.document.title }}">
+                            <i class="bi bi-file-earmark-text me-1" aria-hidden="true"></i>{{ sdoc.document.filename|default:sdoc.document.title }}
                         </div>
-                        <span class="d-flex align-items-center gap-1">
+                        <span class="d-flex align-items-center gap-1 flex-shrink-0">
                             {% if sdoc.match_type == 'text' %}
-                            <span class="badge bg-secondary" title="Compared by wording"><i class="bi bi-fonts me-1"></i>{{ sdoc.match_label }}</span>
+                            <span class="badge bg-secondary" title="Compared by wording"><i class="bi bi-fonts me-1" aria-hidden="true"></i>{{ sdoc.match_label }}</span>
                             {% else %}
-                            <span class="badge bg-info text-dark" title="Compared by the picture itself"><i class="bi bi-image me-1"></i>{{ sdoc.match_label }}</span>
+                            <span class="badge bg-info text-dark" title="Compared by the picture itself"><i class="bi bi-image me-1" aria-hidden="true"></i>{{ sdoc.match_label }}</span>
                             {% endif %}
                             {% if sdoc.identical %}
-                            <span class="badge bg-danger">identical file</span>
+                            <span class="badge bg-danger" title="{{ sdoc.measurement }}">Same file</span>
                             {% else %}
-                            <span class="badge bg-warning text-dark">{{ sdoc.similarity|floatformat:0 }}%</span>
+                            <span class="badge bg-warning text-dark" title="{{ sdoc.measurement }}">{{ sdoc.verdict }}</span>
                             {% endif %}
                         </span>
                     </div>
                     {% comment %}
-                    A bare "100% match" said nothing about what had been compared
-                    or why the file is in the archive at all -- and it was a
-                    rounding of 99.75%. Each row names the measure behind the
-                    number and what follows from it.
-
-                    The line below it identifies the document. Several drafts of
-                    one manuscript share a title long enough to be cut off at the
-                    same word, so the rows were indistinguishable: the same name,
-                    the same badge, the same sentence, and -- uploaded in one
-                    batch by one person -- the same date and uploader too. The
-                    file name is what actually tells them apart, which is how
-                    their author already tells them apart:
-                    Chapter_1_2_3_QA_FINAL_AUTOMATIC_TOC_FINAL.docx is not
-                    Chapter_1_2_3_QA_FIXED_3.docx. It comes first for that reason.
+                    What differs, on one line. Wording can be 99% alike while one
+                    file carries three times the pictures, and that is the part a
+                    reader can act on.
                     {% endcomment %}
-                    <div class="text-muted" style="font-size:11px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-                         title="{{ sdoc.document.filename }}">
-                        {% if sdoc.document.filename %}{{ sdoc.document.filename }} · {% endif %}{{ sdoc.document.uploaded_at|date:"M d, Y" }}{% if sdoc.document.uploaded_by %} · {{ sdoc.document.uploaded_by.get_full_name|default:sdoc.document.uploaded_by.username }}{% endif %}
+                    <div class="text-muted" style="font-size:11px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                        {% if sdoc.size_text %}{{ sdoc.size_text }}{% if sdoc.delta_text %} · {{ sdoc.delta_text }}{% endif %} · {% endif %}{{ sdoc.document.uploaded_at|date:"M d, Y" }}{% if sdoc.age_text %} · {{ sdoc.age_text }}{% endif %}{% if sdoc.position %} · {{ sdoc.position }}{% endif %}{% if sdoc.document.uploaded_by %} · {{ sdoc.document.uploaded_by.get_full_name|default:sdoc.document.uploaded_by.username }}{% endif %}
                     </div>
-                    <div class="text-muted" style="font-size:11px;margin-top:2px;">
-                        {% if not sdoc.identical %}{{ sdoc.similarity|floatformat:0 }}% {{ sdoc.measure }} · {% endif %}{{ sdoc.note }}{% if sdoc.decision %} <span class="text-success">{{ sdoc.decision }}</span>{% endif %}
-                    </div>
+                    {% if sdoc.decision %}
+                    <div style="font-size:11px;margin-top:2px;" class="text-success">{{ sdoc.decision }}</div>
+                    {% endif %}
                 </a>
                 {% endfor %}
             </div>

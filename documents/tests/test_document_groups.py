@@ -152,7 +152,9 @@ class DocumentGroupTests(TestCase):
         self.assertIn('js-qa-doc-edit', body)
         removed = self.client.post(reverse('documents:delete', args=[self.faculty_own.pk]))
         self.assertEqual(removed.status_code, 302)
-        self.assertFalse(Document.objects.filter(pk=self.faculty_own.pk).exists())
+        # Reversible: gone from the group page, restorable for ten seconds.
+        self.assertFalse(Document.objects.live().filter(pk=self.faculty_own.pk).exists())
+        self.assertTrue(Document.objects.deleted().filter(pk=self.faculty_own.pk).exists())
 
     def test_signing_in_is_required(self):
         response = self.client.get(reverse('documents:groups'))

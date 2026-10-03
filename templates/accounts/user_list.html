@@ -122,6 +122,55 @@
 .user-active-switch .form-check-input { cursor: pointer; }
 .access-self { font-size: 11.5px; color: var(--color-text-muted); white-space: nowrap; }
 
+/* Role filter. Links, not a dropdown: each one is a page of its own, so the
+   browser's Back button works, the address can be shared, and the filter
+   survives a reload. Every role is listed with its count, including a role
+   nobody holds -- "Faculty 0" is an answer, an absent chip is not. */
+.user-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--color-border);
+}
+.user-filter-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--color-text-muted);
+    margin-right: 4px;
+}
+.user-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.user-filter-chip:hover { border-color: var(--color-brand); color: var(--color-brand-dark); }
+.user-filter-chip:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+.user-filter-chip.is-on {
+    background: var(--color-brand);
+    border-color: var(--color-brand);
+    color: #fff;
+}
+.user-filter-count {
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+.user-filter-chip.is-on .user-filter-count { color: rgba(255, 255, 255, .85); }
+.user-filter-empty { padding: 28px 18px; text-align: center; color: var(--color-text-muted); }
+
 /* Row actions use the shared .act pattern from style.css - this page used to
    define a second, near-identical .action-btn family of its own. */
 </style>
@@ -139,6 +188,16 @@
 </div>
 
 <div class="user-management-card">
+    <nav class="user-filter-bar" aria-label="Filter users by role">
+        <span class="user-filter-label" id="userFilterLabel">Role</span>
+        {% for f in role_filters %}
+        <a class="user-filter-chip{% if f.value == selected_role %} is-on{% endif %}"
+           href="{% if f.value %}?role={{ f.value }}{% else %}{% url 'accounts:user_list' %}{% endif %}"
+           {% if f.value == selected_role %}aria-current="page"{% endif %}>
+            <span>{{ f.label }}</span><span class="user-filter-count">{{ f.count }}</span>
+        </a>
+        {% endfor %}
+    </nav>
     <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="System users">
     <div class="table-responsive">
         <table class="user-table">
@@ -225,8 +284,19 @@
                 {% empty %}
                 <tr>
                     <td colspan="7">
+                        {% comment %}
+                        An empty table means two different things. With a role
+                        selected it means nobody holds that role, and the way
+                        out is to clear the filter -- not to create an account,
+                        which is what this used to offer whichever was true.
+                        {% endcomment %}
+                        {% if selected_role %}
+                        {% url 'accounts:user_list' as all_users_url %}
+                        {% include 'includes/empty_state.html' with empty_icon='bi-funnel' empty_title='No users with this role' empty_text='No account is assigned this role yet.' empty_action_url=all_users_url empty_action_label='Show all users' %}
+                        {% else %}
                         {% url 'accounts:user_create' as create_user_url %}
                         {% include 'includes/empty_state.html' with empty_icon='bi-people' empty_title='No users yet' empty_text='Create the first user account to get started.' empty_action_url=create_user_url empty_action_label='Add User' %}
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

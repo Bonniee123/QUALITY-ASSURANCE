@@ -97,4 +97,4 @@ class NavigationAnswerTests(TestCase):
 
     def test_a_word_inside_another_word_does_not_match(self):
         # "ai" inside "email", "list" inside "checklist".
-        self.assertNotIn('AI Processing', self.nav('where do I change my email address'))
+        self.assertNotIn('Document Analysis', self.nav('where do I change my email address'))

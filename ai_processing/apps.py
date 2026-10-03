@@ -3,4 +3,4 @@ from django.apps import AppConfig
 class AiProcessingConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'ai_processing'
-    verbose_name = 'AI Processing'
+    verbose_name = 'Document Analysis'

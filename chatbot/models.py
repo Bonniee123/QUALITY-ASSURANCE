@@ -16,7 +16,7 @@ class ChatbotFAQ(models.Model):
         ('search', 'Searching'),
         ('mapping', 'Evidence Mapping'),
         ('areas', 'Area Submissions'),
-        ('ai', 'AI Processing'),
+        ('ai', 'Document Analysis'),
         ('general', 'General'),
     ]
 

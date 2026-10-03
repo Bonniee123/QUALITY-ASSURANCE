@@ -212,7 +212,10 @@ def search_documents(query, filters=None, include_archived=False):
     Returns:
         QuerySet of matching documents.
     """
-    documents = Document.objects.all()
+    # Deleted documents never appear, whatever `include_archived` says. That
+    # flag chooses whether superseded versions are shown, which is a different
+    # question from whether somebody removed the document.
+    documents = Document.objects.live()
     if not include_archived:
         documents = documents.filter(is_archived=False)
 

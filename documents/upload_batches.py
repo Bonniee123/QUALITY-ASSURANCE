@@ -19,6 +19,10 @@ extraction, duplicate detection and clustering.
 """
 from __future__ import annotations
 
+import re
+
+from django.urls import reverse
+
 import os
 from datetime import timedelta
 
@@ -74,7 +78,9 @@ def _match_name(user, match: dict) -> str:
     """
     from accounts.permissions import faculty_area_scope, user_can_access_document
 
-    title = f"“{(match.get('title') or '')[:60]}”"
+    from .near_duplicates import document_label
+
+    title = document_label(match.get('title'))
     if user is None or faculty_area_scope(user) is None:
         return title
     matched = Document.objects.filter(pk=match.get('id')).first()
@@ -110,6 +116,35 @@ def _stalled(state: str, since) -> bool:
     )
 
 
+def _current_reason(reason) -> str:
+    """
+    A stored rejection reason, read back in the wording the system uses now.
+
+    Batches refused before the message was rewritten recorded "Near-duplicate
+    content detected", which said nothing about the file having been discarded.
+    The stored row is left alone; only what the reader sees is brought up to
+    date, as `display_notification_message` does for notifications.
+    """
+    from .near_duplicates import document_label
+
+    text = (reason or '').strip()
+    if not text:
+        return 'Not uploaded — already in the archive.'
+    if not text.startswith('Near-duplicate content detected'):
+        return text
+
+    match = re.search(r'very similar to (.+?)\)?$', text)
+    named = match.group(1).rstrip(')').strip() if match else ''
+    # The old message cut the title at sixty characters, so a stored reason can
+    # end mid-word inside its own quotation marks. Re-wrap it the current way.
+    stripped = named.strip('“”"').strip()
+    if not stripped or stripped == 'a document already in the archive':
+        # The match was one this reader may not open, so it was never named.
+        return 'Not uploaded — identical content to a document already in the archive.'
+    return (f'Not uploaded — identical content to {document_label(stripped)}, '
+            f'already in the archive.')
+
+
 def batch_detail(job: BackgroundJob) -> dict:
     """One batch: per-file rows plus the counts the summary bar needs."""
     payload = job.payload or {}
@@ -128,9 +163,15 @@ def batch_detail(job: BackgroundJob) -> dict:
         doc = documents.get(pk)
         if doc is None and str(pk) in rejected:
             info = rejected[str(pk)] or {}
+            # The refused file has no row of its own, but the document it
+            # matched does, so the reader can go and look at it.
+            match_id = info.get('match_id')
             files.append({'name': info.get('name') or f'document-{pk}', 'state': 'duplicate',
-                          'detail': (info.get('reason') or 'Not added: duplicate content.')[:200],
-                          'document_id': None, 'url': None, 'stalled': False})
+                          'detail': _current_reason(info.get('reason'))[:200],
+                          'document_id': None, 'url': None, 'stalled': False,
+                          'match_id': match_id,
+                          'match_url': (reverse('documents:detail', args=[match_id])
+                                        if match_id else None)})
             continue
         if doc is None:
             # The row was created and has since been deleted. That is not a
@@ -148,13 +189,17 @@ def batch_detail(job: BackgroundJob) -> dict:
         if state == 'failed':
             detail = (doc.processing_error or '').strip()[:200]
         elif state == 'duplicate':
+            # This file was kept. It is only flagged, and a person decides.
+            # The refused files above say "Not uploaded" instead, so the two
+            # outcomes never wear the same words.
             similar = doc.similar_documents or []
             if similar:
                 first = similar[0]
                 pct = round(float(first.get('similarity') or 0) * 100)
-                detail = f"{pct}% similar to {_match_name(job.created_by, first)}"
+                detail = (f"Needs review — {pct}% similar to "
+                          f"{_match_name(job.created_by, first)}")
             else:
-                detail = 'Flagged for duplicate review.'
+                detail = 'Needs review — flagged as a possible duplicate.'
         files.append({
             'name': name,
             'state': state,
