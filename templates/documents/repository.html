@@ -679,7 +679,11 @@ document.addEventListener('DOMContentLoaded', function() {
             replaceInFlight = true;
             appendInFlight = false;
             // Kept so a failed load can put the list back as it was.
-            previousList = { html: tableBody.innerHTML, hasMore: repoState.hasMore, nextPage: repoState.nextPage };
+            // Not when the table is already showing an earlier load's
+            // placeholders: those are not a list worth restoring.
+            if (!tableBody.querySelector('.repo-skeleton-row')) {
+                previousList = { html: tableBody.innerHTML, hasMore: repoState.hasMore, nextPage: repoState.nextPage };
+            }
             repoState.hasMore = false;
             repoState.nextPage = null;
             tableBody.innerHTML = skeletonHtml(8);
