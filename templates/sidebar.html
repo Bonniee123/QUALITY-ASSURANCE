@@ -100,12 +100,6 @@
                 </a>
             </li>
 
-            <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'document_history' %}active{% endif %}">
-                <a href="{% url 'accounts:document_history' %}" class="sidebar-link" data-tooltip="Document History">
-                    <i class="bi bi-clock-history"></i>
-                    <span class="sidebar-link-text">Document History</span>
-                </a>
-            </li>
             {% endif %}
 
             {% comment %}
@@ -165,6 +159,13 @@
                 <a href="{% url 'accounts:audit_log' %}" class="sidebar-link" data-tooltip="Audit Log">
                     <i class="bi bi-journal-text"></i>
                     <span class="sidebar-link-text">Audit Log</span>
+                </a>
+            </li>
+
+            <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'document_history' %}active{% endif %}">
+                <a href="{% url 'accounts:document_history' %}" class="sidebar-link" data-tooltip="Document History">
+                    <i class="bi bi-clock-history"></i>
+                    <span class="sidebar-link-text">Document History</span>
                 </a>
             </li>
             {% endif %}

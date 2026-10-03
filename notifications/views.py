@@ -54,9 +54,9 @@ def open_notification(request, pk):
     if gone is not None:
         # The notification outlived its document. Say so, and for staff open
         # the record of what happened to it, instead of a "page not found".
-        from accounts.permissions import is_qa_staff_or_admin
+        from accounts.permissions import is_admin
         messages.info(request, f'“{gone.title}” has since been deleted.')
-        if is_qa_staff_or_admin(request.user):
+        if is_admin(request.user):
             return redirect(f"{reverse('accounts:document_history')}?q={quote(gone.title[:80])}")
         return _fallback_redirect()
     return redirect(n.link)

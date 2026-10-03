@@ -111,8 +111,33 @@ class BellRefreshTests(TestCase):
 
 class DocumentHistoryAccessTests(TestCase):
 
-    def test_admin_and_qa_head_may_open_it_faculty_may_not(self):
-        for role, status in (('admin', 200), ('qa_staff', 200), ('faculty', 403)):
+    def test_only_the_administrator_sees_it_in_the_sidebar(self):
+        for role, shown in (('admin', True), ('qa_staff', False), ('faculty', False)):
+            with self.subTest(role=role):
+                user = User.objects.create_user(f'side_{role}', f's{role}@test.com', PASSWORD)
+                user.profile.role = role
+                user.profile.save()
+                self.client.force_login(user)
+                page = self.client.get(reverse('documents:repository')).content.decode()
+                self.assertEqual(reverse('accounts:document_history') in page, shown)
+
+    def test_the_details_panel_history_is_for_the_administrator_only(self):
+        owner = User.objects.create_user('panel_admin', 'pa@test.com', PASSWORD)
+        owner.profile.role = 'admin'
+        owner.profile.save()
+        head = User.objects.create_user('panel_head', 'ph@test.com', PASSWORD)
+        head.profile.role = 'qa_staff'
+        head.profile.save()
+        doc = Document.objects.create(title='Panel Doc', file='uploaded_documents/p.pdf', file_type='pdf',
+                                      year=2026, document_type='Report', uploaded_by=owner)
+        for user, shown in ((owner, True), (head, False)):
+            with self.subTest(role=user.profile.role):
+                self.client.force_login(user)
+                html = self.client.get(reverse('documents:detail', args=[doc.pk]) + '?panel=1').content.decode()
+                self.assertEqual('doc-timeline' in html, shown)
+
+    def test_only_the_administrator_may_open_it(self):
+        for role, status in (('admin', 200), ('qa_staff', 403), ('faculty', 403)):
             with self.subTest(role=role):
                 user = User.objects.create_user(f'hist_{role}', f'{role}@test.com', PASSWORD)
                 user.profile.role = role

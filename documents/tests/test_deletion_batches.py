@@ -229,6 +229,12 @@ class DeletionBatchTests(TestCase):
         for staff in (self.admin, self.qa_head):
             notes = list(Notification.objects.filter(user=staff, category='deletion').values_list('message', flat=True))
             self.assertEqual(notes, ['Documents Deleted — Del_Fac_A deleted 2 documents'], staff.username)
+            # Document History is the Administrator's; a QA Head is linked to
+            # the Repository, a page they can open.
+            link = Notification.objects.get(user=staff, category='deletion').link
+            expected = reverse('accounts:document_history') if staff.profile.role == 'admin' \
+                else reverse('documents:repository')
+            self.assertEqual(link, expected, staff.username)
         self.assertFalse(Notification.objects.filter(user=self.faculty_a, category='deletion').exists(),
                          'nobody is notified of their own deletion')
 

@@ -19,7 +19,7 @@ urlpatterns = [
     path('users/<int:pk>/toggle-active/', views.user_toggle_active, name='user_toggle_active'),
     path('settings/', views.settings_view, name='settings'),
     path('audit-log/', views.audit_log, name='audit_log'),
-    # Administrators and QA Heads: who uploaded and who deleted each document.
+    # Administrators only: who uploaded and who deleted each document.
     path('document-history/', views.document_history, name='document_history'),
     # Departments fill the dropdown on the account forms and are managed from
     # there, so these answer JSON rather than serving pages of their own.

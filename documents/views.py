@@ -30,7 +30,7 @@ from accounts.decorators import (
     role_required, qa_staff_required, repository_access_required, faculty_required,
 )
 from accounts.permissions import (
-    is_faculty, scope_documents_for_user, faculty_area_scope, faculty_assigned_area_codes,
+    is_admin, is_faculty, scope_documents_for_user, faculty_area_scope, faculty_assigned_area_codes,
     user_can_access_document, user_can_modify_document, NO_AREA_SENTINEL,
 )
 from qa_archiving_system import rate_limit
@@ -1468,11 +1468,11 @@ def document_detail(request, pk):
         'version_chain': version_chain,
         'can_manage_versions': can_manage_versions,
         'candidate_older_docs': candidate_older_docs,
-        # Who uploaded, edited and changed it, oldest first. Staff only, like
-        # the rest of the audit trail.
+        # Who uploaded, edited and changed it, oldest first. Administrators
+        # only, like the rest of the audit trail (Audit Log, Document History).
         'history': list(doc.activity.filter(action__in=DOCUMENT_EVENT_ACTIONS)
                         .select_related('user', 'batch').order_by('created_at', 'pk'))
-                   if staff_view else [],
+                   if is_admin(request.user) else [],
     }
 
     if request.GET.get('panel') == '1':

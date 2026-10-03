@@ -53,7 +53,9 @@ def notify_qa_staff(message: str, *, category: str = 'system', link: str = '',
     for u in users:
         if exclude is not None and u.pk == exclude.pk:
             continue
-        if notify(u, message, category=category, link=link, dedupe_key=dedupe_key):
+        # `link` may depend on who reads it (a page only some roles can open).
+        user_link = link(u) if callable(link) else link
+        if notify(u, message, category=category, link=user_link, dedupe_key=dedupe_key):
             count += 1
     return count
 

@@ -1890,13 +1890,13 @@ is recommended. Full suite: **982 / 982** (19 skipped by their own conditions).
 - **The undo queue follows you between pages.** It is rebuilt from the server on every page load (`/documents/deletions/pending/`), so leaving the Repository does not lose an offer that is still running. Ctrl+Z undoes the most recent one.
 - Deleted documents are out of every page and every link. Detail, view, download, preview and edit return 404, and a deleted document can no longer be opened by guessing its URL.
 
-### Document History (Administrator and QA Head)
+### Document History (Administrator only)
 
 The new **Document History** page in the sidebar lists every document ever archived, deleted ones included. For each it shows the title and original file name, who uploaded it and when, its status (*Active*, *Deleted — undo available*, *Permanently deleted*), and who deleted it, when, and how (single delete, or a bulk delete of N). Each row opens a timeline:
 
 > Document uploaded · Document deleted (bulk) · Document restored (undo) · Document deleted (bulk) · Document permanently deleted
 
-Every entry stores the actor's name and the document title as they were at that moment, so the history still reads correctly after the file is gone or the account is removed. Uploads are recorded from a signal, so every upload path records one, including bulk upload, the Faculty page, the structured upload and import scripts. Existing documents were given their upload entry by migration `documents.0015`. The document details panel shows the same timeline to staff.
+Every entry stores the actor's name and the document title as they were at that moment, so the history still reads correctly after the file is gone or the account is removed. Uploads are recorded from a signal, so every upload path records one, including bulk upload, the Faculty page, the structured upload and import scripts. Existing documents were given their upload entry by migration `documents.0015`. The document details panel shows the same timeline to Administrators. QA Heads and Faculty don't see the page, the sidebar link, or the timeline, and QA Heads' deletion notices link to the Repository instead.
 
 ### Notifications, once each
 

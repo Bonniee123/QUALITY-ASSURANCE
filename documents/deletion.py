@@ -309,7 +309,13 @@ def _notify_deleted(batch, docs):
         message = f'Document Deleted — {who} deleted "{docs[0].title}"'
     else:
         message = f'Documents Deleted — {who} deleted {len(docs)} documents'
+    from accounts.permissions import is_admin
+
+    # Document History is the Administrator's page; a QA Head is sent to the
+    # Repository, which they can open.
+    history, repository = reverse('accounts:document_history'), reverse('documents:repository')
     notify_qa_staff(
-        message, category='deletion', link=reverse('accounts:document_history'),
+        message, category='deletion',
+        link=lambda user: history if is_admin(user) else repository,
         dedupe_key=f'deleted:{batch.pk}', exclude=batch.user,
     )

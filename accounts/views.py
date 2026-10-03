@@ -21,7 +21,7 @@ from urllib.parse import urlencode
 
 from .forms import DepartmentForm, LoginForm, UserCreateForm, UserEditForm
 from .models import Department, UserProfile
-from .decorators import admin_required, qa_staff_required
+from .decorators import admin_required
 from .permissions import ROLE_ADMIN, get_user_role
 from .presence import presence
 from .auth_security import (
@@ -532,7 +532,7 @@ def audit_log(request):
 
 
 @login_required
-@qa_staff_required
+@admin_required
 def document_history(request):
     """
     Every document ever archived, including deleted ones, with who uploaded
