@@ -13,7 +13,9 @@
     gap: 12px;
     padding: 20px 24px;
     border-bottom: 1px solid var(--color-border);
-    background: var(--color-overlay);
+    /* No fill: the tinted wash made the filters the heaviest thing on the
+       page. The card's own white, with the line underneath, separates them. */
+    background: transparent;
 }
 .audit-filters label {
     display: block;
@@ -51,7 +53,8 @@
     border-collapse: collapse;
 }
 .audit-table th {
-    background: var(--color-overlay);
+    /* The Repository's near-white header, not the tinted wash. */
+    background: hsl(205, 30%, 98%);
     color: var(--color-text-secondary);
     font-size: var(--text-xs);
     font-weight: 600;
@@ -146,7 +149,7 @@
 .doc-history-table td { vertical-align: middle; }
 .doc-history-table .doc-history-detail td,
 .doc-history-table .doc-history-detail:hover td {
-    background: var(--color-overlay);
+    background: hsl(205, 30%, 98%);
     padding: 18px 24px;
 }
 .doc-history-table .js-doc-history-toggle[aria-expanded="true"] {
@@ -172,6 +175,10 @@
    1px seam of the white table behind them showed between two of them. Each
    cell now paints one pixel past its right edge in its own colour. */
 .repo-scroll-panel .audit-table thead th {
-    box-shadow: 1px 0 0 var(--color-overlay), 0 1px 0 var(--color-border);
+    background: hsl(205, 30%, 98%);
+    box-shadow: -1px 0 0 hsl(205, 30%, 98%), 1px 0 0 hsl(205, 30%, 98%), 0 1px 0 var(--color-border);
 }
 .doc-history-table .js-doc-history-toggle { white-space: nowrap; }
+/* The header row carries the colour too, so a sub-pixel gap between two
+   cells shows the same colour instead of a white hairline. */
+.audit-table thead tr { background: hsl(205, 30%, 98%); }
