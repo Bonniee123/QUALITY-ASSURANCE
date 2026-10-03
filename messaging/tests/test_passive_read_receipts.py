@@ -101,6 +101,63 @@ class PassiveRefreshReadReceiptTests(TestCase):
         after = ThreadRead.objects.get(thread_id=self.thread, user=self.reader).last_read_at
         self.assertEqual(before, after)
 
+    def test_a_message_sharing_the_readers_clock_tick_is_still_unread(self):
+        """
+        Windows clocks tick about every 15 ms, so a message can carry the very
+        timestamp at which its reader last looked. It is still a new message.
+        """
+        from messaging.models import ThreadMessage, ThreadRead
+
+        first = self.send('first')
+        self.reader_refresh(after=0, passive=False)
+        read_at = ThreadRead.objects.get(thread_id=self.thread, user=self.reader).last_read_at
+
+        second = self.send('second')
+        ThreadMessage.objects.filter(pk=second).update(created_at=read_at)
+
+        data = self.reader_refresh(after=first, passive=True)
+        self.assertEqual([m['id'] for m in data['messages']], [second])
+        self.assertFalse(self.sender_sees_read(second))
+        self.assertEqual(data['unread_messages'], 1)
+
+    def test_a_refresh_cannot_mark_messages_that_do_not_exist_yet(self):
+        first = self.send('first')
+        self.reader_refresh(after=10 ** 12, passive=False)
+        self.assertTrue(self.sender_sees_read(first))
+
+        later = self.send('later')
+        self.assertFalse(self.sender_sees_read(later))
+        self.assertEqual(self.reader_refresh(after=later, passive=True)['unread_messages'], 1)
+
+    def test_existing_read_times_carry_over_as_read_marks(self):
+        import importlib
+
+        from django.apps import apps
+        from django.utils import timezone
+        from datetime import timedelta
+        from messaging.models import ThreadMessage, ThreadRead
+
+        backfill = importlib.import_module(
+            'messaging.migrations.0002_threadread_last_read_message_id'
+        ).backfill_read_marks
+
+        read_one = self.send('read before they left')
+        unread_one = self.send('sent after they left')
+        now = timezone.now()
+        ThreadMessage.objects.filter(pk=read_one).update(created_at=now - timedelta(minutes=5))
+        ThreadMessage.objects.filter(pk=unread_one).update(created_at=now)
+        ThreadRead.objects.update_or_create(
+            thread_id=self.thread, user=self.reader,
+            defaults={'last_read_at': now - timedelta(minutes=1), 'last_read_message_id': 0},
+        )
+
+        backfill(apps, None)
+
+        self.assertEqual(ThreadRead.objects.get(thread_id=self.thread, user=self.reader)
+                         .last_read_message_id, read_one)
+        self.assertTrue(self.sender_sees_read(read_one))
+        self.assertFalse(self.sender_sees_read(unread_one))
+
     def test_opening_the_conversation_still_reads_it(self):
         """Clicking into a conversation is the reader acting, passive or not."""
         sent = self.send('Are you there?')

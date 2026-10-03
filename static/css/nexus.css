@@ -1203,3 +1203,189 @@
     .nx-card-head, .nx-card-body { padding-left: 14px; padding-right: 14px; }
     .nx-table thead th, .nx-table tbody td { padding-left: 14px; padding-right: 14px; }
 }
+
+/* ============================================================================
+   INFORMATION-FIRST DASHBOARD
+   ----------------------------------------------------------------------------
+   The five tiles were the same size, the same weight and the same shape, each
+   wearing a different pastel tile behind its icon. Five colours were spent
+   telling one card from another, which is decoration, and nothing on the row
+   said which number mattered most: the reader had to read all five to find out.
+
+   These rules set a hierarchy instead. One metric is large and wide, the rest
+   are quiet, and colour is kept for the two places where it carries meaning --
+   a queue that needs attention, and a queue that is clear.
+
+   Scoped to .nexus-dashboard so no other page is affected.
+   ========================================================================== */
+
+/* --- 1. Icons are secondary. No tile, no colour block. ------------------- */
+/* The rule being replaced is `.nx-kpi .nx-kpi-label .nx-i`, three classes, so
+   this has to carry four to reach it. */
+.nexus-dashboard .nx-kpi .nx-kpi-label .nx-i,
+.nexus-dashboard .nx-card-title .nx-i,
+.nexus-dashboard .nx-i {
+    width: 16px !important;
+    height: 16px !important;
+    background: none !important;
+    border-radius: 0 !important;
+    font-size: 13px !important;
+    color: var(--nx-text-dim) !important;
+    box-shadow: none !important;
+}
+/* The corner tile is gone, so the label no longer has to steer around it. */
+.nexus-dashboard .nx-kpi .nx-kpi-label .nx-i { top: 16px; right: 16px; }
+.nexus-dashboard .nx-kpi { padding-right: 40px; }
+
+/* No tile keeps a tint, including amber. A card that needs attention says so
+   in words -- "Action needed" -- which a reader can act on; a pale square
+   behind an icon is decoration wearing the costume of a signal. */
+.nexus-dashboard .nx-kpi-accent-blue,
+.nexus-dashboard .nx-kpi-accent-teal,
+.nexus-dashboard .nx-kpi-accent-purple,
+.nexus-dashboard .nx-kpi-accent-amber,
+.nexus-dashboard .nx-kpi-accent-green { --nx-tone-bg: transparent; }
+
+/* --- 2. Hierarchy: one dominant metric, the rest supporting. ------------- */
+/* Two columns, not five equal tiles: the headline takes the wider one and
+   stands full height, and everything that qualifies it stacks in a rail beside
+   it. The rail is a flex column rather than more grid cells, so it holds
+   whatever number of cards the reader's role is shown -- four for staff, one
+   for Faculty -- without leaving a hole in the row. */
+.nexus-dashboard .nx-kpi-row-auto {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    align-items: stretch;
+}
+.nexus-dashboard .nx-kpi-primary { grid-column: 1; }
+.nexus-dashboard .nx-kpi-rail {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+/* Each card is its own height, not a third of the rail. With `flex: 1 1 0`
+   they divided whatever height the row had between them, which cut the
+   caption off the bottom of two of them once the row got shorter. */
+.nexus-dashboard .nx-kpi-rail > .nx-kpi { flex: 0 0 auto; }
+
+/* One column on a narrow screen: the rail unstacks into the flow, so the
+   headline stays first and nothing is squeezed to an unreadable width. */
+@media (max-width: 767px) {
+    .nexus-dashboard .nx-kpi-row-auto { grid-template-columns: 1fr; }
+    .nexus-dashboard .nx-kpi-primary,
+    .nexus-dashboard .nx-kpi-rail { grid-column: 1; }
+}
+
+/* Large enough to be read first, not large enough to be the page. At 54px
+   with a 48px sparkline the card stood almost 400px tall for a three-digit
+   number, and the space between the number and the figures below it was doing
+   nothing. The rail matches this card's height, so every pixel spent here was
+   spent three more times beside it. */
+.nexus-dashboard .nx-kpi-primary { padding: 16px 18px; gap: 6px; }
+.nexus-dashboard .nx-kpi-primary .nx-kpi-value { font-size: 38px; letter-spacing: -1px; line-height: 1.1; }
+.nexus-dashboard .nx-kpi-primary .nx-kpi-label { font-size: 12px; letter-spacing: .04em; }
+/* The row is as tall as the rail beside it, and the headline card is stretched
+   to match. Letting the sparkline take the slack keeps that height doing
+   something, instead of leaving a void between the number and the figures. */
+.nexus-dashboard .nx-kpi-primary .nx-kpi-spark { height: 34px; flex: 1 1 auto; min-height: 34px; max-height: 86px; }
+/* These are the rail cards. Their size is what sets the height of the whole
+   row, because the headline card is stretched to match them. */
+.nexus-dashboard .nx-kpi:not(.nx-kpi-primary) .nx-kpi-value { font-size: 22px; }
+.nexus-dashboard .nx-kpi:not(.nx-kpi-primary) .nx-kpi-spark { height: 18px; }
+
+/* A rail card is read in a glance: label, number, state. It is shorter than
+   the headline and puts its number and its badge on one line. */
+/* Three of these stacked decide how tall the whole row is, so they are kept
+   tight: at 14px padding and a 26px number the rail stood 386px and dragged
+   the headline card up to the same height. */
+/* `.nx-kpi` carries a 118px min-height from the shared component, meant for a
+   row of five equal tiles. Three of them stacked made the rail 386px tall and
+   the headline card was stretched to match, which is what made it look
+   oversized -- the height was never its own. */
+/* `min-height: 0` rather than a number: the card is then exactly as tall as
+   its own label, number and sentence. Any fixed value here is either taller
+   than the content, which wastes the height three times over, or shorter,
+   which clips it -- `.nx-kpi` hides its overflow. */
+/* The right padding is wider than the rest: the card's own arrow and its
+   label icon sit there, and a shorthand padding of 14px let the change
+   badge run 14px underneath the arrow. */
+.nexus-dashboard .nx-kpi-rail .nx-kpi { padding: 12px 34px 12px 14px; gap: 4px; min-height: 0; }
+.nexus-dashboard .nx-kpi-rail .nx-kpi-foot { font-size: 11.5px; }
+
+/* No chart in a rail card. At this height its own sparkline did not fit, and
+   `.nx-kpi` hides its overflow, so the line was drawn across the card's badge
+   and the footer was cut off. The trend it showed is already stated beside the
+   number, as a change badge and a sentence. The headline card keeps its chart,
+   which is where a shape over time is worth the room. */
+.nexus-dashboard .nx-kpi-rail .nx-kpi-spark { display: none; }
+.nexus-dashboard .nx-kpi-rail .nx-kpi-body {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+/* --- 2b. The two figures that qualify the headline. ---------------------- */
+/* Parts of the number above them, so they sit inside its card, divided from
+   it by a hairline rather than by a gap. */
+.nexus-dashboard .nx-kpi-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--nx-border);
+}
+.nexus-dashboard .nx-kpi-split-cell { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.nexus-dashboard .nx-kpi-split-label {
+    color: var(--nx-text-mute);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+.nexus-dashboard .nx-kpi-split-value {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+}
+.nexus-dashboard .nx-kpi-split-unit {
+    margin-left: 6px;
+    color: var(--nx-text-mute);
+    font-size: 12px;
+    font-weight: 500;
+}
+.nexus-dashboard .nx-kpi-split .nx-bar-track { margin-top: 6px; }
+
+/* --- 3. Numbers line up. ------------------------------------------------ */
+.nexus-dashboard .nx-num,
+.nexus-dashboard .nx-kpi-value,
+.nexus-dashboard .nx-kpi-foot strong,
+.nexus-dashboard .nx-delta { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* --- 4. Grounded, not floating. ----------------------------------------- */
+/* A shadow says "this is above the page". A metric tile is not above the
+   page. Dropdowns and modals keep theirs, which is what makes them read as
+   temporary surfaces. */
+.nexus-dashboard .nx-card {
+    box-shadow: none;
+    border: 1px solid var(--nx-border);
+    border-radius: 8px;
+}
+.nexus-dashboard .nx-card:hover { box-shadow: none; }
+.nexus-dashboard .nx-kpi-link:hover { border-color: var(--color-brand); }
+
+/* --- 5. Colour only where it carries meaning. --------------------------- */
+/* Amber when a queue needs a person; green when it is clear. Everything else
+   is ink on white. */
+.nexus-dashboard .nx-kpi-accent-amber .nx-i { color: var(--color-warning-text) !important; }
+.nexus-dashboard .nx-delta-warn { color: var(--color-warning-text); }
+
+/* Labels step back so the number leads. */
+.nexus-dashboard .nx-kpi-label {
+    color: var(--nx-text-mute);
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}

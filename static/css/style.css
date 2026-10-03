@@ -711,3 +711,203 @@ body::-webkit-scrollbar{width:0;height:0;display:none}
     object-fit: cover; object-position: center;
     border-radius: inherit; display: block;
 }
+
+/* ============================================================================
+   UNREAD COUNT BADGE
+   ----------------------------------------------------------------------------
+   One badge for one question: how many unread items need me?
+
+   The bell wore Bootstrap's red pill and the sidebar wore a teal one, so the
+   same idea -- an unread count -- arrived in two colours and two shapes. The
+   bell's pill also grew with its number, and because it is pinned to the
+   icon's corner a two-digit count pushed further across the bell than a
+   one-digit count did.
+
+   Height and radius are fixed here, and only the width grows, so the badge
+   keeps its shape at "1", at "12" and at "99+". It is positioned against the
+   icon, never in the icon's own flow, so the icon cannot move.
+
+   A status dot is a different component and is deliberately not styled here:
+   it answers "what is the state?", not "how many?".
+   ========================================================================== */
+.qa-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--color-danger);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    /* Digits of equal width, so the badge does not twitch as the count
+       changes between, say, 11 and 17. */
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+
+/* Pinned to the icon's top-right corner, out of the icon's layout. */
+.qa-count-badge-pin {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    transform: translate(40%, -40%);
+    z-index: 2;
+}
+
+/* In a sidebar row the count sits at the end of the line, not over an icon. */
+.sidebar-badge {
+    background: var(--color-danger);
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+}
+
+/* ============================================================================
+   UNDO STRIP
+   ----------------------------------------------------------------------------
+   Shown after a bulk delete, which happens immediately and without a
+   confirmation step. The strip is the way back, so it has to be findable: in
+   the flow of the page it could sit above the fold on a scrolled list, and a
+   reader who had just deleted forty rows would not see the only control that
+   could return them. It floats instead, pinned to the bottom of the viewport.
+
+   Dark surface, flat, no gradient: it is a temporary overlay, so it is the one
+   place a shadow is earned.
+   ========================================================================== */
+.repo-undo {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%) translateY(8px);
+    z-index: 1080;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px 12px 14px;
+    min-width: 320px;
+    max-width: min(92vw, 520px);
+    border-radius: 10px;
+    /* The system's own dark brand colour, not a neutral slate, so the strip
+       reads as part of this application rather than as a browser chrome. */
+    background: var(--color-brand-dark);
+    color: #fff;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    /* Visible as soon as it is not [hidden], and nothing about being visible
+       may depend on animation or on a frame arriving.
+
+       A transition was tried first and needed a class toggled on a later
+       frame, which requestAnimationFrame never delivers in a tab that is not
+       being rendered: the strip stayed at opacity 0 with the documents already
+       deleted. An opacity keyframe has the same fault in a milder form,
+       because a page that is not rendering does not advance the animation
+       clock at all -- the animation reports itself as running with a
+       currentTime frozen at 0, so the strip is held at the first keyframe.
+
+       So the entrance animates only the slide. Opacity stays at 1 throughout,
+       which means a frozen animation costs the strip 8px of position and
+       nothing else. It is legible from the first moment it exists. */
+    opacity: 1;
+    transform: translateX(-50%);
+    animation: repoUndoIn .18s ease-out;
+}
+.repo-undo[hidden] { display: none; }
+.repo-undo.is-leaving { opacity: 0; transition: opacity .18s ease; }
+
+@keyframes repoUndoIn {
+    from { transform: translateX(-50%) translateY(8px); }
+    to   { transform: translateX(-50%) translateY(0); }
+}
+
+.repo-undo-icon { opacity: .7; font-size: 14px; flex-shrink: 0; }
+.repo-undo-text { flex: 1 1 auto; font-variant-numeric: tabular-nums; }
+
+.repo-undo-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    padding: 5px 12px;
+    /* Filled in the brand colour: this is the one thing on the strip a person
+       is meant to press, and an outline on a dark surface did not say so.
+       The hover is a lighter brand tone rather than the usual darker one,
+       because --color-brand-hover is darker than the button and would read as
+       the button receding into the surface behind it. */
+    border: 1px solid var(--color-brand);
+    border-radius: 6px;
+    background: var(--color-brand);
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+.repo-undo-btn:hover { background: #2494b0; border-color: #2494b0; }
+.repo-undo-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.repo-undo-timer {
+    flex-shrink: 0;
+    font-size: 11px;
+    opacity: .65;
+    font-variant-numeric: tabular-nums;
+    min-width: 22px;
+    text-align: right;
+}
+.repo-undo-close {
+    flex-shrink: 0;
+    border: 0;
+    background: none;
+    color: #fff;
+    opacity: .55;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 2px;
+    cursor: pointer;
+}
+.repo-undo-close:hover { opacity: 1; }
+
+/* The remaining time, drained rather than counted. */
+.repo-undo-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, .16);
+}
+.repo-undo-progress i {
+    display: block;
+    height: 100%;
+    width: 100%;
+    /* Brand teal, the same colour as the Undo button it is timing. */
+    background: var(--color-brand);
+    opacity: 1;
+    transform-origin: left center;
+    /* Driven by a keyframe for the same reason: no frame callback required. */
+    animation: repoUndoDrain linear forwards;
+    animation-duration: var(--repo-undo-seconds, 10s);
+}
+
+@keyframes repoUndoDrain {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); }
+}
+/* Someone who has asked for less motion still gets the strip, just not the
+   slide, and the bar jumps rather than sweeps. */
+@media (prefers-reduced-motion: reduce) {
+    .repo-undo { animation: none; transform: translateX(-50%); }
+    .repo-undo.is-leaving { transition: none; }
+}

@@ -37,7 +37,11 @@
         if (!hosts.length) { return; }
 
         var isBell = kind === 'bell';
-        var selector = isBell ? '.badge' : '.sidebar-badge';
+        var selector = isBell ? '.qa-count-badge' : '.sidebar-badge';
+        // Above ninety-nine the exact figure stops being the point, and the
+        // pill would grow wide enough to drag itself off the bell it is
+        // pinned to. The full number stays available to a screen reader.
+        var shown = count > 99 ? '99+' : String(count);
 
         Array.prototype.forEach.call(hosts, function (host) {
             var badge = host.querySelector(selector);
@@ -48,22 +52,31 @@
             }
             if (!badge) {
                 badge = document.createElement('span');
-                if (isBell) {
-                    badge.className = 'position-absolute top-0 start-100 translate-middle ' +
-                                      'badge rounded-pill bg-danger';
-                    badge.style.fontSize = '10px';
-                } else {
-                    badge.className = 'sidebar-badge';
-                }
+                badge.className = isBell
+                    ? 'qa-count-badge qa-count-badge-pin'
+                    : 'sidebar-badge';
                 host.appendChild(badge);
             }
+            // Rewrite the number in place. Replacing the element instead made
+            // the badge vanish and reappear on every poll, which reads as a
+            // flash even when the count has not changed.
             // textContent, not innerHTML: the number comes from the network.
-            badge.textContent = String(count);
+            if (badge.firstChild && badge.firstChild.nodeType === 3) {
+                if (badge.firstChild.nodeValue !== shown) {
+                    badge.firstChild.nodeValue = shown;
+                }
+            } else {
+                badge.textContent = shown;
+            }
             if (isBell) {
-                var sr = document.createElement('span');
-                sr.className = 'visually-hidden';
-                sr.textContent = ' unread notifications';
-                badge.appendChild(sr);
+                var sr = badge.querySelector('.visually-hidden');
+                if (!sr) {
+                    sr = document.createElement('span');
+                    sr.className = 'visually-hidden';
+                    badge.appendChild(sr);
+                }
+                // The exact figure, even when the badge reads "99+".
+                sr.textContent = ' unread notifications (' + count + ')';
             }
         });
     }

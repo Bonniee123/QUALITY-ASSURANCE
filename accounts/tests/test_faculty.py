@@ -114,7 +114,10 @@ class FacultyRoleTests(TestCase):
         self._login_faculty()
         r = self.client.post(reverse('documents:delete', args=[self.doc_own.pk]))
         self.assertEqual(r.status_code, 302)
-        self.assertFalse(Document.objects.filter(pk=self.doc_own.pk).exists())
+        # A delete is reversible, so the row survives to be restored from. What
+        # a person can still reach is what `live()` returns.
+        self.assertFalse(Document.objects.live().filter(pk=self.doc_own.pk).exists())
+        self.assertTrue(Document.objects.deleted().filter(pk=self.doc_own.pk).exists())
 
     def test_faculty_cannot_edit_others_document(self):
         self._login_faculty()

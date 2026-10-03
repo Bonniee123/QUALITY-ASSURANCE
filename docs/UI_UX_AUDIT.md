@@ -1633,3 +1633,242 @@ Head and Faculty with no console errors; the Log Out button measures 122.0 ×
 ("nobody at the page, the message stays unread") is timing-dependent on Windows
 — it compares two timestamps that can fall in the same clock tick — and failed
 once in four runs; it is unrelated to these changes.
+
+## 22. "Read" decided by message, not by clock tick
+
+The one test left failing now and then in section 21 ("nobody at the page, the
+message stays unread") was a real fault, not a test problem. A message counted
+as read when it was created at or before the moment its reader last looked.
+Windows clocks advance about every 15 ms, so a message sent in the same tick
+as the reader's last look carried the same time and was taken as already
+read: the sender was told "Read" and the reader got no unread badge.
+
+**What changed.** Each participant's read mark is now the id of the last
+message they read (`ThreadRead.last_read_message_id`). Ids never tie. Unread
+counts, the "new messages" divider, the read receipts and the inbox page's
+live receipt refresh all compare ids. A refresh marks only what is on screen
+(the messages it delivers, or those already shown), so a message landing
+while a refresh runs stays unread until it is delivered. The mark only moves
+forward and cannot pass the newest message. `last_read_at` stays as the time
+the mark last moved.
+
+**Migration.** `messaging 0002` adds the field and sets each existing mark to
+the last message sent before that person's recorded read time, so no
+conversation changes read state. Run `python manage.py migrate`.
+
+**Also.** `test_render.py`, a debug script in the project root, was removed:
+its name made `manage.py test` import it, and it queried the live database
+rather than the test one on every test run.
+
+Verified on MariaDB 10.11: the new tie test fails on the old code and passes
+on the new; in a browser, a sent message showed "Sent" and turned "Read" on
+its own when the other person opened the conversation. Full suite: **940 /
+940** (19 skipped by their own conditions).
+
+## 23. User Management: status and access in separate columns, a smaller table
+
+**Status and the switch were one column.** The on/off switch and the
+Active/Inactive text shared the Status cell, so the switch read as part of the
+status label. Status now only reports the state (a dot and "Active" or
+"Inactive"); a new **Access** column holds the switch. Its tooltip says what a
+click will do ("On — click to deactivate"), and a screen reader hears "Account
+access for <name>". Flipping it updates the Status column at once. Your own
+row shows "Your account" in Access and no switch, as before.
+
+**Smaller table.** Cell padding 16×24 → 9×16 px, photos 42 → 32 px, text 14 →
+13 px, smaller role badges; role, joined date and headers no longer wrap.
+Measured at 1280 px with six users: rows 76 px → 57 px (the Administrator's
+row was 95 px), table 548 px → 381 px tall. No horizontal overflow at 1280 or
+1024 px.
+
+**The Administrator badge was invisible.** It used `--color-sidebar` as its
+fill, and the sidebar is now white, so it was white text on white. It now uses
+`--color-brand-dark`, keeping "dark = highest privilege".
+
+Verified in a browser: switching an account off and on changes its Status
+cell, survives a reload, and raises no script errors; `accounts` tests pass.
+
+## 24. Full system check (after sections 22–23)
+
+A full pass on a MariaDB 10.11 copy with sample data only (no live data): 15
+sample files (PDF, DOCX, XLSX, a scanned PNG, an exact copy and a near-copy)
+uploaded through the real Bulk Upload page by an Administrator and a Faculty
+member, then every page opened in a browser as Administrator, QA Head and two
+Faculty accounts (636 page loads).
+
+**What held.** No server error on any of the 636 loads. No script error or
+sideways overflow on any page. Faculty were kept to their own areas everywhere
+checked: documents of other areas redirect to the Repository, their downloads,
+area ZIPs and notifications are refused, and search and the QA Assistant do not
+reveal them. Administrator-only pages send QA Head and Faculty back to the
+Repository. Endpoints that only accept POST refuse a GET (405 or redirect),
+never with a 500. The exact copy was refused before upload ("1 file(s) removed
+from selection"); the near-copy was stored and flagged "Needs review" at 99 %;
+the scanned certificate was read by OCR, titled, typed and filed under Area
+VIII. Workflows exercised end to end: marking a duplicate clear, editing and
+deleting one's own upload, Smart Search (including OCR text), the QA
+Assistant, and Reprocess All.
+
+**Fixed: a document title could run as script in the Administrator's
+browser.** The AI Processing and Dashboard charts wrote their data into inline
+JavaScript with `|safe`. Each cluster label ends with a member document's title
+("eg. <title>"), and uploaders — Faculty included — set titles, so a title
+containing `</script><script>…` ran in the browser of whoever opened AI
+Processing after the next AI run. Proven on the test copy before fixing. All
+chart data on both pages now goes through Django's `json_script`, which escapes
+`<`, `>` and `&`; QA programme names on the Dashboard had the same exposure.
+The department name on User Management was also marked `|safe` and is now
+escaped.
+
+**Fixed: areas named in file names with underscores were not detected.**
+Underscores are word characters to a regex, so `Area_VII_Library_Holdings.xlsx`
+matched neither "area vii" nor "library", and a file whose text did not repeat
+its area was left without one. The file name's separators now become spaces
+first, as document-type detection already did.
+
+**Fixed: spreadsheets were titled by their column headings** ("Title Call
+Number Copies Year"). A spreadsheet now keeps the title taken from its file
+name.
+
+Documents uploaded before these fixes keep their stored title and area; edit
+them to correct.
+
+**Not changed, worth knowing.** The Cluster Distribution legend on AI
+Processing is cut off on the right once the labels need a second column. With
+very few documents per area and type, most clusters hold a single document
+(13 clusters for 13 documents here); this is the per-group clustering working
+as designed and evens out with real volumes. `scripts/ui_feature_check.py`
+reports 2 stale failures: it looks for a `---------` anywhere on the upload page
+(one is a code-comment divider in the floating messages panel) and for per-row
+icon classes the Repository replaced with a row menu.
+
+Full suite: **947 / 947** (19 skipped by their own conditions).
+
+## 25. QA Assistant: answers it got wrong or refused
+
+Thirty questions a QA Office user or Faculty member would ask — including
+typos, Taglish and follow-ups — were put to the assistant with sample data
+loaded, as an Administrator and as a Faculty member. About half were answered
+well. These were not:
+
+| Question | Before | Now |
+|---|---|---|
+| "Summarize the fire safety certificate" | Summarised **a different document** — whatever the previous answer was about | Finds the named document (title, text or OCR text) and summarises it; if nothing matches the name, says so instead of guessing |
+| "Why was the certificate put in Area VIII?" | "I could not match that…" | Explains the type, area, cluster and keywords of the named document |
+| "How many documents are in Area II?" | The archive-wide total | The count for Area II (also by year, type, programme or subject) |
+| "What are the accreditation areas?" | Described QA programmes | Lists Area I–X from the database, with document counts |
+| "What is Area IX about?" / "What should I upload for Area IV?" | General help / the upload steps | The area's name, description and what is archived in it; says plainly that required evidence is not tracked |
+| "Which documents were uploaded this week?" | The upload steps | The documents uploaded in the last 7 days (as the Dashboard counts a week); also today, yesterday, last week, this/last month |
+| "hi", "thanks", "salamat po" | "I only answer questions about this system…" | A greeting or you're-welcome, with suggestions the user can click |
+| "How do I change my password?" | Refused | An Administrator resets it in User Management (there is no self-service page) |
+| "Who can see my uploads?" | The upload steps | Visibility by role and area |
+| "What does Needs review mean?" / "How do I mark a duplicate as clear?" | Refused / the Repository overview | Duplicate statuses and the review steps |
+| "How do I download all documents of Area II?" | The Repository overview | The area ZIP download |
+
+Summaries also no longer repeat a sentence that appears more than once in the
+file (page headers, repeated paragraphs). An area and a year in a question are
+now used as filters only, not as words a matching document must contain.
+
+Everything stays inside the asker's permissions: for Faculty, a document
+outside their areas is "not found in your area(s)", counts and period lists
+cover their areas only, and other areas are listed by name without counts.
+Plain "how many documents" and "recent / latest uploads" are still answered by
+the live-data tier as before; the test that expected "hello there" to be
+refused now expects a greeting, still without a language-model call.
+
+Not changed: with Ollama or Gemini configured, questions that none of the
+built-in answers match still go to the model as before.
+
+Verified: the 17 new tests (13 fail on the previous code); the chat page shows
+the suggestion buttons and answers from them in a browser. Full suite: **964 /
+964** (19 skipped by their own conditions).
+
+## 26. Dashboard export for Administrators only; User Management shows who is online
+
+**Export Excel is an Administrator's tool.** The Dashboard's Export Excel button
+is no longer shown to QA Heads or Faculty, and `?export=excel` / `?export=csv`
+render the dashboard for them instead of a file.
+
+**Status is now presence, and it updates by itself.** The Status column
+repeated what the Access switch already says (Active/Inactive). It now shows:
+
+- **Online** — the person has the system open (any request in the last 3 minutes;
+  every open page refreshes its badges every few seconds);
+- **Last seen … ago** — offline, with when; signing out, by the button or by the
+  idle timeout, shows Offline at once;
+- **Never signed in**;
+- **Inactive** — the account is switched off.
+
+The page refreshes the column every 15 seconds without reloading
+(`accounts:user_presence`, Administrators only). Each session writes the time at
+most every 30 seconds, so presence adds one small UPDATE per user per
+half-minute. Accounts that signed in before this change show their last sign-in
+until their next visit.
+
+**Migration:** `accounts 0008` adds `UserProfile.last_seen` and `last_logout`.
+Run `python manage.py migrate`.
+
+Verified in a browser with two sessions: with User Management open, a Faculty
+member signing in turned their row to Online and signing out turned it to "Last
+seen just now", both without a reload. Full suite: **977 / 977** (19 skipped by
+their own conditions).
+
+## 27. Spreadsheet descriptions
+
+A spreadsheet's description was its column headings and first rows run
+together ("Title File Type Year Document Type Cluster Acc Area Uploaded At …"),
+because the description is taken from the first paragraph of the extracted text
+and a spreadsheet's text is its cells joined row by row. A spreadsheet is now
+described as "Spreadsheet — <title>, <n> rows." Titles taken from file names
+keep area numerals in capitals ("Area VII", not "Area Vii").
+
+For spreadsheets uploaded before this, run
+`python manage.py refresh_descriptions --spreadsheets-only`. It rewrites only
+XLSX descriptions, and replaces a title only when it is exactly the sheet's
+first row (the automatic title from before section 24) — a title someone typed
+is left alone. Without the option the command still rewrites every document's
+description, hand-edited ones included.
+
+Full suite: **981 / 981** (19 skipped by their own conditions).
+
+## 28. The QA Assistant's View Document opens a new tab
+
+The View Document button under an assistant answer opened the file in the same
+tab, leaving the chat; it now opens a new tab like View File everywhere else.
+
+A background tab (open the file but stay on the page) was tried and removed:
+Chrome opens a tab in front for any click a page sends itself, Ctrl or not, so
+it cannot be done from the page. Ctrl+click on View File still opens a
+background tab, because that click comes from the person.
+
+## 29. Security review
+
+Every measure in `SECURITY_MEASURES.md` was re-checked against the code and
+the running system, and the document updated where it no longer held.
+
+**Fixed: a document title could run as script from the floating QA
+Assistant.** The pages' escape helpers (`textContent` in, `innerHTML` out) do
+not escape quotes, and the floating assistant turns URLs in its answers into
+links. A title containing `https://x/"onmouseover="…"` — which Faculty can set
+on their uploads — broke out of the link's `href` and ran in the reader's
+browser when the mouse moved (reproduced in a browser, then fixed). All five
+escape helpers now escape `"` and `'` too; a test keeps the old helper out.
+
+**Fixed: vulnerable libraries.** `pip-audit` found Pillow 12.2.0 (image-parser
+memory bugs; every uploaded image is decoded) → 12.3.0; PyPDF2 3.0.1 (abandoned;
+a crafted PDF loops forever) → replaced by `pypdf` 6.19.0 with the same
+`PdfReader`; requests 2.32.3 → 2.34.2. **Run `pip install -r requirements.txt`
+after updating.**
+
+**Checked and holding:** CSRF (no exemptions), SQL (ORM only, no raw SQL),
+redirects (none built from request data), search highlighting, the spreadsheet
+viewer, the chatbot's model context (scoped to what the asker may open),
+`check --deploy` with production settings (two expected notes: SAMEORIGIN
+frames for the PDF preview, HSTS preload), and 24 tampering attempts by a
+Faculty account — other people's threads, messages, chatbot history and
+notifications; editing, deleting, reprocessing and downloading other areas'
+documents; area ZIPs; administrator-only actions — all refused, database
+unchanged, and "all areas" ZIP held only the Faculty member's own area.
+
+**Open:** Django 4.2 reached end of support in April 2026; moving to 5.2 LTS
+is recommended. Full suite: **982 / 982** (19 skipped by their own conditions).

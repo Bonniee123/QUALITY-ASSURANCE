@@ -110,19 +110,28 @@
                 </ul>
             </div>
 
+            {% if rbac_is_admin %}
             <!-- Export -->
             <a href="?period={{ period_value }}{% if current_program %}&program={{ current_program.pk }}{% endif %}&export=excel"
                class="nx-btn nx-btn-primary" title="Download a styled Excel summary of this dashboard">
                 <i class="bi bi-file-earmark-excel"></i>
                 <span>Export Excel</span>
             </a>
+            {% endif %}
         </div>
     </div>
 
     <h3 class="nx-section-title">At a glance</h3>
     <div class="nx-kpi-row nx-kpi-row-auto">
         <!-- Total Documents -->
-        <a href="{% url 'documents:repository' %}" class="nx-card nx-kpi nx-kpi-link nx-kpi-accent-blue">
+        {% comment %}
+        The archive total is the one number this page exists to report, so it
+        is the one that is large. The other tiles qualify it: how much arrived
+        this week, how much needs a decision, how it has been grouped, how much
+        has been analysed. They were all the same size before, which left the
+        reader to work out the ranking for themselves.
+        {% endcomment %}
+        <a href="{% url 'documents:repository' %}" class="nx-card nx-kpi nx-kpi-link nx-kpi-primary nx-kpi-accent-blue">
             <div class="nx-kpi-head">
                 <div class="nx-kpi-label"><i class="bi bi-file-earmark-text nx-i nx-i-blue"></i><span>Total Documents</span></div>
                 <i class="bi bi-arrow-right nx-kpi-go" aria-hidden="true"></i>
@@ -141,11 +150,45 @@
                 <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ total_documents }}">{{ total_documents|default:0 }}</span></div>
             </div>
             <div class="nx-kpi-spark"><canvas id="kpiSparkTotal"></canvas></div>
+            {% comment %}
+            The two figures that qualify the total, side by side beneath it:
+            how much of the archive arrived recently, and how much of it has
+            been through analysis. Both are parts of the number above them,
+            which is why they sit inside this card rather than beside it. The
+            30-day figure used to be written out in the footer sentence; it is
+            the same number, given a label instead of a clause.
+            {% endcomment %}
+            <div class="nx-kpi-split">
+                <div class="nx-kpi-split-cell">
+                    <span class="nx-kpi-split-label">Last 30 days</span>
+                    <span class="nx-kpi-split-value">{{ docs_last30|default:0 }}</span>
+                </div>
+                <div class="nx-kpi-split-cell">
+                    <span class="nx-kpi-split-label">Analyzed</span>
+                    <span class="nx-kpi-split-value">{{ ai_processed_count|default:0 }} <span class="nx-kpi-split-unit">of {{ total_documents|default:0 }}</span></span>
+                    <div class="nx-bar-track"><div class="nx-bar-fill nx-bar-fill-green" style="width: {{ ai_processed_pct }}%;"></div></div>
+                </div>
+            </div>
             <div class="nx-kpi-foot">
-                {% if total_documents %}<strong>{{ docs_last30 }}</strong> uploaded in last 30 days{% else %}No documents yet &mdash; upload to get started{% endif %}
+                {% if total_documents %}{{ ai_processed_pct }}% of the archive analyzed{% else %}No documents yet &mdash; upload to get started{% endif %}
             </div>
         </a>
 
+        {% comment %}
+        Everything that is not the headline stands in a column beside it, one
+        card above the next, as a rail rather than a row. Each of these is read
+        in a glance -- a label, a number, a state -- so they do not need the
+        width the total needs.
+
+        They carry no caption line either. Three of them stacked, each with a
+        sentence under its number, set the height of the whole row and left the
+        headline card stretched to match. The sentences were restating their own
+        titles in any case: "Files flagged for duplicate review" under
+        "Duplicates to Review", "Clustered topic groups" under "Document
+        Clusters". What a card cannot say in a label, a number and a badge is
+        said on the page the card opens.
+        {% endcomment %}
+        <div class="nx-kpi-rail">
         <!-- Uploaded This Week -->
         <a href="{{ week_repo_url }}" class="nx-card nx-kpi nx-kpi-link nx-kpi-accent-teal">
             <div class="nx-kpi-head">
@@ -164,7 +207,6 @@
                 </span>
             </div>
             <div class="nx-kpi-spark"><canvas id="kpiSparkWeek"></canvas></div>
-            <div class="nx-kpi-foot">{% if week_delta_dir == 'new' %}No uploads in the previous 7 days{% else %}Last 7 days vs. previous 7{% endif %}</div>
         </a>
 
         {% comment %}
@@ -189,7 +231,6 @@
                 <span class="nx-delta nx-delta-up">All clear</span>
                 {% endif %}
             </div>
-            <div class="nx-kpi-foot">Files flagged for duplicate review</div>
         </a>
 
         <!-- Document Clusters -->
@@ -201,26 +242,8 @@
             <div class="nx-kpi-body">
                 <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ cluster_count }}">{{ cluster_count|default:0 }}</span></div>
             </div>
-            <div class="nx-kpi-foot">
-                {% if cluster_count %}AI-grouped topic clusters{% else %}Clusters form as documents are processed{% endif %}
-            </div>
         </a>
         {% endif %}
-
-        <!-- AI-Processed -->
-        <div class="nx-card nx-kpi nx-kpi-accent-green">
-            <div class="nx-kpi-head">
-                <div class="nx-kpi-label"><i class="bi bi-cpu nx-i nx-i-green"></i><span>AI-Processed</span></div>
-            </div>
-            <div class="nx-kpi-body">
-                <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ ai_processed_pct }}">{{ ai_processed_pct }}</span><span class="nx-kpi-unit">%</span></div>
-            </div>
-            <div class="nx-kpi-spark">
-                <div class="nx-bar-track"><div class="nx-bar-fill nx-bar-fill-green" style="width: {{ ai_processed_pct }}%;"></div></div>
-            </div>
-            <div class="nx-kpi-foot">
-                {% if total_documents %}<strong>{{ ai_processed_count }}</strong> of {{ total_documents }} processed by AI{% else %}No documents to process yet{% endif %}
-            </div>
         </div>
     </div>
 
@@ -445,13 +468,20 @@
 
 {% block extra_js %}
 <script src="{% static_v 'js/dashboard-calendar.js' %}"></script>
+{{ monthly_labels|json_script:"monthly-labels" }}
+{{ monthly_counts|json_script:"monthly-counts" }}
+{{ monthly_program_lines|json_script:"monthly-program-lines" }}
+{{ file_format_labels|json_script:"file-format-labels" }}
+{{ file_format_counts|json_script:"file-format-counts" }}
+{{ spark_counts|json_script:"spark-counts" }}
 <script>
-var monthlyLabels = {{ monthly_labels|safe }};
-var monthlyCounts = {{ monthly_counts|safe }};
-var programLines = {{ monthly_program_lines|safe }};
-var fmtLabels = {{ file_format_labels|safe }};
-var fmtCounts = {{ file_format_counts|safe }};
-var sparkCounts = {{ spark_counts|safe }};
+function pageData(id) { return JSON.parse(document.getElementById(id).textContent); }
+var monthlyLabels = pageData('monthly-labels');
+var monthlyCounts = pageData('monthly-counts');
+var programLines = pageData('monthly-program-lines');
+var fmtLabels = pageData('file-format-labels');
+var fmtCounts = pageData('file-format-counts');
+var sparkCounts = pageData('spark-counts');
 
 var formatPalette = [
     'hsl(180, 60%, 35%)', 'hsl(220, 70%, 58%)', 'hsl(265, 65%, 60%)',

@@ -1,4 +1,4 @@
-"""Context helpers for the admin AI Processing dashboard."""
+"""Context helpers for the admin Document Analysis dashboard."""
 from django.conf import settings
 from django.db.models import Count, Max, Q
 
@@ -78,7 +78,7 @@ def get_pipeline_settings_summary():
 def build_cluster_summaries():
     """Cluster cards: number, descriptive label, count, top keywords."""
     dist = (
-        Document.objects.filter(is_archived=False)
+        Document.objects.live().filter(is_archived=False)
         .exclude(cluster_label__isnull=True)
         .values('cluster_label')
         .annotate(count=Count('id'), last=Max('uploaded_at'))
@@ -86,7 +86,7 @@ def build_cluster_summaries():
     )
     label_by_num = {}
     keywords_by_num = {}
-    for cr in ClusterResult.objects.order_by('-created_at').values(
+    for cr in ClusterResult.objects.live().order_by('-created_at').values(
         'cluster_number', 'cluster_label', 'top_keywords'
     ):
         if cr['cluster_number'] not in label_by_num:
@@ -109,7 +109,7 @@ def build_cluster_summaries():
 
 def get_ai_processing_stats():
     """Aggregate counts for dashboard stat cards."""
-    base = Document.objects.filter(is_archived=False)
+    base = Document.objects.live().filter(is_archived=False)
     return {
         'total_count': base.count(),
         'processed_count': base.filter(is_processed=True).count(),
@@ -125,7 +125,7 @@ def get_ai_processing_stats():
 def cluster_label_map():
     """Map cluster_number -> latest descriptive label."""
     labels = {}
-    for cr in ClusterResult.objects.order_by('-created_at').values('cluster_number', 'cluster_label'):
+    for cr in ClusterResult.objects.live().order_by('-created_at').values('cluster_number', 'cluster_label'):
         labels.setdefault(cr['cluster_number'], cr['cluster_label'] or f"Cluster {cr['cluster_number']}")
     return labels
 

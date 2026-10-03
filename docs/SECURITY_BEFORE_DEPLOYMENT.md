@@ -15,7 +15,9 @@ Before anyone else can reach it over a network, work through this list in order.
 - Uploaded files are never served straight from `/media/`. They go only through the
   signed-in document views. Profile photos (`/media/profile_pics/`) are the one exception.
 - CSRF protection, template auto-escaping, a Content-Security-Policy, `nosniff`,
-  `Permissions-Policy` and `X-Frame-Options: SAMEORIGIN` are all on.
+  `Permissions-Policy` and `X-Frame-Options: DENY` are all on. The two document
+  views the file viewer embeds set `SAMEORIGIN` for themselves, so every other
+  page refuses to be framed at all.
 - Sessions end after 1 hour idle and 8 hours in total.
 
 ## 1. Accounts
@@ -69,8 +71,8 @@ Then run both checks and fix everything they report:
 - **Django 4.2 LTS reached end of support in April 2026.** Upgrade to 5.2 LTS.
   Django 5.2 needs MariaDB 10.5 or newer, and XAMPP ships 10.4.32, so upgrade the
   database (or use MySQL 8) first.
-- **PyPDF2 is no longer maintained.** Switch to its successor `pypdf`
-  (`documents/text_extraction.py`, three `from PyPDF2 import PdfReader` imports; same API).
+- ~~**PyPDF2 is no longer maintained.** Switch to its successor `pypdf`.~~ Done:
+  no project file imports PyPDF2 any more.
 - Run `pip-audit -r requirements.txt` and update anything it flags, then run the full
   test suite.
 

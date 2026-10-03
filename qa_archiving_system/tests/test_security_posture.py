@@ -120,8 +120,17 @@ class SessionTests(TestCase):
 class ResponseHeaderTests(TestCase):
 
     def test_pages_refuse_to_be_framed(self):
+        """
+        No page may be put in a frame.
+
+        The site used to answer SAMEORIGIN everywhere, which it needed only for
+        the two document views the file viewer embeds. Those two set the header
+        themselves through @xframe_options_sameorigin, and a header a view has
+        already set is left alone by XFrameOptionsMiddleware, so every other
+        page can say DENY.
+        """
         response = Client().get(reverse('accounts:login'))
-        self.assertEqual(response.headers.get('X-Frame-Options'), 'SAMEORIGIN')
+        self.assertEqual(response.headers.get('X-Frame-Options'), 'DENY')
 
 
 class StoredFileNameTests(TestCase):

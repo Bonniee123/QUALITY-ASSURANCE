@@ -2,10 +2,12 @@
 import logging
 import os
 import threading
+from datetime import timedelta
 
 from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from .models import BackgroundJob, Document, ProcessingMetric, ActivityLog
 from .text_extraction import explain_extraction, extract_text, is_damaged_file_problem
@@ -57,7 +59,11 @@ def _run_job_in_thread(job):
 
 
 def _dispatch_job_async(job):
-    threading.Thread(target=_run_job_in_thread, args=(job,), daemon=True).start()
+    # Named so a management command can wait for it. Without a name there is
+    # no way to tell a job worker apart from any other thread in the process,
+    # and a command that exits while one is running kills it mid-job.
+    threading.Thread(target=_run_job_in_thread, args=(job,), daemon=True,
+                     name=f'qa-job-{job.pk}').start()
 
 
 def _mark_job_crashed(job):
@@ -89,6 +95,67 @@ def recover_interrupted_jobs():
         stale.update(status='pending', started_at=None)
         logger.warning('Re-queued %s background job(s) interrupted by a server restart.', count)
     return count
+
+
+def sweep_stale_jobs(minutes=None):
+    """
+    Fail jobs whose worker stopped without saying so, and free their documents.
+
+    `recover_interrupted_jobs` handles the case where the whole process died and
+    came back: it runs at start-up, when nothing can still be working. This
+    handles the other case, where the process is alive and well but the thread
+    doing the work is gone -- a native crash inside an embedding or OCR library
+    takes the thread with it and raises nothing Python can catch. The job row
+    then says 'running' for ever, and every document in the batch keeps saying
+    "Processing" on a page that will never change.
+
+    Staleness is measured from the last progress report, so a slow job that is
+    genuinely working is never cut off. Documents left with no text are given a
+    processing_error, because that is what stops the spinner: a document with
+    no text, no error and is_processed False is, by definition, still in
+    progress. An error a person can read and retry beats a spinner that lies.
+    """
+    minutes = getattr(settings, 'JOB_STALE_MINUTES', 20) if minutes is None else minutes
+    if not minutes or minutes <= 0:
+        return 0
+
+    cutoff = timezone.now() - timedelta(minutes=minutes)
+    swept = 0
+    for job in BackgroundJob.objects.filter(status='running'):
+        if _last_sign_of_life(job) > cutoff:
+            continue
+        BackgroundJob.objects.filter(pk=job.pk, status='running').update(
+            status='failed',
+            finished_at=timezone.now(),
+            error=(f'Stopped responding for over {minutes} minutes and was marked failed. '
+                   f'Run it again from Document Analysis, or re-upload the files that '
+                   f'did not finish.'),
+        )
+        _release_unfinished_documents(job)
+        swept += 1
+        logger.warning('Job %s (%s) stopped reporting progress; marked failed.', job.pk, job.job_type)
+    return swept
+
+
+def _last_sign_of_life(job):
+    """The most recent moment this job proved it was still working."""
+    beat = (job.payload or {}).get('heartbeat')
+    if beat:
+        parsed = parse_datetime(beat)
+        if parsed is not None:
+            return parsed
+    return job.started_at or job.created_at
+
+
+def _release_unfinished_documents(job):
+    """Take the documents of a dead job off "Processing"."""
+    doc_ids = list((job.payload or {}).get('document_ids') or [])
+    if not doc_ids:
+        return
+    Document.objects.filter(pk__in=doc_ids, is_processed=False).update(
+        processing_error='Processing stopped before this file was finished. '
+                         'Upload it again to retry.',
+    )
 
 
 def resume_pending_jobs(limit=50):
@@ -160,6 +227,11 @@ def run_job(job):
 def _update_job_payload(job, **fields):
     payload = dict(job.payload or {})
     payload.update(fields)
+    # Every progress report is also a heartbeat. Without one the only
+    # timestamp on a running job is when it started, and a job that is making
+    # slow but real progress through big scanned files would be
+    # indistinguishable from one whose thread died.
+    payload['heartbeat'] = timezone.now().isoformat()
     _persist_job_state(job, payload=payload)
 
 
@@ -237,7 +309,7 @@ def _near_duplicate_of(doc, text, later_ids):
     if not (text or '').strip():
         return None, 0.0
     candidates = (
-        Document.objects
+        Document.objects.live()
         .filter(file_type__in=same_format_types(doc.file_type), is_archived=False)
         .exclude(pk=doc.pk)
         .exclude(pk__in=list(later_ids))
@@ -337,17 +409,19 @@ def _process_upload_batch(job):
 
                 _store_image_phash(doc)
 
-                match, _ratio = _near_duplicate_of(doc, extracted, doc_ids[idx + 1:])
+                match, ratio = _near_duplicate_of(doc, extracted, doc_ids[idx + 1:])
                 if match is not None:
                     # The match is named only if the uploader may open it (a
                     # Faculty member was shown titles from other areas here).
                     from accounts.permissions import user_can_access_document
-                    if job.created_by is None or user_can_access_document(job.created_by, match):
-                        match_name = f'\u201c{(match.title or "")[:60]}\u201d'
-                    else:
-                        match_name = 'a document already in the archive'
-                    reason = f'Near-duplicate content detected (very similar to {match_name})'
-                    rejected[str(doc_id)] = {'name': filename, 'reason': reason}
+                    from .near_duplicates import as_percent, blocked_message, document_label
+
+                    visible = job.created_by is None or user_can_access_document(job.created_by, match)
+                    match_name = (document_label(match.title) if visible
+                                  else 'a document already in the archive')
+                    reason = blocked_message(match_name, as_percent(ratio))
+                    rejected[str(doc_id)] = {'name': filename, 'reason': reason,
+                                             'match_id': match.pk if visible else None}
                     _discard_rejected_upload(doc)
                     _update_job_payload(job, processed_count=idx + 1, errors=errors,
                                         rejected=rejected)
@@ -413,7 +487,7 @@ def _process_upload_batch(job):
                 # this batch has finished.
                 _update_job_payload(job, analysis_requested_at=timezone.now().isoformat())
                 request_full_pipeline(job.created_by)
-                ai_result = 'AI processing is running in the background.'
+                ai_result = 'Document analysis is running in the background.'
             else:
                 ai_result = run_full_ai_pipeline(None)
 
@@ -421,11 +495,11 @@ def _process_upload_batch(job):
                 ActivityLog.objects.create(
                     user_id=job.created_by_id,
                     action='auto_ai_processing',
-                    description=f'Auto AI after bulk upload ({len(processed_docs)} files): {ai_result}',
+                    description=f'Automatic analysis after bulk upload ({len(processed_docs)} files): {ai_result}',
                 )
         except Exception as exc:
             logger.error('AI pipeline error after bulk upload job #%s: %s', job.pk, exc)
-            ai_result = 'AI processing will run later.'
+            ai_result = 'Document analysis will run later.'
 
     msg = f'{len(processed_docs)}/{total_count} document(s) processed.'
     if rejected:
@@ -551,7 +625,7 @@ def serialize_job(job):
 
 
 def _refresh_duplicate_flags():
-    docs = list(Document.objects.filter(is_archived=False))
+    docs = list(Document.objects.live().filter(is_archived=False))
     if not docs:
         return 'No documents to refresh.'
     from ai_processing.tfidf_service import compute_tfidf_keywords
@@ -596,7 +670,7 @@ def _reprocess_ocr(payload, created_by=None, refresh_after=False):
     only_empty = bool(payload.get('only_empty', True))
     pdf_only = bool(payload.get('pdf_only', True))
     ids = list(payload.get('document_ids') or [])
-    qs = Document.objects.filter(is_archived=False)
+    qs = Document.objects.live().filter(is_archived=False)
     if ids:
         qs = qs.filter(pk__in=ids)
     if pdf_only:
@@ -643,7 +717,7 @@ def _reprocess_ocr(payload, created_by=None, refresh_after=False):
 
 
 def _reindex_search_artifacts():
-    docs = list(Document.objects.filter(is_archived=False))
+    docs = list(Document.objects.live().filter(is_archived=False))
     if not docs:
         return 'No documents to reindex.'
     from ai_processing.tfidf_service import compute_tfidf_keywords

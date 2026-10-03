@@ -31,7 +31,7 @@ from accounts.permissions import (
 
 logger = logging.getLogger(__name__)
 
-# Documents flagged by AI as possible/confirmed duplicates.
+# Documents flagged as possible or confirmed duplicates.
 _DUP_FLAGS = ("possible", "confirmed_dup")
 
 
@@ -62,7 +62,7 @@ def get_system_stats(user) -> dict[str, Any]:
         # The same area scope as the Repository. These numbers and titles were
         # archive-wide, so a Faculty member assigned to one area was told the
         # totals, duplicate count and latest titles of every other area.
-        active = scope_documents_for_user(Document.objects.filter(is_archived=False), user)
+        active = scope_documents_for_user(Document.objects.live().filter(is_archived=False), user)
         scope = faculty_area_scope(user)
         if scope is not None:
             stats["scope_areas"] = list(scope)
@@ -217,7 +217,7 @@ def match_live_data_query(message_lower: str, request) -> Optional[dict[str, Any
         if n:
             return resp(
                 f"{n} document{'s are' if n != 1 else ' is'} still being processed. "
-                "AI extraction and clustering run in the background — check AI Processing for status."
+                "Text extraction and clustering run in the background — check Document Analysis for status."
             )
         return resp("All uploaded documents have finished processing.")
 

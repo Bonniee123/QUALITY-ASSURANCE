@@ -7,7 +7,7 @@ import re
 from typing import Any, Optional
 # Pages a Faculty member cannot open. Every one of these topics walked them
 # through a screen that is not in their sidebar and that the server refuses:
-# Reports, AI Processing, User Management and Settings are admin only, Area
+# Reports, Document Analysis, User Management and Settings are admin only, Area
 # Submissions and Clusters are QA Head and Admin. The answers said so in
 # passing ("admin only"), but still gave the steps.
 _STAFF_ONLY_TOPICS = frozenset({
@@ -34,7 +34,74 @@ def navigation_topics(request) -> list[dict[str, Any]]:
 
 
 def _all_topics() -> list[dict[str, Any]]:
+    # The specific topics come first: on a tie the earlier topic wins, and
+    # "download all documents of Area II" scores the same on "download" and
+    # "documents" (Repository) as on "download all" and "all documents of area".
     return [
+        {
+            "id": "password",
+            "keywords": {
+                "password", "passwords", "forgot my password", "reset password", "change password", "locked out",
+            },
+            "answer": (
+                "Passwords are managed by an Administrator — there is no self-service password page.\n"
+                "1) Ask an Administrator to reset it.\n"
+                "2) Administrator: open User Management, click Edit (pencil) on the account, type a new "
+                "password, and Save. Give the new password to the user directly.\n"
+                "If sign-in says the account is deactivated, the Administrator can switch it back on in the "
+                "Access column of User Management."
+            ),
+        },
+        {
+            "id": "visibility",
+            "keywords": {
+                "who can see", "who sees", "can see my", "see my upload", "see my document",
+                "visible", "visibility", "who has access",
+            },
+            "answer": (
+                "Who can see a document depends on its accreditation area:\n"
+                "- Administrators and QA Heads can see every document in every area.\n"
+                "- Faculty can see only the documents in the area(s) assigned to them — including other "
+                "Faculty members' uploads in those same areas.\n"
+                "- Faculty can edit or delete only their own uploads; Administrators and QA Heads can edit or "
+                "delete any document.\n"
+                "Area assignments are set by an Administrator in User Management."
+            ),
+        },
+        {
+            "id": "duplicate_review",
+            "keywords": {
+                "duplicate", "duplicates", "needs review", "mark as clear", "as clear",
+                "confirm duplicate", "not a duplicate", "exact copy", "same file",
+            },
+            "answer": (
+                "Every upload is checked for duplicates:\n"
+                "- An exact copy of a file already in the archive is refused at upload.\n"
+                "- A file whose wording or image is very similar to another is kept and marked Needs review.\n"
+                "- Clear means no duplicate was found, or a reviewer decided it is not one. Confirmed duplicate "
+                "means a reviewer decided it is one.\n"
+                "To review (QA Head or Administrator):\n"
+                "1) Open Repository and set the Duplicate filter to Needs review.\n"
+                "2) Open the document's Details — Similar Documents shows what it matches and how closely.\n"
+                "3) Click Mark as clear to keep both, or Confirm duplicate.\n"
+                "Faculty uploads are reviewed by the QA Head."
+            ),
+        },
+        {
+            "id": "area_zip",
+            "keywords": {
+                "zip", "download all", "download area", "area zip", "all documents of area",
+                "all files of area", "whole area", "entire area",
+            },
+            "answer": (
+                "To download a whole area at once:\n"
+                "1) Open Repository.\n"
+                "2) Choose the area in the Area filter.\n"
+                "3) Click Download area as ZIP at the top — every file in that area comes in one ZIP.\n"
+                "With no area chosen, the same button reads Download all areas as ZIP and gives every area "
+                "you can access, one folder per area. Faculty get only their assigned area(s)."
+            ),
+        },
         {
             "id": "dashboard",
             "keywords": {
@@ -219,7 +286,7 @@ def _all_topics() -> list[dict[str, Any]]:
             },
             "answer": (
                 "There are three roles:\n"
-                "- Administrator: full access (User Management, Settings, Audit Log, AI Processing, Reports).\n"
+                "- Administrator: full access (User Management, Settings, Audit Log, Document Analysis, Reports).\n"
                 "- QA Head: the daily workflow across ALL accreditation areas (dashboard, upload, repository, "
                 "search, area submissions, clusters, consolidation), including deleting documents.\n"
                 "- Faculty: a contributor limited to assigned accreditation area(s) — upload, repository, "
@@ -239,12 +306,12 @@ def _all_topics() -> list[dict[str, Any]]:
             },
             "answer": (
                 "Clusters (QA Head/Admin) is in the left sidebar under Main, below Area Submissions.\n"
-                "1) Each card is an AI document group (Cluster 0, 1, 2, …) with a document count.\n"
+                "1) Each card is a document cluster (Cluster 0, 1, 2, …) with a document count.\n"
                 "2) Click a cluster to see every document in that group.\n"
                 "3) You can also filter by cluster in the Repository.\n"
                 "How clusters are formed: documents are grouped within each accreditation area and document "
                 "type; in each group the number of clusters is chosen by the silhouette score (the Elbow method "
-                "is the fallback), and near-identical clusters are merged. An Admin can re-run it from AI Processing.\n"
+                "is the fallback), and near-identical clusters are merged. An Admin can re-run it from Document Analysis.\n"
                 "Faculty do not have a Clusters page — they use Repository to view files in their assigned area."
             ),
         },
@@ -321,7 +388,7 @@ def _all_topics() -> list[dict[str, Any]]:
                 "duplicate",
             },
             "answer": (
-                "1) Open AI Processing in the left sidebar.\n"
+                "1) Open Document Analysis in the left sidebar.\n"
                 "2) Check status of runs on your documents (TF-IDF, clustering, duplicate checks).\n"
                 "3) When processing completes, open a document to see its keywords, cluster, and duplicate results."
             ),
@@ -350,7 +417,7 @@ def _all_topics() -> list[dict[str, Any]]:
             "keywords": {"setting", "settings", "configuration", "system"},
             "answer": (
                 "1) Open Settings in the left sidebar (admin only).\n"
-                "2) It shows the supported file formats, the upload size limit, and each AI engine's status and "
+                "2) It shows the supported file formats, the upload size limit, and each analysis engine's status and "
                 "last run.\n"
                 "Settings is read-only: these values are set in the server configuration."
             ),
@@ -359,7 +426,7 @@ def _all_topics() -> list[dict[str, Any]]:
             "id": "chatbot",
             "keywords": {"chatbot", "chat", "assistant", "help", "guide"},
             "answer": (
-                "You are already in AI Chatbot Guidance. Ask about any sidebar item by name "
+                "You are already in Chatbot Guidance. Ask about any sidebar item by name "
                 "(e.g. upload, repository, search, reports) for step-by-step help."
             ),
         },

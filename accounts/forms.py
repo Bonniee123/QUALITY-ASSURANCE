@@ -133,10 +133,11 @@ def _validate_avatar(image):
 class LoginForm(forms.Form):
     """Login form with styled widgets."""
     username = forms.CharField(
-        max_length=150,
+        max_length=254,
+        label='Username or email',
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Enter your username',
+            'placeholder': 'Enter your username or email',
             'id': 'login-username',
             'autocomplete': 'username',
         })

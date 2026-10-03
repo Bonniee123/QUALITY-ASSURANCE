@@ -207,7 +207,7 @@ def build_cluster_display_label(area_code, top_terms, doc_types, sample_title=No
         # The card used to show this label on one clipped line, so 42 characters
         # was already more than it could display and the cap cost nothing. The
         # card now gives the example two lines at about sixty characters, and
-        # several of these titles ("DEVELOPMENT OF AN AI-DRIVEN ONLINE ARCHIVING
+        # several of these titles ("DEVELOPMENT OF AN ONLINE ARCHIVING
         # SYSTEM...") only begin to distinguish themselves past the old cut.
         short = sample_title.strip()
         if len(short) > 64:

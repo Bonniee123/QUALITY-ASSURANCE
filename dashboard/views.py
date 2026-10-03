@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.decorators import repository_access_required
-from accounts.permissions import scope_documents_for_user, faculty_area_scope
+from accounts.permissions import is_admin, scope_documents_for_user, faculty_area_scope
 from ai_processing.dashboard_utils import cluster_label_map
 from documents.models import ActivityLog, Document
 from documents.excel_export import (
@@ -198,8 +198,8 @@ def _excel_export(now, metrics, monthly_labels, monthly_counts,
         ['Uploaded (last 30 days)', metrics['docs_last30']],
         ['Duplicates to review', metrics['duplicate_review_count']],
         ['Document clusters', metrics['cluster_count']],
-        ['AI-processed (%)', metrics['ai_processed_pct']],
-        ['AI-processed documents', metrics['ai_processed_count']],
+        ['Analyzed (%)', metrics['ai_processed_pct']],
+        ['Analyzed documents', metrics['ai_processed_count']],
     ]
     ws = wb.active
     ws.title = 'Summary'
@@ -246,7 +246,7 @@ def dashboard_home(request):
     if program_filter_id.isdigit():
         current_program = QAProgram.objects.filter(pk=int(program_filter_id)).first()
 
-    docs_qs = Document.objects.filter(is_archived=False)
+    docs_qs = Document.objects.live().filter(is_archived=False)
     docs_qs = scope_documents_for_user(docs_qs, request.user)
     if current_program:
         docs_qs = docs_qs.filter(program=current_program)
@@ -279,9 +279,9 @@ def dashboard_home(request):
         .count()
     )
 
-    # AI-processed = documents that have been through processing -- the AI
-    # Processing page's own definition, so the two pages give the same number.
-    # This counted "has extracted text" under an "AI-Processed" label.
+    # Analyzed = documents that have been through processing -- the Document
+    # Analysis page's own definition, so the two pages give the same number.
+    # This counted "has extracted text" under the old "AI-Processed" label.
     ai_processed_count = docs_qs.filter(is_processed=True).count()
     ai_processed_pct = round((ai_processed_count / total_documents) * 100) if total_documents else 0
 
@@ -404,8 +404,9 @@ def dashboard_home(request):
     duplicate_repo_url = reverse('documents:repository') + '?duplicate=review' + program_param
     week_repo_url = reverse('documents:repository') + '?uploaded=7d' + program_param
 
+    # The dashboard summary export is for Administrators only.
     export_kind = request.GET.get('export')
-    if export_kind in ('excel', 'csv'):
+    if export_kind in ('excel', 'csv') and is_admin(request.user):
         metrics = {
             'total_documents': total_documents,
             'docs_last7': docs_last7,
@@ -473,13 +474,13 @@ def dashboard_home(request):
         'cluster_names': cluster_label_map(),
         'ai_processed_count': ai_processed_count,
         'ai_processed_pct': ai_processed_pct,
-        'spark_counts': json.dumps(spark_counts),
-        'monthly_labels': json.dumps(monthly_labels),
-        'monthly_counts': json.dumps(monthly_counts),
+        'spark_counts': spark_counts,
+        'monthly_labels': monthly_labels,
+        'monthly_counts': monthly_counts,
         'monthly_total_window': monthly_total_window,
-        'monthly_program_lines': json.dumps(program_lines),
-        'file_format_labels': json.dumps(file_format_labels),
-        'file_format_counts': json.dumps(file_format_counts),
+        'monthly_program_lines': program_lines,
+        'file_format_labels': file_format_labels,
+        'file_format_counts': file_format_counts,
         'file_format_total': file_format_total,
         'file_format_labels_count': len(file_format_labels),
         'period_label': period_label,

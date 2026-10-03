@@ -1,7 +1,7 @@
 """
-The AI result page's badge says how the clusters on screen were actually made.
+The analysis result page's badge says how the clusters on screen were actually made.
 
-Each document's AI Processing Result page shows its cluster number with a badge
+Each document's Document Analysis Result page shows its cluster number with a badge
 naming the clustering method. After a run started by an upload -- a background
 run, with no page session to write to -- the badge fell back to the settings and
 said "Semantic embeddings", even when that run had clustered with TF-IDF because
@@ -132,7 +132,7 @@ class BadgeAfterARunTests(TestCase):
         with mock.patch.object(ProcessingMetric.objects, 'create', side_effect=create), \
                 self.assertLogs('documents.ai_pipeline', 'ERROR'):
             message = self.run_with_embeddings()
-        self.assertIn('AI processing complete', message)
+        self.assertIn('Document analysis complete', message)
         self.assertFalse(Document.objects.filter(cluster_label=None).exists())
 
 

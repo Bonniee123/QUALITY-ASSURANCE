@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.db.models import Case, IntegerField, Q, Value, When
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
@@ -22,6 +22,7 @@ from .forms import DepartmentForm, LoginForm, UserCreateForm, UserEditForm
 from .models import Department, UserProfile
 from .decorators import admin_required
 from .permissions import ROLE_ADMIN, get_user_role
+from .presence import presence
 from .auth_security import (
     clear_login_attempts,
     is_login_locked,
@@ -35,8 +36,13 @@ from documents.audit import distinct_logged_actions, log_activity
 
 def _is_deactivated_account(username, password):
     """True if these are the right credentials for an account that is switched off."""
+    from .auth_backends import resolve_login_name
+
+    # Resolved the same way the backend resolves it, so somebody signing in
+    # with their email address is told their account is deactivated rather
+    # than that their password is wrong.
     try:
-        account = User._default_manager.get_by_natural_key(username)
+        account = User._default_manager.get_by_natural_key(resolve_login_name(username))
     except User.DoesNotExist:
         return False
     return not account.is_active and account.check_password(password)
@@ -156,8 +162,53 @@ def user_list(request):
                  output_field=IntegerField(),
              ))
              .order_by('is_enabled', '-date_joined'))
+
+    # Role filter. The value is checked against the roles the UserProfile model
+    # actually defines rather than passed to the query as it arrives, so an
+    # unknown or hand-edited ?role= shows everybody instead of an empty table
+    # that looks like the accounts have gone.
+    role_counts = {
+        row['profile__role']: row['n']
+        for row in User.objects.values('profile__role').annotate(n=Count('id'))
+    }
+    # The chips are read beside the role badges in the table below them, so they
+    # use the same words: the model's own label for 'admin' is "Admin" while
+    # every badge on the page says "Administrator".
+    chip_labels = {'admin': 'Administrator'}
+    role_filters = [
+        {'value': '', 'label': 'All roles', 'count': sum(role_counts.values())},
+    ] + [
+        {'value': value, 'label': chip_labels.get(value, label),
+         'count': role_counts.get(value, 0)}
+        for value, label in UserProfile.ROLE_CHOICES
+    ]
+    valid_roles = {value for value, _label in UserProfile.ROLE_CHOICES}
+    selected_role = (request.GET.get('role') or '').strip()
+    if selected_role not in valid_roles:
+        selected_role = ''
+    if selected_role:
+        users = users.filter(profile__role=selected_role)
+
+    now = timezone.now()
+    users = list(users)
+    for u in users:
+        u.presence = presence(u, now)
     return render(request, 'accounts/user_list.html', {
         'users': users,
+        'role_filters': role_filters,
+        'selected_role': selected_role,
+        'total_user_count': sum(role_counts.values()),
+    })
+
+
+@login_required
+@admin_required
+@never_cache
+def user_presence(request):
+    """Online / offline for every account, polled by User Management to stay current."""
+    now = timezone.now()
+    return JsonResponse({
+        'users': {str(u.pk): presence(u, now) for u in User.objects.select_related('profile')},
     })
 
 

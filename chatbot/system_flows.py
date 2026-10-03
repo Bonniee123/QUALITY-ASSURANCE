@@ -14,7 +14,7 @@ def system_workflows_text() -> str:
 COMMON WORKFLOWS (QA Archiving System):
 
 Roles & access:
-- Administrator: full access — User Management, Settings, Audit Log, AI Processing, and Reports, plus everything the QA Head can do.
+- Administrator: full access — User Management, Settings, Audit Log, Document Analysis, and Reports, plus everything the QA Head can do.
 - QA Head (QA staff): the daily workflow across ALL accreditation areas — Dashboard, Upload, Repository, Smart Search, Area Submissions, Clusters, per-area consolidation, and deleting documents.
 - Faculty: a contributor limited to their assigned accreditation area(s). Faculty can upload, view, search, edit, and download ONLY documents in their own area, and can edit or delete only their own uploads.
 
@@ -30,9 +30,9 @@ Dashboard: Total documents, duplicates to review, upload trend chart, monthly up
 
 Reports (Admin): Document inventory, cluster distribution, and recent uploads, exportable as CSV/Excel.
 
-Duplicates: AI flags possible duplicate uploads. See the count on the Dashboard or use the duplicates review filter in the Repository, then confirm or dismiss from a document's Details.
+Duplicates: the system flags possible duplicate uploads. See the count on the Dashboard or use the duplicates review filter in the Repository, then confirm or dismiss from a document's Details.
 
-AI processing: After upload the system extracts text, applies OCR to clear scans, computes TF-IDF keywords, runs K-Means clustering within each accreditation area and document type (the silhouette score chooses each group's cluster count, with the Elbow Method as the fallback), and checks for duplicates. Admins can open AI Processing to see run status and the Elbow chart.
+document analysis: After upload the system extracts text, applies OCR to clear scans, computes TF-IDF keywords, runs K-Means clustering within each accreditation area and document type (the silhouette score chooses each group's cluster count, with the Elbow Method as the fallback), and checks for duplicates. Admins can open Document Analysis to see run status and the Elbow chart.
 
 Notifications: The bell icon in the top bar shows recent alerts; Mark all read clears the badges without leaving your current page.
 
@@ -45,7 +45,7 @@ def general_system_guide() -> str:
     return (
         "Here is how this QA Archiving System works, step by step:\n\n"
         "1) Sign in by role\n"
-        "   - Administrator: full access (users, settings, reports, AI processing).\n"
+        "   - Administrator: full access (users, settings, reports, document analysis).\n"
         "   - QA Head: the full document workflow across all accreditation areas.\n"
         "   - Faculty: upload and manage documents only within their assigned area(s).\n\n"
         "2) Upload documents\n"

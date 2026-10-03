@@ -80,3 +80,43 @@ def find_near_duplicate(candidate_text, candidates, text_for):
         if ratio >= limit:
             return candidate, ratio
     return None, 0.0
+
+
+def short_title(title, limit: int = 48) -> str:
+    """
+    A document title short enough for a message, cut at a word boundary.
+
+    Cutting at a fixed character count left messages ending mid-phrase, with the
+    gap falling inside the quotation marks: `"DEVELOPMENT OF AN ONLINE ARCHIVING
+    SYSTEM FOR THE "`. The ellipsis now replaces whole words only.
+    """
+    text = ' '.join((title or '').split())
+    if len(text) <= limit:
+        return text
+    head = text[:limit].rsplit(' ', 1)[0].rstrip(' ,;:-\u2013\u2014')
+    return (head or text[:limit].rstrip()) + '\u2026'
+
+
+def document_label(title) -> str:
+    """How a message names a matched document the reader is allowed to open."""
+    text = short_title(title)
+    return f'\u201c{text}\u201d' if text else 'a document already in the archive'
+
+
+def blocked_message(label: str, percent: int) -> str:
+    """
+    Why a file was refused, in the order the reader needs it.
+
+    The outcome comes first, because the previous wording never said that the
+    file had been discarded, and the measured similarity comes with it, because
+    a reader cannot otherwise judge whether the verdict was reasonable.
+    """
+    return f'Not uploaded \u2014 {percent}% identical to {label}, already in the archive.'
+
+
+def as_percent(ratio) -> int:
+    """A similarity ratio as whole percent."""
+    try:
+        return int(round(float(ratio) * 100))
+    except (TypeError, ValueError):
+        return 0

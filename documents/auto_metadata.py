@@ -52,10 +52,19 @@ _TYPE_PATTERNS = {
 # A file name's separators are word characters to a regex, which would stop
 # "annual_report_2025.pdf" from matching the whole word "report".
 _TYPE_SEPARATORS = re.compile(r'[_\-./\\]+')
+_SPREADSHEET_EXTENSIONS = {'.xlsx', '.xls', '.xlsm', '.csv'}
 
 
 def _type_haystack(text_lower):
     return _TYPE_SEPARATORS.sub(' ', text_lower)
+
+
+_ROMAN_WORD = re.compile(r'\b(?:x|ix|iv|v?i{1,3}|v)\b', re.IGNORECASE)
+
+
+def _title_case(name):
+    """Title case that keeps area numerals as numerals: "Area VII", not "Area Vii"."""
+    return _ROMAN_WORD.sub(lambda m: m.group(0).upper(), name.title())
 
 
 def _normalize_whitespace(text):
@@ -279,6 +288,19 @@ def _fallback_description(title='', document_type='', filename=''):
     return f'{label} — {subject}.'
 
 
+def _spreadsheet_description(text, title='', filename=''):
+    """
+    "Spreadsheet — Document Inventory Report, 53 rows."
+
+    A spreadsheet's extracted text is its cells joined row by row, so the
+    paragraph heuristics below returned the column headings and first rows run
+    together ("Title File Type Year Document Type Cluster ...").
+    """
+    subject = title or re.sub(r'[_\-\.]+', ' ', os.path.splitext(os.path.basename(filename))[0]).strip()
+    rows = sum(1 for line in text.splitlines() if line.strip())
+    return f"Spreadsheet — {subject}, {rows} row{'s' if rows != 1 else ''}."
+
+
 def build_description(text, title='', document_type='', filename=''):
     """
     Build a short human-readable description from extracted document text.
@@ -286,6 +308,9 @@ def build_description(text, title='', document_type='', filename=''):
     """
     if not text or not _normalize_whitespace(text):
         return _fallback_description(title=title, document_type=document_type, filename=filename)
+
+    if os.path.splitext(filename or '')[1].lower() in _SPREADSHEET_EXTENSIONS:
+        return _spreadsheet_description(text, title=title, filename=filename)
 
     candidate = _extract_section_paragraph(text)
     if len(candidate) < 40:
@@ -324,9 +349,11 @@ def extract_metadata_from_text(text, filename=''):
         name = os.path.splitext(filename)[0]
         name = re.sub(r'[_\-\.]+', ' ', name)
         name = re.sub(r'\s+', ' ', name).strip()
-        metadata['title'] = name.title()
+        metadata['title'] = _title_case(name)
 
-    if text:
+    # A spreadsheet's first line is its column headings, not a title.
+    is_spreadsheet = os.path.splitext(filename or '')[1].lower() in _SPREADSHEET_EXTENSIONS
+    if text and not (is_spreadsheet and metadata['title']):
         derived = _title_from_text(text)
         if derived:
             metadata['title'] = derived
@@ -451,7 +478,9 @@ def detect_area_code(text_lower, filename=''):
     """
     areas = _configured_areas()
     codes = {code.upper(): code for code, _name in areas}
-    haystack = f'{(filename or "").lower()} {text_lower or ""}'
+    # Underscores are word characters, so "Area_VII_Library.xlsx" would match
+    # neither "area vii" nor "library" until its separators become spaces.
+    haystack = f'{_type_haystack((filename or "").lower())} {text_lower or ""}'
 
     explicit = _EXPLICIT_AREA.search(haystack)
     if explicit:
@@ -494,7 +523,7 @@ def extract_metadata_from_filename(filename):
         name = os.path.splitext(filename)[0]
         name = re.sub(r'[_\-\.]+', ' ', name)
         name = re.sub(r'\s+', ' ', name).strip()
-        metadata['title'] = name.title()
+        metadata['title'] = _title_case(name)
 
         year_match = _years_in_name(filename)
         if year_match:

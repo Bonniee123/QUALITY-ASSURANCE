@@ -127,7 +127,7 @@ SYSTEM_KNOWLEDGE = {
         "and file format breakdown. Filter by program and period; Export Excel downloads a styled summary."
     ),
     r"\b(duplicate)\b": (
-        "AI flags possible duplicate uploads. Confirming or dismissing one is QA Head and Administrator "
+        "The system flags possible duplicate uploads. Confirming or dismissing one is QA Head and Administrator "
         "work: they see the count on the Dashboard, the Duplicate column and filter in the Repository, "
         "and the Confirm or Mark as clear buttons in document details. An exact copy is refused at "
         "upload, so nothing identical reaches the archive."
@@ -212,7 +212,7 @@ def _fetch_document_context(message_lower: str, request=None) -> str:
     # prompt, so an unscoped query could put another area's text in an answer.
     from accounts.permissions import scope_documents_for_user
     docs = scope_documents_for_user(
-        Document.objects.filter(query, is_archived=False), user,
+        Document.objects.live().filter(query, is_archived=False), user,
     ).distinct()[:3]
     if not docs:
         return ""
@@ -368,6 +368,52 @@ def _model_answer(user_message: str, request) -> Optional[dict[str, Any]]:
     return _ollama_answer(user_message, request)
 
 
+# Whole-message pleasantries only: "hi" gets a greeting, but "hi, where is the
+# upload page?" is still a question and goes on to be answered.
+_GREETING = re.compile(
+    r"^(hi|hello|hey|good (morning|afternoon|evening|day)|kumusta|kamusta|"
+    r"magandang (umaga|hapon|gabi))( there| po| everyone)?[\s!.,?]*$")
+_THANKS = re.compile(
+    r"^(thanks?|thank you|thank u|thankyou|ty|salamat|maraming salamat|ok(ay)?|got it|noted|"
+    r"great|nice|perfect)( so much| po| a lot| again)?[\s!.,?]*$")
+_FAREWELL = re.compile(r"^(bye|goodbye|good bye|see you|paalam|bye bye)( po| later)?[\s!.,?]*$")
+_WHO_ARE_YOU = re.compile(r"^(who|what) are you[\s!.,?]*$")
+
+
+def _suggestions(request) -> list[str]:
+    from accounts.permissions import is_faculty
+    user = getattr(request, 'user', None) if request is not None else None
+    if user is not None and is_faculty(user):
+        return ['Which documents were uploaded this week?', 'How do I upload a document?',
+                'What are the accreditation areas?']
+    return ['Which documents were uploaded this week?', 'How many documents are in Area II?',
+            'Are there any duplicates?']
+
+
+def small_talk_response(message_lower: str, request=None) -> Optional[dict[str, Any]]:
+    """A friendly reply to a greeting, a thank-you or a goodbye, instead of a refusal."""
+    user = getattr(request, 'user', None) if request is not None else None
+    name = (user.get_full_name() if hasattr(user, 'get_full_name') else '').strip()
+    hello = f'Hello, {name}!' if name else 'Hello!'
+    if _GREETING.match(message_lower) or _WHO_ARE_YOU.match(message_lower):
+        answer = (f"{hello} I'm the QA Assistant. I can find and summarise documents in the "
+                  "archive, count them by area, explain how a document was classified, and "
+                  "show you how to use each page of the system. What would you like to do?")
+    elif _THANKS.match(message_lower):
+        answer = "You're welcome! Ask me anytime you need something from the archive."
+    elif _FAREWELL.match(message_lower):
+        answer = "Goodbye! Come back anytime you need help with the archive."
+    else:
+        return None
+    suggestions = _suggestions(request)
+    return {
+        "answer": answer + "\n\nYou can try:\n" + "\n".join(f'- "{s}"' for s in suggestions),
+        "category": "small_talk",
+        "confidence": 0.95,
+        "actions": [{"label": s, "url": "#", "kind": "suggest"} for s in suggestions],
+    }
+
+
 def _compute_response(user_message: str, request=None) -> dict[str, Any]:
     if not user_message or not user_message.strip():
         return {
@@ -377,6 +423,10 @@ def _compute_response(user_message: str, request=None) -> dict[str, Any]:
         }
 
     message_lower = user_message.lower().strip()
+
+    chat = small_talk_response(message_lower, request)
+    if chat:
+        return chat
 
     # Tier 0: live system data ("how many documents", "what's missing", etc.)
     try:
@@ -426,7 +476,7 @@ def _compute_response(user_message: str, request=None) -> dict[str, Any]:
     except requests.exceptions.ReadTimeout:
         return {
             "answer": (
-                "The AI model took too long. Try a shorter question, or ask where to find a page "
+                "The assistant took too long. Try a shorter question, or ask where to find a page "
                 "(Dashboard, Upload, Repository, Search, Reports)."
             ),
             "category": "general",

@@ -84,7 +84,7 @@ class KpiLinkTests(TestCase):
         self.assertNotIn('?duplicate=review', html)
         self.assertIn('Total Documents', html)
         self.assertIn('Uploaded This Week', html)
-        self.assertIn('AI-Processed', html)
+        self.assertIn('>Analyzed</span>', html)
 
     def test_staff_duplicates_card_opens_the_flagged_list(self):
         head = make_user('kpi_head', 'qa_staff')

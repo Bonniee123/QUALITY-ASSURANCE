@@ -157,11 +157,37 @@ class DocumentDeleteTests(TestCase):
         self.assertEqual(r.url, '/documents/repository/')
 
     def test_delete_post_removes_document(self):
+        """
+        One document deleted from the row menu is as reversible as fifty.
+
+        This used to remove the row and erase the file, so the only thing
+        distinguishing a permanent Delete from an undoable one was which menu
+        it was pressed in. The row now carries a deletion stamp instead, and
+        the repository is told to offer the undo on the page it redirects to.
+        """
         self.client.login(username='del_admin', password='testpass123')
         pk = self.doc.pk
         r = self.client.post(f'/documents/{pk}/delete/', {})
         self.assertEqual(r.status_code, 302)
-        self.assertFalse(Document.objects.filter(pk=pk).exists())
+        self.assertFalse(Document.objects.live().filter(pk=pk).exists())
+        self.assertTrue(Document.objects.deleted().filter(pk=pk).exists())
+        self.assertEqual(self.client.session.get('pending_undo'), {'ids': [pk], 'count': 1})
+
+    def test_a_single_delete_can_be_undone(self):
+        self.client.login(username='del_admin', password='testpass123')
+        pk = self.doc.pk
+        self.client.post(f'/documents/{pk}/delete/', {})
+        self.client.post('/documents/bulk-restore/', {'document_ids': [pk]})
+        self.assertTrue(Document.objects.live().filter(pk=pk).exists())
+        self.assertIsNone(Document.objects.get(pk=pk).deleted_at)
+
+    def test_a_single_delete_keeps_the_file_on_disk(self):
+        """An undo that restored a row pointing at an erased file is no undo."""
+        self.client.login(username='del_admin', password='testpass123')
+        path = Path(self.doc.file.path)
+        self.assertTrue(path.exists())
+        self.client.post(f'/documents/{self.doc.pk}/delete/', {})
+        self.assertTrue(path.exists())
 
     def test_bulk_delete_post_removes_selected_documents(self):
         self.client.login(username='del_admin', password='testpass123')
@@ -178,8 +204,23 @@ class DocumentDeleteTests(TestCase):
         )
         r = self.client.post('/documents/bulk-delete/', {'document_ids': [self.doc.pk, doc2.pk]})
         self.assertEqual(r.status_code, 302)
-        self.assertFalse(Document.objects.filter(pk=self.doc.pk).exists())
-        self.assertFalse(Document.objects.filter(pk=doc2.pk).exists())
+        # Deletion is reversible now: the rows stay, stamped and out of every
+        # listing, so a ten-second undo has something to restore. What a user
+        # can still reach is what `live()` returns.
+        self.assertFalse(Document.objects.live().filter(pk=self.doc.pk).exists())
+        self.assertFalse(Document.objects.live().filter(pk=doc2.pk).exists())
+        self.assertEqual(Document.objects.deleted().filter(
+            pk__in=[self.doc.pk, doc2.pk]).count(), 2)
+
+    def test_a_bulk_delete_can_be_undone(self):
+        """The undo strip's other half: restoring puts the documents back."""
+        self.client.login(username='del_admin', password='testpass123')
+        self.client.post('/documents/bulk-delete/', {'document_ids': [self.doc.pk]})
+        self.assertFalse(Document.objects.live().filter(pk=self.doc.pk).exists())
+
+        self.client.post('/documents/bulk-restore/', {'document_ids': [self.doc.pk]})
+        self.assertTrue(Document.objects.live().filter(pk=self.doc.pk).exists())
+        self.assertIsNone(Document.objects.get(pk=self.doc.pk).deleted_at)
 
     def test_bulk_delete_post_without_selection_redirects(self):
         self.client.login(username='del_admin', password='testpass123')

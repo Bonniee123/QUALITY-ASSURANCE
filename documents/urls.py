@@ -12,6 +12,8 @@ urlpatterns = [
     path('jobs/<int:pk>/status/', views.job_status, name='job_status'),
     path('upload-batches/', views.upload_batches, name='upload_batches'),
     path('bulk-delete/', views.documents_bulk_delete, name='bulk_delete'),
+    # The other half of the undo strip the repository shows after a delete.
+    path('bulk-restore/', views.documents_bulk_restore, name='bulk_restore'),
     path('repository/', views.repository_list, name='repository'),
     # A page per QA programme, so a category can be opened directly
     # instead of being filtered out of the whole repository.

@@ -95,7 +95,7 @@ def out_of_scope_response(request=None) -> dict:
     return {
         'answer': (
             'I only answer questions about this QA Archiving System — uploads, repository, '
-            'search, area submissions and consolidation, reports, AI processing, roles, and navigation.'
+            'search, area submissions and consolidation, reports, document analysis, roles, and navigation.'
             + tail
         ),
         'category': 'out_of_scope',

@@ -79,7 +79,9 @@ class RBACTests(TestCase):
         self.client.login(username='rbac_qa', password='pass12345')
         r = self.client.post(reverse('documents:delete', args=[self.doc.pk]))
         self.assertEqual(r.status_code, 302)
-        self.assertFalse(Document.objects.filter(pk=self.doc.pk).exists())
+        # Reversible: out of every listing, still there for ten seconds of undo.
+        self.assertFalse(Document.objects.live().filter(pk=self.doc.pk).exists())
+        self.assertTrue(Document.objects.deleted().filter(pk=self.doc.pk).exists())
 
     def test_admin_can_open_delete_confirmation(self):
         self.client.login(username='rbac_admin', password='pass12345')

@@ -89,7 +89,10 @@ class KpiCardTests(TestCase):
                 self.assertNotIn('100.0%', html)
                 self.assertIn('nx-delta-new', html)
                 self.assertIn('New', self.delta_text(html))
-                self.assertIn('No uploads in the previous 7 days', html)
+                # The 'No uploads in the previous 7 days' footer line was removed
+                # from the card: the rail cards carry no caption now. The state
+                # is still stated, in the 'New' badge above.
+                self.assertNotIn('No uploads in the previous 7 days', html)
 
     def test_total_documents_carries_no_change_badge_for_any_role(self):
         for role in self.roles:
@@ -109,7 +112,10 @@ class KpiCardTests(TestCase):
         html = self.dashboard_for('admin')
         self.assertIn('33.3%', html)
         self.assertNotIn('nx-delta-new', html)
-        self.assertIn('Last 7 days vs. previous 7', html)
+        # The comparison is the badge, not a footer sentence: 'Last 7 days vs.
+        # previous 7' was the caption line the card no longer carries. What the
+        # test proves is that a real change is stated as a percentage.
+        self.assertNotIn('Last 7 days vs. previous 7', html)
 
 
 class KpiAffordanceTests(SimpleTestCase):

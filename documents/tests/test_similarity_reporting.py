@@ -152,7 +152,7 @@ class TextAgreementTests(SimpleTestCase):
 
     report = ('Dashboard Summary\nGenerated: {date}\nTotal records: 8\n'
               'Metric Value\nTotal documents {total}\nDuplicates to review {dups}\n'
-              'Document clusters {clusters}\nAI-processed documents {done}\n')
+              'Document clusters {clusters}\nAnalyzed documents {done}\n')
 
     def summary(self, date, total, dups, clusters, done):
         return self.report.format(date=date, total=total, dups=dups,
@@ -281,12 +281,23 @@ class SimilarDocumentsPanelTests(TestCase):
             reverse('documents:detail', args=[self.doc.pk]) + '?panel=1').content.decode()
 
     def test_the_panel_says_how_many_matches_there_are(self):
-        self.assertIn('Closest 5 of 9', self.panel())
+        """
+        The count sits in the summary line, beside the measurement.
+
+        It used to be a second heading reading "Closest 5 of 9", which said
+        roughly what the summary below it already said, and two headings
+        carrying overlapping facts read as two different facts.
+        """
+        html = self.panel()
+        # the count is emphasised, so it is not one run of text in the markup
+        self.assertIn('<strong class="text-body">9</strong>', html)
+        self.assertIn('similar documents', html)
+        self.assertIn('showing the closest 5', html)
 
     def test_no_count_is_shown_when_nothing_was_cut(self):
         self.doc.similar_documents = self.doc.similar_documents[:3]
         self.doc.save(update_fields=['similar_documents'])
-        self.assertNotIn('Closest', self.panel())
+        self.assertNotIn('showing the closest', self.panel())
 
     def test_each_row_identifies_the_document_it_points_at(self):
         """

@@ -1,6 +1,7 @@
 """
 Django settings for QA Archiving System.
 """
+import importlib.util
 import os
 from pathlib import Path
 
@@ -95,8 +96,12 @@ if USE_TLS:
 if USE_TLS or TRUST_X_FORWARDED_SSL:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Allow the in-app document viewer to embed PDF/DOCX previews (iframe/embed on same origin).
-X_FRAME_OPTIONS = 'SAMEORIGIN'
+# Every page refuses to be framed. The two views that really are embedded --
+# document_preview and document_serve, which the file viewer shows in an
+# <embed> -- carry @xframe_options_sameorigin, and a header set by that
+# decorator is left alone by XFrameOptionsMiddleware. Allowing SAMEORIGIN
+# everywhere protected those two views at the cost of every other page.
+X_FRAME_OPTIONS = 'DENY'
 
 if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -130,6 +135,16 @@ LIBREOFFICE_PATH = os.getenv('LIBREOFFICE_PATH', '').strip()
 
 # After bulk upload, run full TF-IDF/K-Means on entire corpus only when document count is at or below this (reduces timeouts on large repos)
 AI_AUTO_FULL_PIPELINE_MAX_DOCS = int(os.getenv('AI_AUTO_FULL_PIPELINE_MAX_DOCS', '75'))
+
+# How long a background job may go without reporting progress before it is
+# treated as dead. Jobs run on threads inside the web server, and a thread
+# that is killed -- by a restart, or by a native crash in a machine-learning
+# library, which gives no Python exception to catch -- leaves its row saying
+# 'running' for ever and its documents saying 'Processing'. A batch of large
+# scanned PDFs can legitimately take many minutes per file, so this is
+# measured from the last progress report rather than from the start.
+# Set to 0 to switch the check off.
+JOB_STALE_MINUTES = int(os.getenv('JOB_STALE_MINUTES', '20'))
 
 # Below this many characters a document is not characterised well enough for
 # cosine similarity over its terms to mean anything. Two unrelated flowcharts
@@ -233,6 +248,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise serves /static/ when DEBUG is False. Django's own static
+    # handler only runs in development, so without this a production server
+    # answers every stylesheet and script with 404 and the site renders as
+    # unstyled text. It is added only when the package is installed, so a
+    # development checkout without it behaves exactly as before.
+    *(['whitenoise.middleware.WhiteNoiseMiddleware']
+      if importlib.util.find_spec('whitenoise') else []),
     'qa_archiving_system.middleware.SecurityHeadersMiddleware',
     'qa_archiving_system.middleware.BlockPublicMediaMiddleware',
     'qa_archiving_system.error_pages.FriendlyErrorPagesMiddleware',
@@ -242,6 +264,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'accounts.middleware.SessionIdleTimeoutMiddleware',
+    'accounts.middleware.PresenceMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -326,6 +349,20 @@ if _mysql_db:
     }
 
 # Password validation
+# Accounts are created with both a username and an email address, so people
+# arrive at the login page expecting either one to work. The backend below
+# subclasses Django's own and only translates an address into the username
+# that owns it; every password and status rule is still Django's.
+AUTHENTICATION_BACKENDS = [
+    'accounts.auth_backends.UsernameOrEmailBackend',
+    # Django records in each session which backend signed that person in. Every
+    # session created before this setting existed names ModelBackend, and a
+    # session naming a backend that is no longer listed cannot be loaded -- so
+    # leaving it out would sign out everyone who was already signed in. It adds
+    # no way in that the backend above does not already allow.
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -343,6 +380,24 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Hashed, compressed file names so a browser can cache them forever and still
+# pick up a change. Only with WhiteNoise installed; the manifest storage raises
+# for any file collectstatic has not processed.
+#
+# Declared through STORAGES rather than the older STATICFILES_STORAGE setting,
+# which Django 4.2 deprecated and Django 5.1 removed. Writing it this way now
+# means the eventual upgrade needs no change here.
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': (
+            'whitenoise.storage.CompressedManifestStaticFilesStorage'
+            if importlib.util.find_spec('whitenoise') and not DEBUG
+            else 'django.contrib.staticfiles.storage.StaticFilesStorage'
+        ),
+    },
+}
 
 # Media files (uploaded documents)
 MEDIA_URL = '/media/'

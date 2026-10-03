@@ -1,14 +1,15 @@
 {% extends 'base.html' %}
+{% load dict_extras %}
 {% load asset_tags %}
 {% load static %}
-{% block title %}AI Processing{% endblock %}
+{% block title %}Document Analysis{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static_v 'css/ai-processing.css' %}">
 {% endblock %}
 {% block content %}
 <div class="page-header">
     <div>
-        <h2>AI Processing</h2>
+        <h2>Document Analysis</h2>
         <p>Smart clustering, keyword extraction, duplicate detection, and recommendations</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
@@ -38,7 +39,7 @@
     <div class="col-6 col-lg">
         <div class="card h-100"><div class="card-body d-flex align-items-center gap-3 py-3">
             <div class="stat-icon" style="background:hsl(142,45%,90%);color:hsl(142,45%,38%)"><i class="bi bi-check-circle"></i></div>
-            <div><div class="stat-value">{{ processed_count }}</div><div class="stat-label">AI Processed</div></div>
+            <div><div class="stat-value">{{ processed_count }}</div><div class="stat-label">Analyzed</div></div>
         </div></div>
     </div>
     <div class="col-6 col-lg">
@@ -100,7 +101,7 @@
                     {% else %}<span class="badge badge-unmapped">Pending</span>{% endif %}
                 </td>
                 <td>{{ job.created_at|date:"M d, H:i" }}</td>
-                <td style="font-size:12px;">{{ job.result|default:job.error|truncatechars:80 }}</td>
+                <td style="font-size:12px;">{{ job.result|default:job.error|current_wording|truncatechars:80 }}</td>
             </tr>
             {% endfor %}
             </tbody>
@@ -151,7 +152,7 @@
             <a href="?filter=pending" class="btn btn-outline-secondary {% if filter_key == 'pending' %}active{% endif %}">Pending ({{ filter_counts.pending }})</a>
         </div>
     </div>
-    <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="Document AI processing results">
+    <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="Document analysis results">
         <table class="table table-sm mb-0">
             <thead><tr>
                 <th>Title</th>
@@ -253,7 +254,10 @@
 {% endblock %}
 
 {% block extra_js %}
+{% if elbow_data %}{{ elbow_data.k_values|json_script:"elbow-k-values" }}{{ elbow_data.inertias|json_script:"elbow-inertias" }}{% endif %}
+{% if cluster_labels %}{{ cluster_labels|json_script:"cluster-labels" }}{{ cluster_counts|json_script:"cluster-counts" }}{% endif %}
 <script>
+function pageData(id) { return JSON.parse(document.getElementById(id).textContent); }
 document.addEventListener('DOMContentLoaded', function () {
     const reprocessForm = document.getElementById('reprocessAllForm');
     const reprocessBtn = document.getElementById('reprocessAllBtn');
@@ -292,10 +296,10 @@ document.addEventListener('DOMContentLoaded', function () {
 new Chart(document.getElementById('elbowChart'), {
     type: 'line',
     data: {
-        labels: {{ elbow_data.k_values|safe }},
+        labels: pageData('elbow-k-values'),
         datasets: [{
             label: 'Inertia',
-            data: {{ elbow_data.inertias|safe }},
+            data: pageData('elbow-inertias'),
             borderColor: 'hsl(215, 65%, 50%)',
             backgroundColor: 'rgba(59,130,246,0.08)',
             fill: true, tension: 0.3, pointRadius: 4, borderWidth: 2,
@@ -321,9 +325,9 @@ const clusterColors = [
 new Chart(document.getElementById('clusterChart'), {
     type: 'doughnut',
     data: {
-        labels: {{ cluster_labels|safe }},
+        labels: pageData('cluster-labels'),
         datasets: [{
-            data: {{ cluster_counts|safe }},
+            data: pageData('cluster-counts'),
             backgroundColor: clusterColors,
             borderWidth: 2, borderColor: 'white',
         }]

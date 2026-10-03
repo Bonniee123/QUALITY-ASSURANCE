@@ -23,7 +23,7 @@ def _normalize_type(report_type):
 # hidden everywhere else -- Dashboard, Repository, AI Processing -- and the
 # reports used to include them, so their totals disagreed with the Dashboard's.
 def _reported_documents():
-    return Document.objects.filter(is_archived=False)
+    return Document.objects.live().filter(is_archived=False)
 
 
 # The Recent report shows this many rows, and exports the same rows (it exported 200).
@@ -108,7 +108,7 @@ def reports_page(request):
         )
         from documents.models import ClusterResult
         context['cluster_data'] = cluster_data
-        context['cluster_keywords'] = ClusterResult.objects.all()
+        context['cluster_keywords'] = ClusterResult.objects.live()
         context['title'] = 'Cluster Distribution Report'
         context['record_count'] = len(cluster_data)
 

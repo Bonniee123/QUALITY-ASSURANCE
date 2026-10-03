@@ -300,6 +300,56 @@ def _describe_criteria(u: Understanding) -> str:
     return ' '.join(bits)
 
 
+# Words that ask for something to be done to a document rather than name one:
+# "summarize the fire safety certificate" names "fire safety certificate".
+_REQUEST_WORDS = frozenset("""
+    summarize summarise summarized summarised summary tldr tl dr gist brief overview
+    explain why how is was are were did does do it its this that these those the a an
+    of me please give can you could would tell about what say says said contain contains
+    cover covers key important main points information details put placed filed assigned
+    sorted in under into on classified classification categorized categorised category
+    grouped group cluster clustered type program programme document documents file files
+    record records one first second third fourth fifth last so there belong belongs to
+    for as and or with way which
+""".split())
+
+_POINTS_AT_ONE = re.compile(r'\b(this|that)\s+(file|document|record|one)\b|\bit\b', re.I)
+
+
+def _named_document(request, u: Understanding) -> tuple[str, Optional[Document]]:
+    """
+    The document a message names, as (name, match).
+
+    A name is what is left once the request words are removed. Without this,
+    "summarize the fire safety certificate" summarised whatever the previous
+    answer had been about. ('', None) means no name was given, so the previous
+    answer is what the user means; (name, None) means nothing matched the name.
+    """
+    if u.ordinal or _POINTS_AT_ONE.search(u.raw):
+        return '', None
+    text = nlu._AREA_RE.sub(' ', u.raw.lower())
+    text = re.sub(r'\b(?:19|20)\d{2}\b', ' ', text)
+    name = ' '.join(w for w in re.findall(r"[a-z0-9]+", text) if w not in _REQUEST_WORDS)
+    if not name:
+        return '', None
+    from search.search_service import search_documents
+    scope = faculty_area_scope(getattr(request, 'user', None))
+    filters = {'area_codes': list(scope) if scope else [NO_AREA_SENTINEL]} if scope is not None else None
+    return name, search_documents(name, filters).select_related('program', 'acc_area').first()
+
+
+def _not_found_by_name(request, name: str, intent: str) -> dict:
+    where = ' in your area(s)' if faculty_area_scope(getattr(request, 'user', None)) is not None else ''
+    from urllib.parse import urlencode
+    return _reply(
+        f'I couldn\'t find a document matching "{name}"{where}. '
+        'Check the spelling, or search the Repository and ask again about the one you open.',
+        intent=intent, clarify=True,
+        actions=[_action('Search the Repository',
+                         f"{reverse('documents:repository')}?{urlencode({'q': name})}")],
+    )
+
+
 def _resolve_focus(u: Understanding, ctx: AgentContext) -> Optional[Document]:
     """Turn "the second one" / "it" into an actual row."""
     ids = ctx.last_result_ids
@@ -316,7 +366,10 @@ def _resolve_focus(u: Understanding, ctx: AgentContext) -> Optional[Document]:
 
 
 def _handle_summarize(request, u: Understanding, ctx: AgentContext) -> dict:
-    doc = _resolve_focus(u, ctx)
+    name, doc = _named_document(request, u)
+    if name and doc is None:
+        return _not_found_by_name(request, name, nlu.SUMMARIZE)
+    doc = doc or _resolve_focus(u, ctx)
     if doc is None:
         return _reply(
             "Which document would you like summarised? Search for it first, "
@@ -357,10 +410,17 @@ def _extractive_summary(text: str, doc: Document, max_sentences: int = 3) -> str
     Extractive on purpose: the sentences come from the file itself, so nothing in
     a summary is language the agent invented. Sentences are ranked by how many of
     the document's own TF-IDF keywords they carry -- reusing the keyword set the
-    AI pipeline already computed rather than scoring from scratch.
+    analysis pipeline already computed rather than scoring from scratch.
     """
     clean = re.sub(r'\s+', ' ', text).strip()
-    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean) if len(s.strip()) > 40]
+    sentences, seen = [], set()
+    for s in re.split(r'(?<=[.!?])\s+', clean):
+        s = s.strip()
+        key = s.lower()
+        # Headers and footers repeat on every page; a summary should say it once.
+        if len(s) > 40 and key not in seen:
+            seen.add(key)
+            sentences.append(s)
     if not sentences:
         return clean[:400] + ('…' if len(clean) > 400 else '')
 
@@ -386,7 +446,10 @@ def _related_url(doc: Document) -> str:
 
 
 def _handle_explain(request, u: Understanding, ctx: AgentContext) -> dict:
-    doc = _resolve_focus(u, ctx)
+    name, doc = _named_document(request, u)
+    if name and doc is None:
+        return _not_found_by_name(request, name, nlu.EXPLAIN_CLASSIFICATION)
+    doc = doc or _resolve_focus(u, ctx)
     if doc is None:
         return _reply(
             "Which document's classification would you like explained? "
@@ -416,13 +479,13 @@ def _handle_explain(request, u: Understanding, ctx: AgentContext) -> dict:
         grounded = True
 
     if doc.cluster_label is not None:
-        result = (ClusterResult.objects.filter(cluster_number=doc.cluster_label)
+        result = (ClusterResult.objects.live().filter(cluster_number=doc.cluster_label)
                   .order_by('-created_at').first())
         label = (result.cluster_label if result and result.cluster_label
                  else f'Cluster {doc.cluster_label}')
         # Peers the asker may see, not counting this document ("N other").
         peers = scope_documents_for_user(
-            Document.objects.filter(cluster_label=doc.cluster_label, is_archived=False),
+            Document.objects.live().filter(cluster_label=doc.cluster_label, is_archived=False),
             getattr(request, 'user', None),
         ).exclude(pk=doc.pk).count()
         lines.append(
@@ -463,14 +526,154 @@ def _handle_missing(request, u: Understanding, ctx: AgentContext) -> dict:
     answered from the data -- not a zero, which would read as "nothing is
     missing".
     """
-    return _reply(
+    answer = (
         "This system does not record what evidence is required, so it cannot say what is "
         "outstanding. It archives what has been uploaded and files it by accreditation area "
         "and QA program. To see who has submitted what, open Area Submissions; to find a "
-        "document, use the Repository.",
-        intent=nlu.MISSING_EVIDENCE,
-        note='Answered from the archive; nothing was inferred beyond it.',
-    )
+        "document, use the Repository.")
+    area = _area_record(u.area_code)
+    if area is None:
+        return _reply(answer, intent=nlu.MISSING_EVIDENCE,
+                      note='Answered from the archive; nothing was inferred beyond it.')
+    lines, cards, actions = _area_overview(request, area)
+    return _reply(answer + '\n\nWhat is already archived for it:\n\n' + '\n'.join(lines),
+                  cards=cards, actions=actions, intent=nlu.MISSING_EVIDENCE,
+                  note='Answered from the archive; nothing was inferred beyond it.')
+
+
+def _area_record(code: Optional[str]):
+    from qa_structure.models import AccreditationArea
+    if not code:
+        return None
+    return AccreditationArea.objects.filter(area_code__iexact=code).first()
+
+
+def _area_documents(request, code: str):
+    from documents.area_utils import build_area_filter_q
+    return scope_documents_for_user(
+        Document.objects.live().filter(is_archived=False), getattr(request, 'user', None),
+    ).filter(build_area_filter_q([code]))
+
+
+def _area_overview(request, area) -> tuple[list[str], list[dict], list[dict]]:
+    """One area's name, description and what the asker can see archived in it."""
+    from urllib.parse import urlencode
+    lines = [f'**{area.area_code} — {area.area_name}**']
+    if area.description:
+        lines.append(area.description.strip())
+    scope = faculty_area_scope(getattr(request, 'user', None))
+    if scope is not None and area.area_code not in scope:
+        lines.append("This area is not assigned to you, so its documents are not visible to you.")
+        return lines, [], []
+    docs = _area_documents(request, area.area_code).order_by('-uploaded_at')
+    total = docs.count()
+    if total:
+        lines.append(f"{total} {_plural(total, 'document is', 'documents are')} archived in it; "
+                     "the most recent are below.")
+    else:
+        lines.append('Nothing is archived in it yet.')
+    url = f"{reverse('documents:repository')}?{urlencode({'area': area.area_code})}"
+    return lines, [_card(d) for d in docs[:3]], [_action(f'Open {area.area_code} in the Repository', url)]
+
+
+_ASKS_WHAT_TO_UPLOAD = re.compile(r'\b(upload|submit|provide|put)\b', re.I)
+
+
+def _handle_area(request, u: Understanding, ctx: AgentContext) -> dict:
+    from qa_structure.models import AccreditationArea
+    from qa_structure.utils_ordering import area_roman_sort_key
+
+    if u.area_code:
+        area = _area_record(u.area_code)
+        if area is None:
+            return _reply(f"There is no {u.area_code} among this system's accreditation areas. "
+                          "Ask \"What are the accreditation areas?\" to see them.",
+                          intent=nlu.AREA_INFO)
+        lines, cards, actions = _area_overview(request, area)
+        if _ASKS_WHAT_TO_UPLOAD.search(u.raw):
+            lines.insert(0, "This system does not keep a list of the evidence each area requires, "
+                            "so I can't say exactly what to upload — follow the accreditation "
+                            "instrument your office uses. Here is the area and what it already has:\n")
+            actions = actions + [_action('Upload Document', reverse('documents:bulk_upload'))]
+        return _reply('\n'.join(lines), cards=cards, actions=actions, intent=nlu.AREA_INFO,
+                      note='Read from the accreditation areas and the archive.')
+
+    areas = sorted(AccreditationArea.objects.all(), key=lambda a: area_roman_sort_key(a.area_code))
+    if not areas:
+        return _no_data('the accreditation areas', nlu.AREA_INFO)
+    scope = faculty_area_scope(getattr(request, 'user', None))
+    lines = ['The accreditation areas in this system:', '']
+    for area in areas:
+        if scope is not None and area.area_code not in scope:
+            lines.append(f'- **{area.area_code}** — {area.area_name}')
+            continue
+        n = _area_documents(request, area.area_code).count()
+        lines.append(f"- **{area.area_code}** — {area.area_name} ({n} {_plural(n, 'document', 'documents')})")
+    if scope is not None:
+        lines.append('\nDocument counts are shown for your assigned area(s) only.')
+    lines.append('\nAsk about one, e.g. "What is Area II about?"')
+    return _reply('\n'.join(lines), intent=nlu.AREA_INFO,
+                  actions=[_action('Open Repository', reverse('documents:repository'))],
+                  note='Read from the accreditation areas and the archive.')
+
+
+_PERIOD_LABELS = {
+    'today': 'today', 'yesterday': 'yesterday',
+    'this week': 'in the last 7 days', 'last week': 'in the 7 days before that',
+    'this month': 'this month', 'last month': 'last month',
+}
+
+
+def _period_bounds(period: str):
+    """Start and end of a period. "This week" is the last 7 days, as on the Dashboard."""
+    from datetime import datetime, time, timedelta
+    from django.utils import timezone
+
+    now = timezone.localtime()
+    midnight = timezone.make_aware(datetime.combine(now.date(), time.min))
+    first_of_month = midnight.replace(day=1)
+    if period == 'today':
+        return midnight, None
+    if period == 'yesterday':
+        return midnight - timedelta(days=1), midnight
+    if period == 'this week':
+        return now - timedelta(days=7), None
+    if period == 'last week':
+        return now - timedelta(days=14), now - timedelta(days=7)
+    if period == 'this month':
+        return first_of_month, None
+    previous = (first_of_month - timedelta(days=1)).replace(day=1)
+    return previous, first_of_month
+
+
+def _handle_period(request, u: Understanding, ctx: AgentContext) -> dict:
+    start, end = _period_bounds(u.period)
+    qs = scope_documents_for_user(Document.objects.live().filter(is_archived=False),
+                                  getattr(request, 'user', None)).filter(uploaded_at__gte=start)
+    if end is not None:
+        qs = qs.filter(uploaded_at__lt=end)
+    if u.area_code:
+        from documents.area_utils import build_area_filter_q
+        qs = qs.filter(build_area_filter_q([u.area_code]))
+    qs = qs.select_related('program', 'acc_area').order_by('-uploaded_at')
+    total = qs.count()
+    docs = list(qs[:MAX_TRACKED_RESULTS])
+    ctx.last_result_ids = [d.pk for d in docs]
+    ctx.focus_id = docs[0].pk if docs else None
+
+    label = _PERIOD_LABELS[u.period]
+    where = f' in {u.area_code}' if u.area_code else ''
+    if faculty_area_scope(getattr(request, 'user', None)) is not None:
+        where += ' in your area(s)' if not u.area_code else ''
+    if not total:
+        return _reply(f'No documents were uploaded{where} {label}.', intent=nlu.UPLOADED_IN_PERIOD,
+                      actions=[_action('Open Repository', reverse('documents:repository'))])
+    headline = (f"{total} {_plural(total, 'document was', 'documents were')} uploaded{where} {label}.")
+    if total > PAGE_SIZE:
+        headline += f' Showing the {PAGE_SIZE} most recent.'
+    return _reply(headline, cards=[_card(d) for d in docs[:PAGE_SIZE]], intent=nlu.UPLOADED_IN_PERIOD,
+                  actions=[_action('Open Repository', reverse('documents:repository'))],
+                  note='Counted from the upload dates in the archive.')
 
 
 def _handle_count(request, u: Understanding, ctx: AgentContext) -> dict:
@@ -495,7 +698,7 @@ def _handle_count(request, u: Understanding, ctx: AgentContext) -> dict:
 def _handle_categories(request, u: Understanding, ctx: AgentContext) -> dict:
     from qa_mapping.models import QAProgram
     programs = list(QAProgram.objects.filter(is_active=True).values_list('code', 'name'))
-    types = (scope_documents_for_user(Document.objects.filter(is_archived=False),
+    types = (scope_documents_for_user(Document.objects.live().filter(is_archived=False),
                                       getattr(request, 'user', None))
              .exclude(document_type='')
              .values('document_type').annotate(n=Count('id')).order_by('-n')[:10])
@@ -511,6 +714,20 @@ def _handle_categories(request, u: Understanding, ctx: AgentContext) -> dict:
     return _reply('\n'.join(lines), intent=nlu.LIST_CATEGORIES,
                   actions=[_action('Open Repository', reverse('documents:repository'))],
                   note='Listed from the programme and document records.')
+
+
+_NOT_DOCUMENTS = re.compile(
+    r'\b(users?|accounts?|people|persons?|members?|duplicates?|clusters?|programs?|programmes?|areas)\b', re.I)
+_DOCUMENT_WORDS = re.compile(r'\b(documents?|files?|records?|evidence|uploads?|reports?)\b', re.I)
+
+
+def _is_filtered_document_count(u: Understanding) -> bool:
+    """ "How many documents are in Area II?" -- a count of documents, narrowed."""
+    if _NOT_DOCUMENTS.search(u.raw):
+        return False
+    if u.area_code or u.year or u.program or u.doc_type:
+        return True
+    return bool((u.topics or u.subject) and _DOCUMENT_WORDS.search(u.raw))
 
 
 def _visible_to(request, doc: Document) -> bool:
@@ -619,16 +836,24 @@ def answer(message: str, request) -> Optional[dict]:
         ctx.save(request)
         return clarification
 
-    # COUNT_DOCUMENTS is deliberately absent: the rules engine's live-data
-    # handler already answers counts, enforces who may see them, and is covered
-    # by its own tests. Duplicating it here would change tested behaviour.
+    # A plain count ("how many documents do we have?") stays with the rules
+    # engine's live-data handler, which answers it and is covered by its own
+    # tests. A count narrowed to an area, year, type, programme or subject is
+    # answered here, because the live-data totals cannot filter.
     handlers = {
         nlu.FIND_DOCUMENTS: _handle_find,
         nlu.SUMMARIZE: _handle_summarize,
         nlu.EXPLAIN_CLASSIFICATION: _handle_explain,
         nlu.MISSING_EVIDENCE: _handle_missing,
         nlu.LIST_CATEGORIES: _handle_categories,
+        nlu.AREA_INFO: _handle_area,
+        nlu.UPLOADED_IN_PERIOD: _handle_period,
     }
+    if u.intent == nlu.COUNT_DOCUMENTS:
+        if u.period:
+            handlers[nlu.COUNT_DOCUMENTS] = _handle_period
+        elif _is_filtered_document_count(u):
+            handlers[nlu.COUNT_DOCUMENTS] = _handle_count
     handler = handlers.get(u.intent)
     if handler is None:
         return None

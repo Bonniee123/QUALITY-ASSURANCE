@@ -13,7 +13,7 @@
         select, option, input, textarea, .form-select, .form-control { color-scheme: light; }
         select option, .form-select option { background-color: #fff; color: #1c2430; }
     </style>
-    <meta name="description" content="AI-Driven Online Archiving System for the Quality Assurance Office">
+    <meta name="description" content="Online Archiving System for the Quality Assurance Office">
     <title>{% block title %}QA Archive{% endblock %} | QA Archiving System</title>
 
     <!-- Favicon (QA Archive mark) -->
@@ -108,7 +108,7 @@
     {% endcomment %}
     <div class="toast-container qa-toast-container" id="qaToastContainer" aria-live="polite" aria-atomic="true"></div>
 
-    <!-- Document details modal (metadata + AI — use View File for full preview) -->
+    <!-- Document details modal (metadata + analysis — use View File for full preview) -->
     <div class="modal fade" id="qaDocDetailModal" tabindex="-1" aria-labelledby="qaDocDetailModalLabel" aria-hidden="true"
          data-panel-url-template="{% url 'documents:detail' 0 %}?panel=1">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">

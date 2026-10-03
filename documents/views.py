@@ -15,6 +15,8 @@ from django.utils.dateparse import parse_datetime
 from django.utils.http import content_disposition_header
 from django.conf import settings
 from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.views.decorators.http import require_POST
+from .near_duplicates import as_percent, blocked_message
 from .jobs import enqueue_job, serialize_job
 from .models import Document, ActivityLog, BackgroundJob
 from .forms import (
@@ -82,7 +84,10 @@ def _is_exact_duplicate_upload(uploaded_file, file_ext, uploaded_hash=None):
     if not uploaded_hash:
         uploaded_hash = _sha256_uploaded_file(uploaded_file)
 
-    if Document.objects.filter(
+    # A deleted document is not something to be blocked by. Re-uploading a
+    # file that somebody removed is a normal thing to do, and refusing it as a
+    # duplicate of a document that appears nowhere is unanswerable.
+    if Document.objects.live().filter(
         file_type__in=same_format_types(file_type_cleaned),
         is_archived=False,
         content_sha256=uploaded_hash,
@@ -90,7 +95,7 @@ def _is_exact_duplicate_upload(uploaded_file, file_ext, uploaded_hash=None):
         return True
 
     # Legacy rows with no stored hash: hash them once, then compare.
-    unhashed = Document.objects.filter(
+    unhashed = Document.objects.live().filter(
         file_type__in=same_format_types(file_type_cleaned),
         is_archived=False,
         content_sha256='',
@@ -168,21 +173,23 @@ def _awaiting_extraction(doc) -> bool:
     return not doc.is_processed and not (doc.processing_error or '').strip()
 
 
-def _is_near_duplicate_upload(uploaded_file, file_ext):
+def _near_duplicate_match(uploaded_file, file_ext):
     """
-    Detect near-duplicate uploads by text similarity.
-    Uses SequenceMatcher ratio against existing non-archived documents of same file type.
+    The stored document this upload duplicates, with their similarity.
+
+    Returns ``(document, ratio)``, or ``(None, 0.0)``. The ratio is what lets a
+    refusal tell the uploader how alike the two files actually are.
     """
     from .near_duplicates import find_near_duplicate, min_text_chars, same_format_types
 
     file_type_cleaned = (file_ext or '').lstrip('.').lower()
     if not file_type_cleaned:
-        return False
+        return None, 0.0
 
     candidate_text = _extract_uploaded_text_for_duplicate_check(uploaded_file)
     floor = min_text_chars()
     if len(candidate_text) < floor:
-        return False
+        return None, 0.0
 
     def stored_text(doc):
         text = (doc.combined_text or '').strip()
@@ -206,12 +213,17 @@ def _is_near_duplicate_upload(uploaded_file, file_ext):
         return _backfill_document_text(doc)
 
     potential_dups = (
-        Document.objects
+        Document.objects.live()
         .filter(file_type__in=same_format_types(file_type_cleaned), is_archived=False)
         .only('extracted_text', 'ocr_text', 'file', 'is_processed', 'processing_error')
         .iterator()
     )
-    match, _ratio = find_near_duplicate(candidate_text, potential_dups, stored_text)
+    return find_near_duplicate(candidate_text, potential_dups, stored_text)
+
+
+def _is_near_duplicate_upload(uploaded_file, file_ext):
+    """Whether this upload duplicates the text of a document already stored."""
+    match, _ratio = _near_duplicate_match(uploaded_file, file_ext)
     return match is not None
 
 
@@ -262,7 +274,7 @@ def _visual_duplicate_match(uploaded_file, file_ext, candidate=None, exclude_ids
         return None, 0
 
     cutoff = max_distance()
-    stored = Document.objects.filter(is_archived=False).exclude(image_phash='')
+    stored = Document.objects.live().filter(is_archived=False).exclude(image_phash='')
     if exclude_ids:
         stored = stored.exclude(pk__in=list(exclude_ids))
     near = [doc for doc in stored
@@ -336,8 +348,10 @@ def matched_document_label(user, doc):
     The title is shown only when the uploader may open that document: a Faculty
     member's refused upload used to be told the title of a match in another area.
     """
+    from .near_duplicates import document_label
+
     if doc is not None and user_can_access_document(user, doc):
-        return f'"{doc.title}"'
+        return document_label(doc.title)
     return 'a document already in the archive'
 
 
@@ -561,6 +575,11 @@ def bulk_upload(request):
 @repository_access_required
 def job_status(request, pk):
     """Return JSON status for a background job owned by the current user."""
+    # Checked here because this endpoint is what the upload page polls while
+    # it waits: if a job has stopped responding, the page asking after it is
+    # exactly where that should become visible.
+    from .jobs import sweep_stale_jobs
+    sweep_stale_jobs()
     job = get_object_or_404(BackgroundJob, pk=pk)
     if not _job_owned_by_user(job, request.user) and not request.user.is_superuser:
         raise Http404
@@ -623,9 +642,14 @@ def structured_upload(request):
                     'programs': programs,
                     'areas': areas,
                 })
-            if uploaded_file and _is_near_duplicate_upload(uploaded_file, file_ext):
-                form.add_error('file', 'Near-duplicate content detected (very similar to an existing document).')
-                messages.error(request, 'Upload blocked: near-duplicate content detected.')
+            near_match, near_ratio = (_near_duplicate_match(uploaded_file, file_ext)
+                                      if uploaded_file else (None, 0.0))
+            if near_match is not None:
+                near_pct = as_percent(near_ratio)
+                form.add_error('file', blocked_message(
+                    matched_document_label(request.user, near_match), near_pct))
+                messages.warning(request, f'Not uploaded \u2014 {near_pct}% identical to a '
+                                          f'document already in the archive.')
                 return render(request, 'documents/structured_upload.html', {
                     'form': form,
                     'programs': programs,
@@ -785,13 +809,20 @@ def faculty_upload(request):
             file_ext = os.path.splitext(uploaded_file.name)[1].lower() if uploaded_file else ''
 
             blocked = False
+            # One comparison, reused: the text check reads the whole file, so
+            # asking twice would double the work on every faculty upload.
+            near_match, near_ratio = (_near_duplicate_match(uploaded_file, file_ext)
+                                      if uploaded_file else (None, 0.0))
             if uploaded_file and _is_exact_duplicate_upload(uploaded_file, file_ext):
                 form.add_error('file', 'Exact duplicate file already exists in the repository.')
                 messages.error(request, 'Upload blocked: duplicate file detected.')
                 blocked = True
-            elif uploaded_file and _is_near_duplicate_upload(uploaded_file, file_ext):
-                form.add_error('file', 'Near-duplicate content detected (very similar to an existing document).')
-                messages.error(request, 'Upload blocked: near-duplicate content detected.')
+            elif near_match is not None:
+                near_pct = as_percent(near_ratio)
+                form.add_error('file', blocked_message(
+                    matched_document_label(request.user, near_match), near_pct))
+                messages.warning(request, f'Not uploaded \u2014 {near_pct}% identical to a '
+                                          f'document already in the archive.')
                 blocked = True
             elif uploaded_file:
                 vis_doc, vis_pct = _visual_duplicate_match(uploaded_file, file_ext)
@@ -934,6 +965,12 @@ def _apply_repo_sort(qs, sort_key, sort_dir):
 @repository_access_required
 def repository_list(request):
     """List documents with filters, pagination, AJAX partials, and infinite-scroll support."""
+    # The repository is where a document stuck on "Processing" is seen, and
+    # somebody looking at it may never have opened the upload page that polls
+    # for job status, so the check runs here too.
+    from .jobs import sweep_stale_jobs
+    sweep_stale_jobs()
+
     from django.core.paginator import Paginator
     from django.http import JsonResponse
     from django.template.loader import render_to_string
@@ -1008,7 +1045,7 @@ def repository_list(request):
     paginator = Paginator(documents_qs, REPOSITORY_PAGE_SIZE)
     page_obj = paginator.get_page(page_number)
 
-    base_qs = scope_documents_for_user(Document.objects.filter(is_archived=False), request.user)
+    base_qs = scope_documents_for_user(Document.objects.live().filter(is_archived=False), request.user)
     years = base_qs.values_list('year', flat=True).distinct().order_by('-year')
     file_types = base_qs.exclude(file_type='').values_list('file_type', flat=True).distinct().order_by('file_type')
     clusters = base_qs.exclude(cluster_label__isnull=True).values_list('cluster_label', flat=True).distinct().order_by('cluster_label')
@@ -1050,8 +1087,24 @@ def repository_list(request):
     has_more = page_obj.has_next()
     next_page = page_obj.next_page_number() if has_more else None
 
+    # "Select all" has to be able to mean every document the current filters
+    # match, not just the rows that happen to have loaded. The page asks for
+    # the whole id list here rather than guessing from what is on screen,
+    # which is what kept a selection of "247" silently meaning the six rows
+    # the reader could see.
+    if request.GET.get('ids') == '1':
+        return JsonResponse({
+            'ids': list(documents_qs.values_list('pk', flat=True)),
+            'total': total_count,
+        })
+
+    # Read once and cleared: an undo offer belongs to the page load that
+    # follows the deletion, not to every later visit.
+    pending_undo = request.session.pop('pending_undo', None)
+
     context = {
         'documents': page_obj.object_list,
+        'pending_undo': pending_undo,
         'total_count': total_count,
         'page_obj': page_obj,
         'has_more': has_more,
@@ -1103,6 +1156,96 @@ def repository_list(request):
     return render(request, 'documents/repository.html', context)
 
 
+def _readable_size(num_bytes):
+    """A file size a reader can compare at a glance, or '' when unknown."""
+    try:
+        size = float(num_bytes)
+    except (TypeError, ValueError):
+        return ''
+    if size <= 0:
+        return ''
+    if size < 1024 * 1024:
+        return f'{size / 1024:.0f} KB'
+    return f'{size / (1024 * 1024):.1f} MB'
+
+
+def _document_size(document):
+    """Bytes on disk for a stored document, or None when the file is gone."""
+    try:
+        if document.file:
+            return document.file.size
+    except (OSError, ValueError):
+        return None
+    return None
+
+
+def _size_difference(this_size, other_size):
+    """
+    How the other file's size compares with this one, in plain words.
+
+    Wording can be 99% alike while one file carries three times the images.
+    That difference is the thing a reader can act on, so it is said outright.
+    """
+    if not this_size or not other_size:
+        return ''
+    gap = other_size - this_size
+    if abs(gap) < max(this_size * 0.05, 64 * 1024):
+        return 'about the same size'
+    return f'{_readable_size(abs(gap))} {"larger" if gap > 0 else "smaller"}'
+
+
+def _relative_age(this_upload, other_upload):
+    """Where the other document sits in time next to this one."""
+    if not this_upload or not other_upload:
+        return ''
+    days = (other_upload - this_upload).days
+    if days == 0:
+        return 'same day'
+    count = abs(days)
+    return f'{count} day{"s" if count != 1 else ""} {"newer" if days > 0 else "older"}'
+
+
+def annotate_similar_rows(doc, rows):
+    """
+    Add the per-row facts that tell near-identical documents apart.
+
+    Ordinals come last because they describe a row's place in the whole set,
+    which only the assembled list knows.
+    """
+    this_size = _document_size(doc)
+    for row in rows:
+        other = row['document']
+        other_size = _document_size(other)
+        row['size_text'] = _readable_size(other_size)
+        row['delta_text'] = _size_difference(this_size, other_size)
+        row['age_text'] = _relative_age(doc.uploaded_at, other.uploaded_at)
+
+    dated = [r for r in rows if r['document'].uploaded_at]
+    if len(dated) > 1:
+        dated.sort(key=lambda r: r['document'].uploaded_at)
+        dated[0]['position'] = 'oldest'
+        dated[-1]['position'] = 'newest'
+    for row in rows:
+        row.setdefault('position', '')
+    return rows
+
+
+def order_similar_rows_for_display(rows):
+    """
+    Newest first, for the rows that are actually shown.
+
+    When every row scores the same, recency is the only thing left to rank
+    them by. This must run after the list has been cut, never before: sorting
+    the whole set first changed which documents survived the cut, so the panel
+    showed the five newest while its own heading still promised the five
+    closest, and matches a staff member had already ruled on dropped out of
+    sight.
+    """
+    rows.sort(key=lambda r: (r['document'].uploaded_at is None, r['document'].uploaded_at),
+              reverse=True)
+    return rows
+
+
 def _similarity_summary(doc, rows):
     """
     One line that answers the panel's question before the list does.
@@ -1139,9 +1282,29 @@ def _similarity_summary(doc, rows):
     else:
         state, tone = '', ''
 
+    # The sentence every row used to repeat. It describes the set, not any
+    # one row, so the set is where it belongs. Rows either side of a band
+    # boundary carry slightly different sentences, so the verdicts decide it
+    # when the sentences disagree -- otherwise the explanation vanished from a
+    # list measuring 98-99%, which is exactly the list that needs one.
+    notes = {row['note'] for row in rows}
+    verdicts = {row['verdict'] for row in rows}
+    if len(notes) == 1:
+        shared_note = notes.pop()
+    elif verdicts == {'Same wording'}:
+        shared_note = ('The wording is nearly the same in all of them, but the files '
+                       'differ — most likely drafts of one document.')
+    elif verdicts == {'Same picture'}:
+        shared_note = 'The pictures are nearly the same, but the files differ.'
+    elif verdicts == {'Very similar'}:
+        shared_note = 'Related content, kept as separate documents.'
+    else:
+        shared_note = ''
+
     return {
         'count': len(rows),
         'band': band,
+        'shared_note': shared_note,
         'measure': 'of the wording' if all(r['match_type'] == 'text' for r in rows)
                    else 'similar',
         'state': state,
@@ -1200,6 +1363,18 @@ def _describe_similarity(doc, other, match):
     else:
         note = 'Related content; kept as its own document.'
 
+    # A verdict, because the number is the same on every row of a drafted
+    # manuscript and so cannot rank anything. The number stays in `measurement`
+    # and is shown on hover, so the reason for the verdict remains checkable.
+    if identical:
+        verdict = 'Same file'
+    elif percent >= 95:
+        verdict = 'Same picture' if subject == 'picture' else 'Same wording'
+    else:
+        verdict = 'Very similar'
+    measurement = ('Byte-for-byte the same file.' if identical
+                   else f'{percent:.0f}% {measure}')
+
     review = match.get('review')
     if review == 'confirmed':
         decision = 'Reviewed: confirmed as a duplicate.'
@@ -1215,6 +1390,8 @@ def _describe_similarity(doc, other, match):
         'match_label': label,
         'measure': measure,
         'note': note,
+        'verdict': verdict,
+        'measurement': measurement,
         'identical': identical,
         'decision': decision,
         'review': review or '',
@@ -1246,8 +1423,11 @@ def document_detail(request, pk):
     # scoping. Cluster peers go the same way: the Clusters page is staff only.
     staff_view = not is_faculty(request.user)
     matches = [m for m in (doc.similar_documents or []) if isinstance(m, dict)] if staff_view else []
+    # .live() so a deleted document drops out of this panel and comes back
+    # if it is restored, without rewriting the stored match lists -- an undo
+    # could not put those back.
     by_id = {
-        d.pk: d for d in Document.objects.filter(
+        d.pk: d for d in Document.objects.live().filter(
             pk__in=[m.get('id') for m in matches if m.get('id')], is_archived=False)
     }
     visible = []
@@ -1257,13 +1437,16 @@ def document_detail(request, pk):
             continue
         visible.append(_describe_similarity(doc, sim_doc, match))
     similar_total = len(visible)
-    similar_docs = visible[:5]
+    annotate_similar_rows(doc, visible)
+    # Cut to the closest matches first, then order the survivors by date. The
+    # heading promises the closest five, so the cut has to be made on score.
+    similar_docs = order_similar_rows_for_display(visible[:5])
     similar_summary = _similarity_summary(doc, visible)
 
     cluster_docs = []
     if staff_view and doc.cluster_label is not None:
         cluster_docs = scope_documents_for_user(
-            Document.objects.filter(cluster_label=doc.cluster_label, is_archived=False), request.user,
+            Document.objects.live().filter(cluster_label=doc.cluster_label, is_archived=False), request.user,
         ).exclude(pk=doc.pk)[:5]
 
     version_chain = doc.version_chain()
@@ -1272,7 +1455,7 @@ def document_detail(request, pk):
     )
     candidate_older_docs = []
     if can_manage_versions:
-        candidate_older_docs = Document.objects.exclude(pk=doc.pk).exclude(
+        candidate_older_docs = Document.objects.live().exclude(pk=doc.pk).exclude(
             superseded_by=doc
         ).order_by('-uploaded_at')[:200]
 
@@ -1389,7 +1572,10 @@ def mark_as_version(request, pk):
         return redirect('documents:detail', pk=pk)
 
     try:
-        older = Document.objects.get(pk=int(previous_id))
+        # `live()`: a deleted document must not be linked into a version
+        # chain. It would archive the newer one against something no page
+        # shows, and restoring it later would land it mid-chain.
+        older = Document.objects.live().get(pk=int(previous_id))
     except (Document.DoesNotExist, ValueError, TypeError):
         messages.error(request, 'Older document not found.')
         return redirect('documents:detail', pk=pk)
@@ -1476,7 +1662,11 @@ def _restore_orphaned_version(older_pk, user):
     if not older_pk:
         return
     older = Document.objects.filter(pk=older_pk, is_archived=True).first()
-    if older is None or older.superseded_by.exists():
+    # A deleted successor does not count as one. Deletion stamps the row
+    # rather than removing it, so a plain `.exists()` still found the very
+    # document that had just been deleted, concluded the older version was
+    # still superseded, and left it unreachable.
+    if older is None or older.superseded_by.filter(deleted_at__isnull=True).exists():
         return
     older.is_archived = False
     older.save(update_fields=['is_archived'])
@@ -1603,7 +1793,7 @@ def download_area_zip(request):
         return redirect(repo_url)
 
     scoped = scope_documents_for_user(
-        Document.objects.filter(is_archived=False), request.user
+        Document.objects.live().filter(is_archived=False), request.user
     ).select_related('acc_area')
 
     if area.lower() == 'all':
@@ -1735,7 +1925,7 @@ def cluster_groups(request):
 
     from documents.models import ClusterResult
 
-    base = Document.objects.filter(is_archived=False)
+    base = Document.objects.live().filter(is_archived=False)
     clustered = base.exclude(cluster_label__isnull=True)
 
     dist = (
@@ -1744,7 +1934,7 @@ def cluster_groups(request):
         .order_by('cluster_label')
     )
     label_by_num = {}
-    for cr in ClusterResult.objects.order_by('-created_at').values('cluster_number', 'cluster_label'):
+    for cr in ClusterResult.objects.live().order_by('-created_at').values('cluster_number', 'cluster_label'):
         label_by_num.setdefault(cr['cluster_number'], cr['cluster_label'])
     clusters = []
     for row in dist:
@@ -1834,7 +2024,7 @@ def area_submissions(request):
 
     from .area_utils import build_area_filter_q
 
-    base_docs = Document.objects.filter(is_archived=False)
+    base_docs = Document.objects.live().filter(is_archived=False)
 
     # One rule for "which area is this document in", shared with the Repository
     # and Faculty access: the linked area when there is one, else the area code
@@ -2010,10 +2200,17 @@ def document_delete(request, pk):
         title = doc.title
         deleted_pk = doc.pk
         older_pk = doc.previous_version_id
-        # Delete file from storage
-        if doc.file and os.path.exists(doc.file.path):
-            os.remove(doc.file.path)
-        doc.delete()
+        # Deleting one document is the same event as deleting fifty, so it is
+        # the same kind of delete: a `deleted_at` stamp that every listing
+        # filters out and the undo strip can lift again. This used to remove
+        # the row and erase the file, which meant the wording of the two
+        # buttons was the only thing telling a person that one Delete was
+        # permanent and the other was not -- and a document was lost that way.
+        #
+        # The file stays on disk for the same reason as in the bulk path: an
+        # undo that gave back a database row pointing at an erased file would
+        # give back a broken document.
+        Document.objects.filter(pk=deleted_pk).update(deleted_at=timezone.now())
         forget_deleted_matches([deleted_pk])
         _restore_orphaned_version(older_pk, request.user)
         ActivityLog.objects.create(
@@ -2021,7 +2218,10 @@ def document_delete(request, pk):
             action='delete_document',
             description=f'Deleted document: {title}'
         )
-        messages.success(request, f'Document "{title}" deleted successfully.')
+        # The repository page picks this up on the next load and opens the undo
+        # strip there. A single delete is an ordinary form post that ends in a
+        # redirect, so it has no page left to show the offer on itself.
+        request.session['pending_undo'] = {'ids': [deleted_pk], 'count': 1}
         return redirect('documents:repository')
     return render(request, 'documents/confirm_delete.html', {'document': doc})
 
@@ -2045,36 +2245,126 @@ def documents_bulk_delete(request):
         messages.warning(request, 'No documents were selected for deletion.')
         return redirect('documents:repository')
 
-    docs = list(Document.objects.filter(pk__in=ids))
+    docs = list(Document.objects.live().filter(pk__in=ids))
     if not docs:
         messages.warning(request, 'Selected documents were not found. Refresh and try again.')
-        return redirect('documents:repository')
+        return _bulk_delete_response(request, 0, [], 'Selected documents were not found.')
 
-    from .ai_pipeline import forget_deleted_matches
+    # A bulk delete is now reversible, so it stamps `deleted_at` instead of
+    # removing rows and unlinking files. The file stays on disk: an undo that
+    # restored a database row pointing at a file that had been erased would
+    # give back a broken document.
+    #
+    # Version links are left exactly as they are. Deleting the newer of two
+    # versions does not un-archive the older one here, because the undo would
+    # then have to put that back too, and a half-restored chain is worse than
+    # an unchanged one. Restoring the newer version returns the pair to the
+    # state it was in.
+    stamp = timezone.now()
+    deleted_ids = [doc.pk for doc in docs]
+    Document.objects.filter(pk__in=deleted_ids).update(deleted_at=stamp)
 
-    deleted_count = 0
-    deleted_ids = []
-    older_pks = []
     for doc in docs:
-        # Delete file from storage if present.
-        if doc.file and os.path.exists(doc.file.path):
-            os.remove(doc.file.path)
-        title = doc.title
-        deleted_ids.append(doc.pk)
-        older_pks.append(doc.previous_version_id)
-        doc.delete()
-        deleted_count += 1
         ActivityLog.objects.create(
             user=request.user,
             action='delete_document',
-            description=f'Deleted document: {title}',
+            description=f'Deleted document: {doc.title}',
         )
-    forget_deleted_matches(deleted_ids)
-    for older_pk in older_pks:
-        if older_pk not in deleted_ids:
-            _restore_orphaned_version(older_pk, request.user)
 
-    messages.success(request, f'Deleted {deleted_count} document(s) successfully.')
+    # A document left flagged against something that has been deleted asks a
+    # reader to review a pair that no longer exists, so the survivor's flag is
+    # cleared here as it was before.
+    #
+    # This part is not symmetrical with the undo: restoring a document brings
+    # back the document, not the duplicate flags, which the analysis pipeline
+    # recomputes on its next run. Storing the old match lists purely to
+    # reinstate them for ten seconds would cost more than it is worth.
+    from .ai_pipeline import forget_deleted_matches
+    forget_deleted_matches(deleted_ids)
+
+    # Deleting the newer of two versions puts the older one back in the
+    # repository, as it did when this was a hard delete. The undo re-archives
+    # it, so the pair returns to the state it was in.
+    for doc in docs:
+        if doc.previous_version_id and doc.previous_version_id not in deleted_ids:
+            _restore_orphaned_version(doc.previous_version_id, request.user)
+
+    count = len(deleted_ids)
+    return _bulk_delete_response(
+        request, count, deleted_ids,
+        f'{count} document{"" if count == 1 else "s"} deleted.',
+    )
+
+
+def _bulk_delete_response(request, count, deleted_ids, message):
+    """
+    Answer a bulk delete for a browser or for a script.
+
+    The page posts this with fetch and shows its own undo strip, so it wants
+    the ids back. A plain form post -- no JavaScript -- still gets the
+    redirect and the flash message it has always had.
+    """
+    wants_json = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if wants_json:
+        return JsonResponse({
+            'ok': bool(count),
+            'deleted': count,
+            'ids': deleted_ids,
+            'message': message,
+        })
+    if count:
+        messages.success(request, message)
+    return redirect('documents:repository')
+
+
+@login_required
+@repository_access_required
+@require_POST
+def documents_bulk_restore(request):
+    """
+    Put back what a bulk delete removed.
+
+    This is the other half of the undo strip on the repository page. It only
+    clears the deletion stamp, so a document comes back exactly as it was --
+    same file, same metadata, same cluster, same place in any version chain.
+    """
+    raw_ids = request.POST.getlist('document_ids')
+    ids = []
+    for value in raw_ids:
+        try:
+            ids.append(int(value))
+        except (TypeError, ValueError):
+            continue
+
+    restored = 0
+    if ids:
+        targets = Document.objects.deleted().filter(pk__in=ids)
+        # Faculty may delete their own uploads, so they must be able to undo
+        # them. Restoring is checked per document with the same rule that
+        # allowed the deletion, rather than by role alone: the endpoint must
+        # not become a way to bring back somebody else's document.
+        allowed = [d.pk for d in targets if user_can_modify_document(request.user, d)]
+        targets = Document.objects.deleted().filter(pk__in=allowed)
+        restored = targets.count()
+        coming_back = list(targets)
+        targets.update(deleted_at=None)
+        # A restored document supersedes its predecessor again, so the older
+        # version goes back to being archived. Without this the repository
+        # would show both halves of a version pair at once.
+        older_ids = [d.previous_version_id for d in coming_back if d.previous_version_id]
+        if older_ids:
+            Document.objects.filter(pk__in=older_ids).update(is_archived=True)
+        for doc in Document.objects.filter(pk__in=ids):
+            ActivityLog.objects.create(
+                user=request.user,
+                action='restore_document',
+                description=f'Restored document: {doc.title}',
+            )
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'ok': bool(restored), 'restored': restored})
+    if restored:
+        messages.success(request, f'{restored} document(s) restored.')
     return redirect('documents:repository')
 
 
@@ -2213,7 +2503,7 @@ def document_groups(request):
     from django.db.models import Count, Max
     from qa_mapping.models import QAProgram
 
-    docs = scope_documents_for_user(Document.objects.filter(is_archived=False), request.user)
+    docs = scope_documents_for_user(Document.objects.live().filter(is_archived=False), request.user)
 
     counts = {
         row['program_id']: row
@@ -2258,7 +2548,7 @@ def document_group_detail(request, code):
     from qa_mapping.models import QAProgram
 
     docs = scope_documents_for_user(
-        Document.objects.filter(is_archived=False), request.user,
+        Document.objects.live().filter(is_archived=False), request.user,
     ).select_related('uploaded_by', 'uploaded_by__profile', 'acc_area', 'program')
 
     if code == 'unassigned':

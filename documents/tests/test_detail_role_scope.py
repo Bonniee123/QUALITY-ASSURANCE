@@ -61,13 +61,13 @@ class DetailPanelRoleScopeTests(TestCase):
 
     def test_staff_still_see_the_whole_panel(self):
         html = self.panel(self.head)
-        for item in ('AI Cluster', 'Duplicate Check', 'OCR Status',
+        for item in ('>Cluster</span>', 'Duplicate Check', 'OCR Status',
                      'Similar Documents', 'Sibling evidence'):
             self.assertIn(item, html)
 
     def test_faculty_are_not_shown_qa_work(self):
         html = self.panel(self.owner)
-        for item in ('AI Cluster', 'Duplicate Check', 'OCR Status', 'Similar Documents'):
+        for item in ('>Cluster</span>', 'Duplicate Check', 'OCR Status', 'Similar Documents'):
             self.assertNotIn(item, html)
 
     def test_the_matches_are_not_in_the_page_at_all(self):

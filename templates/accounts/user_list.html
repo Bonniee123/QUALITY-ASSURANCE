@@ -20,21 +20,23 @@
 .user-table th {
     background: hsl(220, 20%, 98%);
     color: hsl(220, 10%, 45%);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding: 16px 24px;
+    padding: 10px 16px;
     border-bottom: 1px solid hsl(220, 10%, 90%);
+    white-space: nowrap;
 }
 .user-table td {
-    padding: 16px 24px;
+    padding: 9px 16px;
     vertical-align: middle;
     border-bottom: 1px solid hsl(220, 10%, 94%);
     color: hsl(220, 20%, 30%);
-    font-size: 14px;
+    font-size: 13px;
     transition: background 0.2s;
 }
+.user-table .col-tight { white-space: nowrap; }
 .user-table tr:hover td {
     background: hsl(220, 20%, 99%);
 }
@@ -46,20 +48,21 @@
 .user-profile-cell {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
 }
 .user-avatar {
-    width: 42px;
-    height: 42px;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     font-weight: 600;
-    font-size: 14px;
-    letter-spacing: 1px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 .user-avatar--img {
     object-fit: cover;
@@ -73,28 +76,29 @@
 .user-name {
     font-weight: 600;
     color: hsl(220, 20%, 18%);
-    font-size: 14px;
+    font-size: 13px;
 }
 .user-email {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--color-text-secondary);
 }
 
 /* Role Badges */
 .role-badge {
-    padding: 6px 12px;
+    padding: 3px 9px;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
+    white-space: nowrap;
 }
 /* Role is a category, not a status. Administrator used to be red, which reads as an
    error state on a healthy account; red is reserved for destructive and error UI.
    Privilege is now shown by weight of emphasis: dark = highest, brand = staff,
    neutral = scoped, muted = read-only. */
-.role-admin { background: var(--color-sidebar); color: #fff; border: 1px solid var(--color-sidebar); }
+.role-admin { background: var(--color-brand-dark); color: #fff; border: 1px solid var(--color-brand-dark); }
 .role-qa { background: var(--color-brand-light); color: var(--color-brand-dark); border: 1px solid var(--color-brand-light); }
 .role-faculty { background: var(--color-overlay); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
 .role-viewer { background: var(--color-canvas); color: var(--color-text-muted); border: 1px solid var(--color-border); }
@@ -107,8 +111,65 @@
     display: inline-block;
     margin-right: 6px;
 }
-.status-active .status-dot { background: #10b981; box-shadow: 0 0 0 3px #d1fae5; }
+/* Status is presence: Online now, Offline with when last seen, or an account switched off. */
+.status-online .status-dot { background: #10b981; box-shadow: 0 0 0 3px #d1fae5; }
+.status-offline .status-dot, .status-never .status-dot { background: #9aa9b2; box-shadow: 0 0 0 3px #eef2f4; }
 .status-inactive .status-dot { background: #ef4444; box-shadow: 0 0 0 3px #fee2e2; }
+.user-status { font-size: 13px; font-weight: 500; white-space: nowrap; }
+.user-status.status-online { color: var(--color-success-text); }
+.user-status.status-offline, .user-status.status-never { color: var(--color-text-muted); font-weight: 400; }
+.user-status.status-inactive { color: var(--color-danger); }
+.user-active-switch .form-check-input { cursor: pointer; }
+.access-self { font-size: 11.5px; color: var(--color-text-muted); white-space: nowrap; }
+
+/* Role filter. Links, not a dropdown: each one is a page of its own, so the
+   browser's Back button works, the address can be shared, and the filter
+   survives a reload. Every role is listed with its count, including a role
+   nobody holds -- "Faculty 0" is an answer, an absent chip is not. */
+.user-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--color-border);
+}
+.user-filter-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--color-text-muted);
+    margin-right: 4px;
+}
+.user-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.user-filter-chip:hover { border-color: var(--color-brand); color: var(--color-brand-dark); }
+.user-filter-chip:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+.user-filter-chip.is-on {
+    background: var(--color-brand);
+    border-color: var(--color-brand);
+    color: #fff;
+}
+.user-filter-count {
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+.user-filter-chip.is-on .user-filter-count { color: rgba(255, 255, 255, .85); }
+.user-filter-empty { padding: 28px 18px; text-align: center; color: var(--color-text-muted); }
 
 /* Row actions use the shared .act pattern from style.css - this page used to
    define a second, near-identical .action-btn family of its own. */
@@ -127,6 +188,16 @@
 </div>
 
 <div class="user-management-card">
+    <nav class="user-filter-bar" aria-label="Filter users by role">
+        <span class="user-filter-label" id="userFilterLabel">Role</span>
+        {% for f in role_filters %}
+        <a class="user-filter-chip{% if f.value == selected_role %} is-on{% endif %}"
+           href="{% if f.value %}?role={{ f.value }}{% else %}{% url 'accounts:user_list' %}{% endif %}"
+           {% if f.value == selected_role %}aria-current="page"{% endif %}>
+            <span>{{ f.label }}</span><span class="user-filter-count">{{ f.count }}</span>
+        </a>
+        {% endfor %}
+    </nav>
     <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="System users">
     <div class="table-responsive">
         <table class="user-table">
@@ -136,6 +207,7 @@
                     <th>System Role</th>
                     <th>Department</th>
                     <th>Status</th>
+                    <th>Access</th>
                     <th>Joined Date</th>
                     <th class="text-end">Actions</th>
                 </tr>
@@ -158,7 +230,7 @@
                             </div>
                         </div>
                     </td>
-                    <td>
+                    <td class="col-tight">
                         {% if u.profile.role == 'admin' %}
                         <span class="role-badge role-admin"><i class="bi bi-shield-lock"></i> Administrator</span>
                         {% elif u.profile.role == 'faculty' %}
@@ -169,34 +241,32 @@
                     </td>
                     <td>
                         <div style="font-weight: 500; color: hsl(220, 20%, 30%);">
-                            {{ u.profile.department|default:"<span class='text-muted'>Unassigned</span>"|safe }}
+                            {% if u.profile.department %}{{ u.profile.department }}{% else %}<span class="text-muted">Unassigned</span>{% endif %}
                         </div>
+                    </td>
+                    <td>
+                        <span class="user-status status-{{ u.presence.state }}" id="userStatus{{ u.pk }}" data-user="{{ u.pk }}"><span class="status-dot"></span><span class="status-text">{{ u.presence.label }}</span></span>
                     </td>
                     <td>
                         {% comment %}
                         The switch sets both is_active and profile.status together, because
-                        both refuse a sign-in. Your own row shows the state without a switch:
-                        an Administrator cannot turn off their own access.
+                        both refuse a sign-in. Your own row has no switch: an Administrator
+                        cannot turn off their own access.
                         {% endcomment %}
                         {% if u.pk == request.user.pk %}
-                        <span class="status-active" style="font-size:13px; font-weight:500; color:#059669;"><span class="status-dot"></span>Active</span>
-                        <div style="font-size:11px; color:hsl(220,10%,55%); margin-top:2px;">your account</div>
+                        <span class="access-self" title="You cannot turn off your own access">Your account</span>
                         {% else %}
                         <div class="form-check form-switch user-active-switch mb-0">
                             <input class="form-check-input" type="checkbox" role="switch"
                                    id="userActive{{ u.pk }}"
                                    data-user-toggle="{% url 'accounts:user_toggle_active' u.pk %}"
                                    data-username="{{ u.username }}"
-                                   {% if u.profile.status == 'active' and u.is_active %}checked{% endif %}>
-                            <label class="form-check-label" for="userActive{{ u.pk }}"
-                                   id="userActiveLabel{{ u.pk }}"
-                                   style="font-size:13px; font-weight:500; {% if u.profile.status == 'active' and u.is_active %}color:#059669;{% else %}color:#dc2626;{% endif %}">
-                                {% if u.profile.status == 'active' and u.is_active %}Active{% else %}Inactive{% endif %}
-                            </label>
+                                   aria-label="Account access for {{ u.get_full_name|default:u.username }}"
+                                   {% if u.profile.status == 'active' and u.is_active %}checked title="On — click to deactivate"{% else %}title="Off — click to activate"{% endif %}>
                         </div>
                         {% endif %}
                     </td>
-                    <td><span style="font-size:13px; color:hsl(220,10%,45%);"><i class="bi bi-calendar3 me-2"></i>{{ u.date_joined|date:"M d, Y" }}</span></td>
+                    <td class="col-tight"><span style="font-size:12.5px; color:hsl(220,10%,45%);"><i class="bi bi-calendar3 me-1"></i>{{ u.date_joined|date:"M d, Y" }}</span></td>
                     <td>
                         <div class="action-group justify-content-end">
                             <a href="{% url 'accounts:user_detail' u.pk %}" class="act view" title="View User">
@@ -213,9 +283,20 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6">
+                    <td colspan="7">
+                        {% comment %}
+                        An empty table means two different things. With a role
+                        selected it means nobody holds that role, and the way
+                        out is to clear the filter -- not to create an account,
+                        which is what this used to offer whichever was true.
+                        {% endcomment %}
+                        {% if selected_role %}
+                        {% url 'accounts:user_list' as all_users_url %}
+                        {% include 'includes/empty_state.html' with empty_icon='bi-funnel' empty_title='No users with this role' empty_text='No account is assigned this role yet.' empty_action_url=all_users_url empty_action_label='Show all users' %}
+                        {% else %}
                         {% url 'accounts:user_create' as create_user_url %}
                         {% include 'includes/empty_state.html' with empty_icon='bi-people' empty_title='No users yet' empty_text='Create the first user account to get started.' empty_action_url=create_user_url empty_action_label='Add User' %}
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -234,6 +315,31 @@
    the server refuses. Waiting for the round trip made it feel broken, and a
    refusal here is rare -- the only one is trying to switch off your own access,
    which the table does not offer a switch for in the first place. */
+function showPresence(el, p) {
+    el.className = 'user-status status-' + p.state;
+    el.querySelector('.status-text').textContent = p.label;
+}
+
+/* The Status column is refreshed from the server every 15 seconds, so who is
+   online changes on screen without reloading the page. */
+function refreshPresence() {
+    var qa = window.qaActivity;
+    return fetch('{% url "accounts:user_presence" %}', { credentials: 'same-origin', headers: qa ? qa.headers() : {} })
+        .then(function (r) {
+            if (qa && qa.expired(r)) { return null; }
+            return r.ok ? r.json() : null;
+        })
+        .then(function (d) {
+            if (!d || !d.users) { return; }
+            document.querySelectorAll('.user-status[data-user]').forEach(function (el) {
+                var p = d.users[el.getAttribute('data-user')];
+                if (p) { showPresence(el, p); }
+            });
+        })
+        .catch(function () {});
+}
+setInterval(refreshPresence, 15000);
+
 (function () {
     var switches = document.querySelectorAll('[data-user-toggle]');
     if (!switches.length) { return; }
@@ -250,10 +356,12 @@
     }
 
     function paint(input, active) {
-        var label = document.getElementById('userActiveLabel' + input.id.replace('userActive', ''));
-        if (!label) { return; }
-        label.textContent = active ? 'Active' : 'Inactive';
-        label.style.color = active ? '#059669' : '#dc2626';
+        input.title = active ? 'On — click to deactivate' : 'Off — click to activate';
+        var status = document.getElementById('userStatus' + input.id.replace('userActive', ''));
+        if (!status) { return; }
+        // Switched back on, the account's presence is not known until the next refresh.
+        showPresence(status, active ? { state: 'offline', label: 'Offline' } : { state: 'inactive', label: 'Inactive' });
+        if (active) { refreshPresence(); }
     }
 
     switches.forEach(function (input) {

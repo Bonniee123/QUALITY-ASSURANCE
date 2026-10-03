@@ -155,20 +155,67 @@
     scrolled away with the page, which meant selecting rows near the bottom of a
     long list left the count and the delete button off screen.
     {% endcomment %}
-    <div class="repo-bulkbar">
+    {% comment %}
+    The bar reports three things a reader needs before a destructive action:
+    how many documents match the current filters, how many of them are
+    selected, and what the delete button is about to affect. It used to say
+    "Select all visible", which quietly meant the rows that had loaded -- so a
+    reader who filtered to 247 documents, pressed it, and deleted, removed the
+    handful on screen and believed they had removed 247.
+    {% endcomment %}
+    <div class="repo-bulkbar" id="repoBulkBar"
+         data-total="{{ total_count }}"
+         data-ids-url="{% url 'documents:repository' %}"
+         data-restore-url="{% url 'documents:bulk_restore' %}">
         <div class="form-check mb-0">
-            <input class="form-check-input" type="checkbox" id="repoSelectAll">
-            <label class="form-check-label" for="repoSelectAll">Select all visible</label>
+            <input class="form-check-input" type="checkbox" id="repoSelectAll"
+                   aria-describedby="repoSelectAllHint">
+            <label class="form-check-label" for="repoSelectAll" id="repoSelectAllHint">Select all</label>
         </div>
         <form method="post" action="{% url 'documents:bulk_delete' %}" id="repoBulkDeleteForm" class="d-flex align-items-center gap-2">
             {% csrf_token %}
-            <span class="text-muted small" id="repoSelectedCount">0 selected</span>
+            <span class="text-muted small" id="repoSelectedCount">{{ total_count }} document{{ total_count|pluralize }}</span>
+            <a href="#" class="small d-none" id="repoSelectAllMatching" role="button"></a>
             <button type="submit" class="btn btn-outline-danger btn-sm" id="repoBulkDeleteBtn" disabled>
-                <i class="bi bi-trash3 me-1"></i>Delete selected
+                <i class="bi bi-trash3 me-1"></i><span id="repoBulkDeleteLabel">Delete</span>
             </button>
         </form>
     </div>
     {% endif %}
+    {% comment %}
+    The undo strip. A delete is immediate and reversible, so there is no
+    confirmation step in front of the bulk one: the count sits inside the
+    button that performs it, and this offers the way back for ten seconds
+    afterwards.
+
+    It sits outside the QA-staff block that holds the bulk bar, because a
+    faculty member may delete their own upload from the row menu and needs the
+    same ten seconds. For that reason it also carries its own restore URL and
+    CSRF token rather than borrowing the bulk form's.
+
+    `data-pending-*` is set when the page was reached by a redirect from a
+    single delete, which has no page of its own left to show the offer on.
+    {% endcomment %}
+    <div class="repo-undo" id="repoUndoBar" role="status" aria-live="polite" hidden
+         data-restore-url="{% url 'documents:bulk_restore' %}"
+         {% if pending_undo %}data-pending-ids="{{ pending_undo.ids|join:',' }}"
+         data-pending-count="{{ pending_undo.count }}"{% endif %}>
+        <form class="d-none" id="repoUndoCsrf">{% csrf_token %}</form>
+        <i class="bi bi-trash3 repo-undo-icon" aria-hidden="true"></i>
+        <span class="repo-undo-text" id="repoUndoText"></span>
+        <button type="button" class="repo-undo-btn" id="repoUndoBtn">
+            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+            <span>Undo</span>
+        </button>
+        <span class="repo-undo-timer" id="repoUndoTimer" aria-hidden="true"></span>
+        <button type="button" class="repo-undo-close" id="repoUndoClose"
+                aria-label="Dismiss">&times;</button>
+        {% comment %}
+        The bar drains rather than counting, so the time left is readable at a
+        glance without reading a number.
+        {% endcomment %}
+        <span class="repo-undo-progress" aria-hidden="true"><i id="repoUndoFill"></i></span>
+    </div>
     <div class="table-responsive">
     <table class="table" id="repo-table">
         <thead><tr>
@@ -540,10 +587,64 @@ document.addEventListener('DOMContentLoaded', function() {
         return h;
     }
 
+    const bulkBar = document.getElementById('repoBulkBar');
+    const bulkDeleteLabel = document.getElementById('repoBulkDeleteLabel');
+    const selectAllMatchingLink = document.getElementById('repoSelectAllMatching');
+    const matchingTotal = bulkBar ? parseInt(bulkBar.dataset.total, 10) || 0 : 0;
+
+    /**
+     * Say what is selected, out of what, and what Delete will affect.
+     *
+     * The count used to read "0 selected" with no denominator, so nothing on
+     * the bar said how large the filtered set was, and the button read
+     * "Delete selected" whatever the number. A destructive control should
+     * carry the number it is about to act on.
+     */
     function refreshBulkDeleteUI() {
         if (!bulkDeleteBtn || !selectedCountLabel) return;
-        selectedCountLabel.textContent = bulkSelection.size + ' selected';
-        bulkDeleteBtn.disabled = bulkSelection.size === 0;
+        const picked = bulkSelection.size;
+        const noun = matchingTotal === 1 ? 'document' : 'documents';
+
+        selectedCountLabel.textContent = picked
+            ? picked + ' of ' + matchingTotal + ' selected'
+            : matchingTotal + ' ' + noun;
+
+        bulkDeleteBtn.disabled = picked === 0;
+        if (bulkDeleteLabel) {
+            bulkDeleteLabel.textContent = picked ? 'Delete ' + picked : 'Delete';
+        }
+
+        // Offer the rest of the filtered set only when the reader has taken
+        // everything on screen and there is genuinely more behind it.
+        if (selectAllMatchingLink) {
+            const loaded = tableBody.querySelectorAll('.js-bulk-doc-checkbox').length;
+            const tookEverythingLoaded = loaded > 0 && picked >= loaded;
+            const moreBehind = matchingTotal > picked;
+            if (tookEverythingLoaded && moreBehind) {
+                selectAllMatchingLink.textContent =
+                    'Select all ' + matchingTotal + ' matching';
+                selectAllMatchingLink.classList.remove('d-none');
+            } else {
+                selectAllMatchingLink.classList.add('d-none');
+            }
+        }
+    }
+
+    /** Pull every id the current filters match, not just the loaded rows. */
+    function selectAllMatching() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('ids', '1');
+        return fetch(url.toString(), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data || !data.ids) return;
+                data.ids.forEach(function (id) { bulkSelection.add(String(id)); });
+                syncVisibleCheckboxes();
+            })
+            .catch(function () {});
     }
 
     function syncVisibleCheckboxes() {
@@ -712,22 +813,67 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (selectAll) {
-        selectAll.addEventListener('change', function () {
-            const visible = tableBody.querySelectorAll('.js-bulk-doc-checkbox');
-            visible.forEach(function (cb) {
-                cb.checked = selectAll.checked;
-                if (cb.checked) bulkSelection.add(cb.value);
-                else bulkSelection.delete(cb.value);
-            });
+        /*
+         * Three states, and one rule that matters: a partial selection must
+         * never be read as "clear it".
+         *
+         * A reader with four of forty rows ticked who presses the header box
+         * is asking for all forty. The browser hands us a box whose `checked`
+         * is already false in that situation, so acting on `checked` alone
+         * threw the four away and selected nothing.
+         */
+        selectAll.addEventListener('click', function () {
+            const rows = Array.from(tableBody.querySelectorAll('.js-bulk-doc-checkbox'));
+            const chosen = rows.filter(function (cb) { return bulkSelection.has(cb.value); });
+            const everythingLoadedWasChosen = rows.length > 0 && chosen.length === rows.length;
+
+            if (everythingLoadedWasChosen) {
+                bulkSelection.clear();          // checked -> unchecked
+            } else {
+                rows.forEach(function (cb) { bulkSelection.add(cb.value); });
+            }
             syncVisibleCheckboxes();
         });
     }
+
+    if (selectAllMatchingLink) {
+        selectAllMatchingLink.addEventListener('click', function (e) {
+            e.preventDefault();
+            selectAllMatching();
+        });
+    }
+
+    /*
+     * Shift-click selects a range, the way a desktop list does. `lastTouched`
+     * remembers the row that started it; without an anchor a shift-click is
+     * just a click.
+     */
+    let lastTouched = null;
+
+    tableBody.addEventListener('click', function (e) {
+        const cb = e.target.closest('.js-bulk-doc-checkbox');
+        if (!cb || !e.shiftKey || !lastTouched) return;
+        const rows = Array.from(tableBody.querySelectorAll('.js-bulk-doc-checkbox'));
+        const from = rows.indexOf(lastTouched);
+        const to = rows.indexOf(cb);
+        if (from === -1 || to === -1) return;
+        e.preventDefault();
+        // The row clicked last decides whether the range is added or removed,
+        // which is how a desktop list behaves.
+        const turningOn = !bulkSelection.has(cb.value);
+        rows.slice(Math.min(from, to), Math.max(from, to) + 1).forEach(function (row) {
+            if (turningOn) bulkSelection.add(row.value);
+            else bulkSelection.delete(row.value);
+        });
+        syncVisibleCheckboxes();
+    });
 
     tableBody.addEventListener('change', function (e) {
         const cb = e.target.closest('.js-bulk-doc-checkbox');
         if (!cb) return;
         if (cb.checked) bulkSelection.add(cb.value);
         else bulkSelection.delete(cb.value);
+        lastTouched = cb;
         syncVisibleCheckboxes();
     });
 
@@ -749,34 +895,230 @@ document.addEventListener('DOMContentLoaded', function() {
         const bulkConfirmBtn = document.getElementById('repoBulkDeleteConfirmBtn');
         const hasBootstrapModal = typeof bootstrap !== 'undefined' && bootstrap.Modal && bulkModalEl;
 
+        /*
+         * Delete immediately, then offer the way back.
+         *
+         * The confirmation modal asked "are you sure?" about a number the
+         * reader had just read on the button they pressed, so it added a step
+         * without adding information. Deletion is reversible now -- the rows
+         * are stamped, not destroyed, and the files stay on disk -- so the
+         * honest interaction is to do it and leave an undo within reach.
+         */
         bulkDeleteForm.addEventListener('submit', function (e) {
             e.preventDefault();
             if (!bulkSelection.size) return;
 
-            if (!hasBootstrapModal || !bulkModalBody) {
-                // Fallback if the modal markup/Bootstrap JS is unavailable.
-                if (window.confirm('Delete ' + bulkSelection.size + ' selected document(s)? This cannot be undone.')) {
-                    submitBulkDelete();
-                }
-                return;
-            }
+            const ids = Array.from(bulkSelection);
+            const body = new FormData();
+            body.append('csrfmiddlewaretoken',
+                        bulkDeleteForm.querySelector('[name=csrfmiddlewaretoken]').value);
+            ids.forEach(function (id) { body.append('document_ids', id); });
 
-            const count = bulkSelection.size;
-            const noun = count === 1 ? 'document' : 'documents';
-            bulkModalBody.innerHTML = 'You are about to permanently delete <b>' + count + '</b> ' + noun +
-                '. This action cannot be undone.';
-            bootstrap.Modal.getOrCreateInstance(bulkModalEl).show();
+            bulkDeleteBtn.disabled = true;
+            fetch(bulkDeleteForm.action, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: body
+            })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!data || !data.ok) {
+                        if (typeof window.qaToast === 'function') {
+                            window.qaToast('Nothing was deleted. Refresh and try again.', 'error');
+                        }
+                        refreshBulkDeleteUI();
+                        return;
+                    }
+                    // Take the rows off the page at once, so the action feels
+                    // done rather than pending.
+                    ids.forEach(function (id) {
+                        const cb = tableBody.querySelector(
+                            '.js-bulk-doc-checkbox[value="' + id + '"]');
+                        const row = cb ? cb.closest('tr') : null;
+                        if (row) row.remove();
+                    });
+                    bulkSelection.clear();
+                    syncVisibleCheckboxes();
+                    showUndo(data.deleted, data.ids);
+                })
+                .catch(function () {
+                    refreshBulkDeleteUI();
+                });
         });
+    }
 
-        if (bulkConfirmBtn && hasBootstrapModal) {
-            bulkConfirmBtn.addEventListener('click', function () {
-                if (!bulkSelection.size) {
-                    bootstrap.Modal.getOrCreateInstance(bulkModalEl).hide();
-                    return;
-                }
-                bootstrap.Modal.getOrCreateInstance(bulkModalEl).hide();
-                submitBulkDelete();
+    /* --- The undo strip: ten seconds, then gone. ------------------------- */
+    const undoBar = document.getElementById('repoUndoBar');
+    const undoText = document.getElementById('repoUndoText');
+    const undoBtn = document.getElementById('repoUndoBtn');
+    const undoTimerEl = document.getElementById('repoUndoTimer');
+    const undoFill = document.getElementById('repoUndoFill');
+    const undoClose = document.getElementById('repoUndoClose');
+    // The strip carries its own restore URL, because it is shown to faculty
+    // as well and the bulk bar they never see is where it used to come from.
+    const restoreUrl = (undoBar && undoBar.dataset.restoreUrl)
+                       || (bulkBar ? bulkBar.dataset.restoreUrl : '');
+    const UNDO_SECONDS = 10;
+    let undoTimer = null;
+    let undoTick = null;
+    let pendingUndoIds = null;
+
+    /*
+     * A deletion outlives the page view it happened on.
+     *
+     * The strip used to be nothing but page state, so leaving the repository
+     * and coming back dropped the offer while its ten seconds were still
+     * running: the rows were gone from every listing and there was no longer
+     * anything on screen to ask for them back. The pending deletion is kept in
+     * sessionStorage instead -- the same tab, cleared when the tab closes --
+     * and what is stored is the instant the offer expires rather than a
+     * countdown, so any later page load can work out how much of it is left.
+     */
+    const UNDO_KEY = 'qaRepoPendingUndo';
+
+    function rememberUndo(count, ids, until) {
+        try {
+            sessionStorage.setItem(UNDO_KEY, JSON.stringify({ count: count, ids: ids, until: until }));
+        } catch (err) { /* Blocked or full storage: the offer stays page-local, as before. */ }
+    }
+
+    function forgetUndo() {
+        try { sessionStorage.removeItem(UNDO_KEY); } catch (err) { /* See rememberUndo. */ }
+    }
+
+    function readUndo() {
+        try {
+            const saved = JSON.parse(sessionStorage.getItem(UNDO_KEY) || 'null');
+            if (!saved || !Array.isArray(saved.ids) || !saved.ids.length || !saved.until) return null;
+            return saved;
+        } catch (err) { return null; }
+    }
+
+    function hideUndo() {
+        if (undoTimer) { clearTimeout(undoTimer); undoTimer = null; }
+        if (undoTick) { clearInterval(undoTick); undoTick = null; }
+        forgetUndo();
+        pendingUndoIds = null;
+        if (!undoBar) return;
+        undoBar.classList.add('is-leaving');
+        // Let the fade finish before it is taken out of the layout.
+        setTimeout(function () {
+            if (undoBar.classList.contains('is-leaving')) {
+                undoBar.hidden = true;
+                undoBar.classList.remove('is-leaving');
+            }
+        }, 200);
+    }
+
+    function runUndo() {
+        if (!pendingUndoIds || !pendingUndoIds.length) return;
+        const ids = pendingUndoIds;
+        const token = (undoBar && undoBar.querySelector('[name=csrfmiddlewaretoken]'))
+                      || (bulkDeleteForm && bulkDeleteForm.querySelector('[name=csrfmiddlewaretoken]'));
+        if (!token) return;
+        const body = new FormData();
+        body.append('csrfmiddlewaretoken', token.value);
+        ids.forEach(function (id) { body.append('document_ids', id); });
+        if (undoBtn) undoBtn.disabled = true;
+        fetch(restoreUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: body
+        })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                hideUndo();
+                // The rows were taken off the page, so it is reloaded to put
+                // them back in their proper order rather than guessing where
+                // each one belonged.
+                if (data && data.ok) window.location.reload();
+                else if (undoBtn) undoBtn.disabled = false;
+            })
+            .catch(function () {
+                if (undoBtn) undoBtn.disabled = false;
+                hideUndo();
             });
+    }
+
+    function showUndo(count, ids, until) {
+        if (!undoBar || !undoText) return;
+        // `until` is passed only when resuming an offer made on an earlier page
+        // view. A fresh deletion starts its own ten seconds and records them.
+        const deadline = until || (Date.now() + UNDO_SECONDS * 1000);
+        const secondsLeft = Math.min(UNDO_SECONDS, Math.ceil((deadline - Date.now()) / 1000));
+        if (secondsLeft <= 0) { forgetUndo(); return; }
+        if (!until) rememberUndo(count, ids, deadline);
+        pendingUndoIds = ids;
+        undoText.textContent = count + ' ' + (count === 1 ? 'document' : 'documents') + ' deleted.';
+        if (undoBtn) undoBtn.disabled = false;
+
+        undoBar.classList.remove('is-leaving');
+        undoBar.hidden = false;
+
+        let left = secondsLeft;
+        if (undoTimerEl) undoTimerEl.textContent = left + 's';
+        if (undoFill) {
+            // Restart the drain by re-triggering its animation. Reading
+            // offsetWidth between the two assignments is what forces the
+            // browser to notice the removal.
+            undoBar.style.setProperty('--repo-undo-seconds', secondsLeft + 's');
+            undoFill.style.animation = 'none';
+            void undoFill.offsetWidth;
+            undoFill.style.animation = '';
+        }
+
+        if (undoTick) clearInterval(undoTick);
+        undoTick = setInterval(function () {
+            left -= 1;
+            if (undoTimerEl) undoTimerEl.textContent = Math.max(left, 0) + 's';
+            if (left <= 0) { clearInterval(undoTick); undoTick = null; }
+        }, 1000);
+
+        if (undoTimer) clearTimeout(undoTimer);
+        undoTimer = setTimeout(hideUndo, secondsLeft * 1000);
+    }
+
+    if (undoBtn) undoBtn.addEventListener('click', runUndo);
+    if (undoClose) undoClose.addEventListener('click', hideUndo);
+
+    /*
+     * Ctrl+Z / Cmd+Z while the strip is up, which is what a keyboard reaches
+     * for after a deletion. Ignored while typing, so it cannot fire from the
+     * search box.
+     */
+    document.addEventListener('keydown', function (e) {
+        if (!pendingUndoIds) return;
+        const key = (e.key || '').toLowerCase();
+        if (key !== 'z' || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+        const el = document.activeElement;
+        const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+        if (typing) return;
+        e.preventDefault();
+        runUndo();
+    });
+
+    /*
+     * Two ways the strip can appear on a page it did not start on.
+     *
+     * `data-pending-ids` is a delete that happened on the request before
+     * this one -- a single delete from the row menu, which redirects here.
+     * Its ten seconds start now, because now is when the offer first
+     * becomes visible. It wins over a stored offer, being the newer event.
+     *
+     * Otherwise a stored offer is resumed with whatever time is left of it.
+     */
+    const pendingIds = (undoBar && undoBar.dataset.pendingIds || '')
+        .split(',').map(function (s) { return parseInt(s, 10); })
+        .filter(function (n) { return !isNaN(n); });
+    if (pendingIds.length) {
+        showUndo(parseInt(undoBar.dataset.pendingCount, 10) || pendingIds.length, pendingIds);
+    } else {
+        const savedUndo = readUndo();
+        if (savedUndo) {
+            if (savedUndo.until > Date.now()) showUndo(savedUndo.count, savedUndo.ids, savedUndo.until);
+            else forgetUndo();
         }
     }
 

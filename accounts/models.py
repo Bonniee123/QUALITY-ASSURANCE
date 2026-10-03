@@ -34,6 +34,10 @@ class UserProfile(models.Model):
         related_name='faculty_profiles',
         help_text='Areas this faculty member may upload to and view. Ignored for Admin / QA Head.',
     )
+    # Presence for User Management: when the person last had the system open,
+    # and when they last signed out. See accounts/presence.py.
+    last_seen = models.DateTimeField(null=True, blank=True)
+    last_logout = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['user__username']

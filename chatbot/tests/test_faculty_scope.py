@@ -5,7 +5,7 @@ Two problems. The assistant read out figures that Faculty are not shown
 anywhere else -- the duplicate count and the cluster count -- and pointed them
 at "the Dashboard duplicates KPI or the Repository duplicates filter", both of
 which were removed for their role. And `navigation_topics` returned every
-topic to everyone, so Faculty were walked through Reports, AI Processing, User
+topic to everyone, so Faculty were walked through Reports, Document Analysis, User
 Management, Settings, Area Submissions and Clusters: six pages that are not in
 their sidebar and that the server refuses.
 

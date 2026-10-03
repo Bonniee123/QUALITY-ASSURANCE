@@ -131,9 +131,10 @@ function getCookie(name) {
 const csrftoken = getCookie('csrftoken');
 
 function qaEscapeHtml(s) {
-    const d = document.createElement('div');
-    d.textContent = s == null ? '' : String(s);
-    return d.innerHTML;
+    // Quotes too: this text may be placed inside an attribute.
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
 }
 
 /**
@@ -200,7 +201,7 @@ document.addEventListener('click', function (e) {
     if (!url || !form || !modalEl || !body) {
         return;
     }
-    body.textContent = 'Are you sure you want to delete "' + title + '"? This action cannot be undone.';
+    body.textContent = 'Delete "' + title + '"? You can undo this for ten seconds afterwards.';
     form.action = url;
     if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
         bootstrap.Modal.getOrCreateInstance(modalEl).show();

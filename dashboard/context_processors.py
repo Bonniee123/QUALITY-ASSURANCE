@@ -26,7 +26,10 @@ def sidebar_badges(request):
         simple_ui_mode = False
 
     try:
-        base_qs = Document.objects.filter(is_archived=False)
+        # `live()` matters as much as the archived filter: a deleted document
+        # is off every listing, so counting it made the badge disagree with
+        # the page it links to -- 5 in the sidebar, 3 in the repository.
+        base_qs = Document.objects.live().filter(is_archived=False)
         sidebar_doc_count = scope_documents_for_user(base_qs, request.user).count()
     except Exception:
         sidebar_doc_count = 0

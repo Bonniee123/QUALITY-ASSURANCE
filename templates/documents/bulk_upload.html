@@ -372,9 +372,10 @@ const BULK_MAX = {{ bulk_upload_max_files|default:100 }};
 let selectedFiles = [];
 
 function escapeHtml(s) {
-    const d = document.createElement('div');
-    d.textContent = s == null ? '' : String(s);
-    return d.innerHTML;
+    // Quotes too: this text may be placed inside an attribute.
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
 }
 
 function formatBytes(b) {
@@ -473,7 +474,7 @@ function renderActiveBatchPanel(batch) {
         let text = escapeHtml(parts.join(' · ') || 'Preparing…');
         if (batch.stalled) {
             text += ' — <strong>no progress for several minutes.</strong> ' +
-                    'Open AI Processing to re-run analysis.';
+                    'Open Document Analysis to re-run it.';
         } else if (batch.finished) {
             text += ' — <a href="' + REPO_URL + '">View in Repository</a>';
         } else {
@@ -508,13 +509,18 @@ function renderActiveBatchPanel(batch) {
         const name = f.url
             ? '<a href="' + f.url + '" target="_blank" rel="noopener">' + escapeHtml(f.name) + '</a>'
             : escapeHtml(f.name);
+        // A refused file has no page of its own, but the document it matched
+        // does, and that is what the reader wants to look at.
+        const matchLink = f.match_url
+            ? ' <a href="' + f.match_url + '" target="_blank" rel="noopener" class="ms-1">View existing</a>'
+            : '';
         const div = document.createElement('div');
         div.className = 'file-item ' + st.cls + (f.stalled ? ' stalled' : '');
         div.innerHTML =
             '<div class="file-icon ' + meta.colorClass + '"><i class="bi ' + meta.iconClass + '"></i></div>' +
             '<div class="file-info">' +
             '<div class="file-name">' + name + '</div>' +
-            '<div class="file-status"><i class="bi ' + st.icon + ' me-1"></i>' + escapeHtml(status) + '</div>' +
+            '<div class="file-status"><i class="bi ' + st.icon + ' me-1"></i>' + escapeHtml(status) + matchLink + '</div>' +
             '</div>';
         activeBatchItems.appendChild(div);
     });
@@ -834,7 +840,7 @@ function handleUploadRejections(data) {
     const hasDuplicate = (data.errors || []).some(function(e) {
         return /duplicate/i.test(String(e));
     });
-    removeRejectedFromSelection(rejected, hasDuplicate ? 'duplicates or invalid files' : 'could not be uploaded');
+    removeRejectedFromSelection(rejected, hasDuplicate ? 'already in the archive' : 'could not be uploaded');
 }
 
 // Clear all
@@ -969,17 +975,25 @@ form.addEventListener('submit', function(e) {
             });
             const allDuplicates = reasons.length > 0 && reasons.every(function(r) { return /duplicate|similar/i.test(r); });
             const errMsg = rejected
-                ? (allDuplicates ? rejected + ' duplicate file(s) removed'
-                                 : rejected + ' file(s) not uploaded: ' + (reasons[0] || 'see the file list'))
+                ? (allDuplicates
+                    ? rejected + ' file(s) not uploaded \u2014 already in the archive'
+                    : rejected + ' file(s) not uploaded: ' + (reasons[0] || 'see the file list'))
                 : (data.error || 'Upload failed.');
             if (uploadProgressBar) {
                 uploadProgressBar.style.width = '100%';
                 uploadProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
-                uploadProgressBar.classList.add('bg-danger');
+                // A duplicate is not a malfunction. The upload worked and the
+                // system declined to keep a second copy, so red stays for the
+                // failures that really are failures.
+                uploadProgressBar.classList.add(allDuplicates ? 'bg-warning' : 'bg-danger');
                 uploadProgressBar.setAttribute('aria-valuenow', '100');
             }
-            if (uploadProgressLabel) uploadProgressLabel.innerHTML = '<i class="bi bi-x-circle me-1"></i>Upload failed';
-            if (window.qaToast) window.qaToast(errMsg, 'error');
+            if (uploadProgressLabel) {
+                uploadProgressLabel.innerHTML = allDuplicates
+                    ? '<i class="bi bi-files me-1"></i>Already in the archive'
+                    : '<i class="bi bi-x-circle me-1"></i>Upload failed';
+            }
+            if (window.qaToast) window.qaToast(errMsg, allDuplicates ? 'warning' : 'error');
             else alert(errMsg);
             finishUpload();
             return;

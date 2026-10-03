@@ -12,8 +12,29 @@ from django.contrib.auth.models import User
 logger = logging.getLogger(__name__)
 
 
+class DocumentQuerySet(models.QuerySet):
+    """
+    Reading a soft-deleted archive without having to remember to.
+
+    The default manager is left unfiltered on purpose. A manager that silently
+    hid deleted rows would also hide them from the undo that has to find them
+    again, and from anyone trying to work out where a document went. Saying
+    `.live()` at each listing is one word, and it says what it means.
+    """
+
+    def live(self):
+        """Documents a user should see: not deleted."""
+        return self.filter(deleted_at__isnull=True)
+
+    def deleted(self):
+        """Documents removed by a person and still recoverable."""
+        return self.filter(deleted_at__isnull=False)
+
+
 class Document(models.Model):
     """Core document model storing file, metadata, and AI processing results."""
+
+    objects = DocumentQuerySet.as_manager()
 
     FILE_TYPE_CHOICES = [
         ('pdf', 'PDF'),
@@ -90,6 +111,19 @@ class Document(models.Model):
     is_archived = models.BooleanField(
         default=False,
         help_text='True if this is an older version superseded by a newer upload.',
+    )
+    # Deletion is not the same event as being superseded, so it does not share
+    # that flag. `is_archived` says "a newer upload replaced this"; the
+    # timestamp below says "a person removed this, at this moment".
+    #
+    # Keeping them apart is what makes undo possible. After a bulk delete the
+    # rows to restore are exactly those carrying a `deleted_at`, and the two
+    # genuinely superseded manuscript versions are left alone. Sharing one flag
+    # would put both in the same bucket with no way to tell them apart again.
+    deleted_at = models.DateTimeField(
+        null=True, blank=True, db_index=True,
+        help_text='Set when a user deletes this document; null means not deleted. '
+                  'Clearing it restores the document.',
     )
 
     # The accreditation area a document belongs to.
@@ -221,8 +255,25 @@ class Document(models.Model):
         return node
 
 
+class ClusterResultQuerySet(models.QuerySet):
+    """
+    Cluster rows that still describe something a reader can open.
+
+    A hard delete used to take these rows with it, because the foreign key
+    cascades. A soft delete leaves them behind, and every cluster card names
+    itself after the newest row for its number -- so a deleted document went
+    on lending its title to a cluster it was no longer part of.
+    """
+
+    def live(self):
+        return self.filter(document__deleted_at__isnull=True)
+
+
 class ClusterResult(models.Model):
     """Stores cluster assignment and top keywords per document."""
+
+    objects = ClusterResultQuerySet.as_manager()
+
     document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='cluster_results')
     cluster_number = models.IntegerField()
     cluster_label = models.CharField(max_length=100, blank=True, default='')

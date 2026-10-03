@@ -82,19 +82,37 @@ class Thread(models.Model):
         """
         Messages from someone else since this user last opened the thread.
 
-        Unread is derived from one timestamp per participant rather than a flag on
+        Unread is derived from one read mark per participant rather than a flag on
         every message, so marking a thread read writes a single row instead of one
         per message.
         """
         state = self.read_states.filter(user=user).first()
         qs = self.visible_messages().exclude(sender=user)
-        if state and state.last_read_at:
-            qs = qs.filter(created_at__gt=state.last_read_at)
+        if state:
+            qs = qs.filter(pk__gt=state.last_read_message_id)
         return qs.count()
 
-    def mark_read_for(self, user) -> None:
-        ThreadRead.objects.update_or_create(
-            thread=self, user=user, defaults={'last_read_at': timezone.now()}
+    def mark_read_for(self, user, upto=None) -> bool:
+        """
+        Mark this user as having read every message up to id ``upto`` (default:
+        the newest). The mark only moves forward. Returns whether it moved.
+
+        The mark is a message id, not a time: two messages cannot share an id,
+        but on Windows a message can share a clock tick with the moment its
+        reader last looked, and would then be taken as already read.
+        """
+        newest = self.messages.aggregate(newest=models.Max('id'))['newest'] or 0
+        upto = newest if upto is None else min(upto, newest)
+        state, created = ThreadRead.objects.get_or_create(
+            thread=self, user=user,
+            defaults={'last_read_message_id': upto},
+        )
+        if created:
+            return True
+        return bool(
+            ThreadRead.objects
+            .filter(pk=state.pk, last_read_message_id__lt=upto)
+            .update(last_read_message_id=upto, last_read_at=timezone.now())
         )
 
     def touch(self) -> None:
@@ -149,19 +167,21 @@ class ThreadMessage(models.Model):
 
 
 class ThreadRead(models.Model):
-    """When each participant last opened a thread."""
+    """How far each participant has read a thread, and when they got there."""
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE,
                                related_name='read_states')
     user = models.ForeignKey(User, on_delete=models.CASCADE,
                              related_name='thread_reads')
+    last_read_message_id = models.PositiveBigIntegerField(default=0)
     last_read_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         unique_together = [('thread', 'user')]
 
     def __str__(self):
-        return f'{self.user_id} read {self.thread_id} at {self.last_read_at}'
+        return (f'{self.user_id} read {self.thread_id} up to message '
+                f'{self.last_read_message_id}')
 
 
 def unread_total_for(user) -> int:
@@ -171,8 +191,8 @@ def unread_total_for(user) -> int:
     One aggregate rather than a count per thread. This is polled every few
     seconds by every signed-in user on every page, so the old loop -- which ran
     one query per conversation and grew with the number of threads -- was the
-    wrong shape for a hot path. The per-participant read stamp is pulled in as a
-    correlated subquery; a thread never opened has no stamp, and everything in it
+    wrong shape for a hot path. The per-participant read mark is pulled in as a
+    correlated subquery; a thread never opened has no mark, and everything in it
     counts as unread.
     """
     if not getattr(user, 'is_authenticated', False):
@@ -180,12 +200,12 @@ def unread_total_for(user) -> int:
 
     last_read = (ThreadRead.objects
                  .filter(thread=models.OuterRef('thread_id'), user=user)
-                 .values('last_read_at')[:1])
+                 .values('last_read_message_id')[:1])
 
     return (ThreadMessage.objects
             .filter(thread__participants=user, is_deleted=False)
             .exclude(sender=user)
-            .annotate(read_at=models.Subquery(last_read))
-            .filter(models.Q(read_at__isnull=True)
-                    | models.Q(created_at__gt=models.F('read_at')))
+            .annotate(read_upto=models.Subquery(last_read))
+            .filter(models.Q(read_upto__isnull=True)
+                    | models.Q(pk__gt=models.F('read_upto')))
             .count())

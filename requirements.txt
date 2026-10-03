@@ -12,18 +12,23 @@ pandas==3.0.2
 numpy==2.4.4
 
 # Document parsing and imaging
-Pillow==12.2.0
+Pillow==12.3.0
 python-docx==1.2.0
 openpyxl==3.1.5
-PyPDF2==3.0.1
+pypdf==6.19.0
 pytesseract==0.3.13
 PyMuPDF==1.27.2.3
 pdf2image==1.17.0
 
-requests==2.32.3
+requests==2.34.2
 
 # Optional (Windows + Microsoft Word): faithful DOCX→PDF with headers/logos
 #   pip install docx2pdf pywin32
 #
 # Optional: semantic document clustering — see requirements-ai.txt. Without it the
 # clustering falls back to the hybrid TF-IDF + metadata backend automatically.
+
+# Production serving. Development does not need these: settings.py adds the
+# WhiteNoise middleware only when the package is installed.
+waitress==3.0.2        # production WSGI server on Windows
+whitenoise==6.12.0     # serves /static/ when DEBUG is False

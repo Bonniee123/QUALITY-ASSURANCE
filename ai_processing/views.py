@@ -40,7 +40,7 @@ def ai_processing_list(request):
     filter_key = request.GET.get('filter', 'all')
 
     documents_qs = (
-        Document.objects.filter(is_archived=False)
+        Document.objects.live().filter(is_archived=False)
         .select_related('uploaded_by', 'acc_area', 'program')
         .order_by('-uploaded_at')
     )
@@ -50,7 +50,7 @@ def ai_processing_list(request):
     page_obj = paginator.get_page(request.GET.get('page'))
 
     cluster_dist = (
-        Document.objects.filter(is_archived=False)
+        Document.objects.live().filter(is_archived=False)
         .exclude(cluster_label__isnull=True)
         .values('cluster_label')
         .annotate(count=Count('id'))
@@ -72,7 +72,7 @@ def ai_processing_list(request):
             doc.ai_cluster_display = ''
 
     cluster_keywords = {}
-    for cr in ClusterResult.objects.all():
+    for cr in ClusterResult.objects.live():
         if cr.cluster_number not in cluster_keywords:
             cluster_keywords[cr.cluster_number] = cr.top_keywords[:6]
 
@@ -120,7 +120,7 @@ def ai_processing_list(request):
 def ai_processing_detail(request, pk):
     """Show detailed AI results for a single document."""
     doc = get_object_or_404(
-        Document.objects.select_related('uploaded_by', 'acc_area', 'program'),
+        Document.objects.live().select_related('uploaded_by', 'acc_area', 'program'),
         pk=pk,
     )
     cluster_results = doc.cluster_results.all()
@@ -128,7 +128,7 @@ def ai_processing_detail(request, pk):
     cluster_peers = []
     if doc.cluster_label is not None:
         cluster_peers = (
-            Document.objects.filter(is_archived=False, cluster_label=doc.cluster_label)
+            Document.objects.live().filter(is_archived=False, cluster_label=doc.cluster_label)
             .exclude(pk=doc.pk)
             .select_related('acc_area')[:8]
         )
@@ -152,7 +152,7 @@ def run_ai_processing(request):
     if request.method != 'POST':
         return redirect('ai_processing:list')
 
-    total_docs = Document.objects.count()
+    total_docs = Document.objects.live().count()
     if total_docs < 2:
         messages.warning(request, 'At least 2 documents are required for AI processing.')
         return redirect('ai_processing:list')
@@ -198,6 +198,8 @@ def run_ai_processing(request):
 @login_required
 @admin_required
 def job_status(request, pk):
+    from documents.jobs import sweep_stale_jobs
+    sweep_stale_jobs()
     job = get_object_or_404(BackgroundJob, pk=pk)
     return JsonResponse(
         {
