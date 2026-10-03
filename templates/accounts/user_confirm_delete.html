@@ -7,7 +7,7 @@
         <h4>Delete User</h4>
         <p>Are you sure you want to delete <strong>{{ user_obj.username }}</strong>?</p>
         <div class="del-warning">
-            <i class="bi bi-info-circle me-1"></i>This will permanently remove the user account and all associated data. This action cannot be undone.
+            <i class="bi bi-info-circle me-1"></i>This will permanently remove the user account and all associated data, including their conversations in Messages. This action cannot be undone.
         </div>
         <form method="post" class="del-actions">
             {% csrf_token %}

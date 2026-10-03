@@ -492,6 +492,11 @@ def sync(request):
     if thread_id:
         thread = (Thread.objects.filter(pk=thread_id, participants=request.user)
                   .first())
+        if thread is None:
+            # Removed while open -- the other person's account was deleted.
+            # Said outright so the page can close it rather than sit on a
+            # conversation that no longer exists.
+            payload['thread_gone'] = True
         if thread is not None:
             fresh = thread.visible_messages().select_related('sender__profile', 'document')
             try:
