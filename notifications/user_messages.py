@@ -76,7 +76,8 @@ def version_supersede_message(new_title: str, old_title: str) -> str:
     return f'"{new_t}" was set as a newer version of "{old_t}".'
 
 
-def message_arrived_message(sender_name: str, unread_count: int = 1, has_text: bool = True) -> str:
+def message_arrived_message(sender_name: str, unread_count: int = 1, has_text: bool = True,
+                            attachments: str = '') -> str:
     """
     A notification about a direct message: who wrote, never what they wrote.
 
@@ -88,6 +89,8 @@ def message_arrived_message(sender_name: str, unread_count: int = 1, has_text: b
     name = (sender_name or 'Someone').strip() or 'Someone'
     if unread_count and unread_count > 1:
         return f'{name} sent you {unread_count} messages.'
+    if not has_text and attachments:
+        return f'{name} sent you {attachments}.'
     if not has_text:
         return f'{name} shared a document with you.'
     return f'{name} sent you a message.'

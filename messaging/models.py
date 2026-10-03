@@ -9,8 +9,11 @@ The one place the system itself could leak is an attached document, so a documen
 is stored as a real foreign key and resolved per reader at render time. See
 ``ThreadMessage.visible_document_for``.
 """
+import os
+import uuid
+
 from django.contrib.auth.models import User
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 
@@ -26,6 +29,10 @@ class Thread(models.Model):
     participants = models.ManyToManyField(User, related_name='message_threads')
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
+    # Counts every change in the conversation -- a message sent, deleted or
+    # reacted to. Each change stamps the message with the new value, so a page
+    # asks "what changed since N" and gets every change exactly once, in order.
+    change_seq = models.PositiveBigIntegerField(default=0)
 
     class Meta:
         ordering = ['-updated_at', '-id']
@@ -119,6 +126,21 @@ class Thread(models.Model):
         self.updated_at = timezone.now()
         self.save(update_fields=['updated_at'])
 
+    def next_seq(self) -> int:
+        """
+        The next change number for this conversation.
+
+        Call inside the transaction that writes the change. The UPDATE locks the
+        thread row until that transaction commits, so a second writer waits for
+        the first one's number to become visible together with its change. A
+        reader that sees change N therefore also sees every change before N,
+        and a page polling "since N" can never skip one.
+        """
+        assert transaction.get_connection().in_atomic_block, 'next_seq() needs a transaction'
+        Thread.objects.filter(pk=self.pk).update(change_seq=models.F('change_seq') + 1)
+        self.change_seq = Thread.objects.filter(pk=self.pk).values_list('change_seq', flat=True)[0]
+        return self.change_seq
+
 
 class ThreadMessage(models.Model):
     """One message. May carry a document reference."""
@@ -135,10 +157,27 @@ class ThreadMessage(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     edited_at = models.DateTimeField(null=True, blank=True)
     is_deleted = models.BooleanField(default=False)
+    # The answer to a specific earlier message in the same conversation.
+    reply_to = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='replies')
+    # Made up by the sender's browser for each message it sends. A send that is
+    # retried -- the connection dropped before the answer arrived -- carries the
+    # same id and gets the message already stored instead of a second copy.
+    client_id = models.CharField(max_length=40, null=True, blank=True)
+    # The thread's change number when this message last changed (sent,
+    # deleted, reacted to). See Thread.next_seq.
+    change_seq = models.PositiveBigIntegerField(default=0)
 
     class Meta:
         ordering = ['id']
-        indexes = [models.Index(fields=['thread', 'id'])]
+        indexes = [
+            models.Index(fields=['thread', 'id']),
+            models.Index(fields=['thread', 'change_seq']),
+        ]
+        constraints = [
+            # NULL client ids (messages from before this existed) never clash.
+            models.UniqueConstraint(fields=['sender', 'client_id'], name='unique_message_client_id'),
+        ]
 
     def __str__(self):
         who = self.sender.get_username() if self.sender_id else 'deleted user'
@@ -175,6 +214,10 @@ class ThreadRead(models.Model):
                              related_name='thread_reads')
     last_read_message_id = models.PositiveBigIntegerField(default=0)
     last_read_at = models.DateTimeField(default=timezone.now)
+    # Set a few seconds ahead while this participant is typing; "X is typing"
+    # shows while it is in the future. Kept in the database, not in a cache, so
+    # it holds across server processes.
+    typing_until = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = [('thread', 'user')]
@@ -182,6 +225,65 @@ class ThreadRead(models.Model):
     def __str__(self):
         return (f'{self.user_id} read {self.thread_id} up to message '
                 f'{self.last_read_message_id}')
+
+
+def _attachment_path(instance, filename):
+    """A random stored name: the original is kept in `original_name` for display only."""
+    ext = os.path.splitext(filename)[1].lower()[:10]
+    return f"message_attachments/{timezone.now():%Y/%m}/{uuid.uuid4().hex}{ext}"
+
+
+class MessageAttachment(models.Model):
+    """
+    A file sent in a message: a picture, a voice message, or any other file.
+
+    Stored under media/, which is never served directly (BlockPublicMediaMiddleware);
+    the attachment view hands it only to the conversation's participants.
+    """
+
+    KIND_IMAGE = 'image'
+    KIND_VOICE = 'voice'
+    KIND_FILE = 'file'
+    KIND_CHOICES = [(KIND_IMAGE, 'Image'), (KIND_VOICE, 'Voice message'), (KIND_FILE, 'File')]
+
+    message = models.ForeignKey(ThreadMessage, on_delete=models.CASCADE, related_name='attachments')
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    file = models.FileField(upload_to=_attachment_path, max_length=255)
+    # A smaller copy of a picture for the conversation, re-encoded -- which also
+    # drops the photo's metadata (camera, location) from what the reader loads.
+    thumbnail = models.FileField(upload_to=_attachment_path, max_length=255, blank=True)
+    original_name = models.CharField(max_length=255)
+    # Decided by the server from the file's content, never taken from the browser.
+    content_type = models.CharField(max_length=100)
+    size = models.PositiveBigIntegerField(default=0)
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+    duration = models.FloatField(null=True, blank=True)  # seconds, voice messages
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f'{self.kind}: {self.original_name}'
+
+
+class MessageReaction(models.Model):
+    """One person's emoji on one message. A second click on the same emoji takes it back."""
+
+    message = models.ForeignKey(ThreadMessage, on_delete=models.CASCADE, related_name='reactions')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='message_reactions')
+    emoji = models.CharField(max_length=16)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['id']
+        constraints = [
+            models.UniqueConstraint(fields=['message', 'user', 'emoji'], name='unique_reaction'),
+        ]
+
+    def __str__(self):
+        return f'{self.user_id} {self.emoji} on {self.message_id}'
 
 
 def unread_total_for(user) -> int:

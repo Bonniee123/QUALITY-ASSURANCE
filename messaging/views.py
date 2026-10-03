@@ -17,22 +17,34 @@ cached heuristically -- so a reply built for one signed-in user could be replaye
 to the next, showing them the other person's messages as their own.
 """
 import json
+from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db.models import Q
-from django.http import JsonResponse
+from django.db import IntegrityError, transaction
+from django.db.models import Prefetch, Q
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from documents.audit import log_activity
 from documents.models import Document
 
 from accounts.avatars import avatar_url as _profile_photo
+from qa_archiving_system import rate_limit
 from accounts.middleware import is_passive_request
 from .area_search import area_codes_for
-from .models import Thread, ThreadMessage
+from . import attachments as attachment_rules
+from .models import MessageAttachment, MessageReaction, Thread, ThreadMessage, ThreadRead
+
+# The reactions on offer. A fixed set keeps them meaningful and the stored
+# values sane; anything else sent to the reaction endpoint is refused.
+REACTIONS = ('👍', '❤️', '😂', '😮', '😢', '🙏', '🎉', '✅')
+MAX_BODY = 5000
+TYPING_SECONDS = 6
 
 
 # --------------------------------------------------------------------------- #
@@ -172,7 +184,13 @@ def _thread_json(thread: Thread, viewer) -> dict:
     preview = ''
     if last:
         who = 'You: ' if last.sender_id == viewer.pk else ''
-        preview = who + (last.body[:70] if last.body else 'Shared a document')
+        if last.body:
+            preview = who + last.body[:70]
+        else:
+            kinds = [a.kind for a in last.attachments.all()]
+            what = attachment_rules.describe(kinds) if kinds else 'a document'
+            # "You: Sent a photo" for your own, "A photo" for theirs.
+            preview = f'{who}Sent {what}' if who else what[:1].upper() + what[1:]
     return {
         'id': thread.pk,
         'name': _display(other),
@@ -186,6 +204,76 @@ def _thread_json(thread: Thread, viewer) -> dict:
         'updated': thread.updated_at.strftime('%b %d, %H:%M'),
         'unread': thread.unread_count_for(viewer),
     }
+
+
+def _attachment_json(att: MessageAttachment) -> dict:
+    url = reverse('messaging:attachment', args=[att.pk])
+    return {
+        'id': att.pk,
+        'kind': att.kind,
+        'name': att.original_name,
+        'size': att.size,
+        'type': att.content_type.split(';')[0],
+        'url': url,
+        'thumb_url': f'{url}?v=thumb' if att.thumbnail else url,
+        'download_url': f'{url}?download=1',
+        'width': att.width,
+        'height': att.height,
+        'duration': att.duration,
+    }
+
+
+def _snippet(message: ThreadMessage) -> str:
+    if message.body:
+        return message.body[:140]
+    kinds = [a.kind for a in message.attachments.all()]
+    if kinds:
+        what = attachment_rules.describe(kinds)
+        return what[:1].upper() + what[1:]
+    return 'A document' if message.document_id else ''
+
+
+def _reply_json(original: ThreadMessage, viewer) -> dict:
+    """The quoted message a reply answers -- as much as this reader may see of it."""
+    if original is None:
+        return None
+    if original.is_deleted:
+        return {'id': original.pk, 'deleted': True, 'sender': _display(original.sender),
+                'mine': original.sender_id == viewer.pk, 'snippet': ''}
+    kinds = [a.kind for a in original.attachments.all()]
+    return {
+        'id': original.pk,
+        'deleted': False,
+        'sender': _display(original.sender),
+        'mine': original.sender_id == viewer.pk,
+        'snippet': _snippet(original),
+        'kind': kinds[0] if kinds else ('document' if original.document_id else 'text'),
+    }
+
+
+def _reactions_json(message: ThreadMessage, viewer) -> list:
+    """One entry per emoji, in the order first used: count, whether the reader is among them, and who."""
+    grouped = {}
+    for reaction in message.reactions.all():
+        entry = grouped.setdefault(reaction.emoji, {'emoji': reaction.emoji, 'count': 0, 'mine': False, 'names': []})
+        entry['count'] += 1
+        entry['mine'] = entry['mine'] or reaction.user_id == viewer.pk
+        entry['names'].append('You' if reaction.user_id == viewer.pk else _display(reaction.user))
+    return list(grouped.values())
+
+
+def _message_queryset(thread):
+    """Messages with everything their payload needs, in a fixed number of queries."""
+    return (thread.messages
+            .select_related('sender__profile', 'document', 'reply_to__sender')
+            .prefetch_related('attachments', 'reply_to__attachments',
+                              Prefetch('reactions', queryset=MessageReaction.objects.select_related('user'))))
+
+
+def _tombstone(message: ThreadMessage) -> dict:
+    """What a deleted message becomes in a sync: just enough to take it off the screen."""
+    return {'id': message.pk, 'deleted': True, 'seq': message.change_seq,
+            'client_id': message.client_id or None, 'sender_id': message.sender_id}
 
 
 def _message_json(message: ThreadMessage, viewer, other_read_upto=0) -> dict:
@@ -219,6 +307,11 @@ def _message_json(message: ThreadMessage, viewer, other_read_upto=0) -> dict:
         'read': bool(mine and message.pk <= other_read_upto),
         'document': None,
         'document_withheld': False,
+        'client_id': message.client_id or None,
+        'seq': message.change_seq,
+        'reply_to': _reply_json(message.reply_to, viewer) if message.reply_to_id else None,
+        'attachments': [_attachment_json(a) for a in message.attachments.all()],
+        'reactions': _reactions_json(message, viewer),
     }
     if message.document_id:
         visible = message.visible_document_for(viewer)
@@ -299,8 +392,7 @@ def thread_detail(request, pk):
     # Capture the unread mark *before* clearing it, so the interface can draw a
     # "new messages" divider at the point the reader last left off.
     first_unread = _first_unread_id(thread, request.user)
-    messages = list(thread.visible_messages()
-                    .select_related('sender__profile', 'document').order_by('id'))
+    messages = list(_message_queryset(thread).filter(is_deleted=False).order_by('id'))
     # Read up to the last message this response delivers, not whatever is
     # newest by the time the mark is written.
     if messages:
@@ -310,6 +402,10 @@ def thread_detail(request, pk):
         'thread': _thread_json(thread, request.user),
         'messages': [_message_json(m, request.user, other_read_upto) for m in messages],
         'first_unread': first_unread,
+        # Where this conversation's change history stands; the page asks the
+        # sync for everything after it.
+        'seq': Thread.objects.filter(pk=thread.pk).values_list('change_seq', flat=True)[0],
+        'typing': _typing_names(thread, request.user),
     })
 
 
@@ -336,42 +432,160 @@ def thread_start(request):
     return JsonResponse({'thread': _thread_json(thread, request.user)})
 
 
+def _send_error(code, message, status=400):
+    return JsonResponse({'ok': False, 'code': code, 'error': message}, status=status)
+
+
 @login_required
 @require_POST
 def message_send(request, pk):
+    """
+    Send a message: text, attachments, a voice message, a reply, or a document.
+
+    JSON for text, multipart when files come with it (``files`` for pictures
+    and files, ``voice`` for one recording). Every file is checked before
+    anything is stored, so a message is sent whole or not at all.
+
+    ``client_id`` makes the send safe to retry: the same id from the same
+    sender returns the message already stored instead of sending it twice.
+    """
     thread = _thread_for(request, pk)
-    try:
-        data = json.loads(request.body or b'{}')
-    except json.JSONDecodeError:
+    is_multipart = (request.content_type or '').startswith('multipart/')
+    if is_multipart:
         data = request.POST
+    else:
+        try:
+            data = json.loads(request.body or b'{}')
+        except json.JSONDecodeError:
+            data = request.POST
+
+    client_id = (str(data.get('client_id') or '').strip()[:40]) or None
+    if client_id:
+        already = ThreadMessage.objects.filter(sender=request.user, client_id=client_id).first()
+        if already is not None:
+            return _already_sent(request, thread, already)
 
     body = (data.get('body') or '').strip()
-    document_id = data.get('document_id')
+    if len(body) > MAX_BODY:
+        return _send_error('too_long', f'A message can be at most {MAX_BODY} characters.')
+
     document = None
+    document_id = data.get('document_id')
     if document_id:
         # The sender may only attach what they can open themselves. Whether the
         # recipient sees it is decided separately, when the message is rendered.
         from accounts.permissions import user_can_access_document
-        candidate = Document.objects.filter(pk=document_id).first()
+        candidate = Document.objects.live().filter(pk=document_id).first()
         if candidate and user_can_access_document(request.user, candidate):
             document = candidate
 
-    if not body and document is None:
-        return JsonResponse({'error': 'Message is empty.'}, status=400)
+    reply_to = None
+    reply_id = data.get('reply_to')
+    if reply_id:
+        reply_to = thread.messages.filter(pk=reply_id).first()
+        if reply_to is None:
+            return _send_error('reply_gone', 'The message you replied to is not in this conversation.')
 
-    message = ThreadMessage.objects.create(
-        thread=thread, sender=request.user, body=body, document=document
-    )
+    uploads = list(request.FILES.getlist('files')) if is_multipart else []
+    voice = request.FILES.get('voice') if is_multipart else None
+    if len(uploads) + (1 if voice else 0) > attachment_rules.max_files():
+        return _send_error('too_many', f'Send at most {attachment_rules.max_files()} files at a time.')
+    if (uploads or voice) and not rate_limit.allow(request, 'message_files'):
+        return _send_error('rate_limited', 'Too many files sent in a short time '
+                           f'(limit: {rate_limit.describe_limit("message_files")}). Wait a moment and try again.', 429)
+
+    checked = []
+    try:
+        for upload in uploads:
+            checked.append((upload, attachment_rules.check(upload)))
+        if voice:
+            checked.append((voice, attachment_rules.check(voice, voice=True)))
+    except attachment_rules.AttachmentError as exc:
+        return _send_error(exc.code, exc.message[:1].upper() + exc.message[1:] + '.')
+
+    if not body and document is None and not checked:
+        return _send_error('empty', 'Message is empty.')
+
+    duration = None
+    if voice:
+        try:
+            duration = max(0.0, min(float(data.get('voice_duration') or 0), 3600.0)) or None
+        except (TypeError, ValueError):
+            duration = None
+
+    stored_files = []
+    try:
+        with transaction.atomic():
+            seq = thread.next_seq()
+            message = ThreadMessage.objects.create(
+                thread=thread, sender=request.user, body=body, document=document,
+                reply_to=reply_to, client_id=client_id, change_seq=seq,
+            )
+            for upload, (kind, content_type, width, height) in checked:
+                att = MessageAttachment(
+                    message=message, kind=kind, content_type=content_type,
+                    original_name=(upload.name or 'file')[:255] if kind != MessageAttachment.KIND_VOICE
+                    else f'Voice message {timezone.localtime():%Y-%m-%d %H%M}{_ext(upload.name)}',
+                    size=upload.size, width=width, height=height,
+                    duration=duration if kind == MessageAttachment.KIND_VOICE else None,
+                )
+                att.file.save(upload.name or 'file', upload, save=False)
+                stored_files.append(att.file)
+                if kind == MessageAttachment.KIND_IMAGE:
+                    thumb, ext = attachment_rules.thumbnail_for(upload)
+                    if thumb is not None:
+                        att.thumbnail.save(f'thumb{ext}', thumb, save=False)
+                        stored_files.append(att.thumbnail)
+                att.save()
+    except IntegrityError:
+        # The same send arrived twice at once and the other copy won.
+        _remove_files(stored_files)
+        already = ThreadMessage.objects.filter(sender=request.user, client_id=client_id).first()
+        if already is not None:
+            return _already_sent(request, thread, already)
+        raise
+    except Exception:
+        _remove_files(stored_files)
+        raise
+
     thread.touch()
     thread.mark_read_for(request.user, upto=message.pk)
-
     _notify_recipients(thread, request.user, message)
     # No thread number, no recipient, no content. The row exists so the action
     # is accountable; naming the thread would publish who is talking to whom.
-    log_activity(request, 'send_message', 'Sent a direct message.')
+    if checked:
+        log_activity(request, 'send_message',
+                     f'Sent a direct message with {len(checked)} attachment(s) '
+                     f'({attachment_rules.describe([c[1][0] for c in checked])}).')
+    else:
+        log_activity(request, 'send_message', 'Sent a direct message.')
 
-    return JsonResponse({'message': _message_json(message, request.user),
+    message = _message_queryset(thread).get(pk=message.pk)
+    return JsonResponse({'ok': True, 'message': _message_json(message, request.user),
                          'thread': _thread_json(thread, request.user)})
+
+
+def _already_sent(request, thread, message):
+    """Answer a retried send with the message stored the first time."""
+    if message.thread_id != thread.pk:
+        return _send_error('client_id_reused', 'That message id was already used in another conversation.', 409)
+    message = _message_queryset(thread).get(pk=message.pk)
+    return JsonResponse({'ok': True, 'duplicate': True,
+                         'message': _message_json(message, request.user, _other_read_upto(thread, request.user)),
+                         'thread': _thread_json(thread, request.user)})
+
+
+def _ext(name):
+    import os
+    return os.path.splitext(name or '')[1].lower()[:10]
+
+
+def _remove_files(files):
+    for f in files:
+        try:
+            f.storage.delete(f.name)
+        except Exception:  # pragma: no cover - best effort on a failed send
+            pass
 
 
 @login_required
@@ -386,10 +600,98 @@ def message_delete(request, pk, message_id):
     thread = _thread_for(request, pk)
     message = get_object_or_404(ThreadMessage, pk=message_id, thread=thread,
                                 sender=request.user)
-    message.is_deleted = True
-    message.save(update_fields=['is_deleted'])
-    log_activity(request, 'delete_message', 'Deleted a direct message.')
-    return JsonResponse({'deleted': message.pk})
+    if not message.is_deleted:
+        with transaction.atomic():
+            message.change_seq = thread.next_seq()
+            message.is_deleted = True
+            message.save(update_fields=['is_deleted', 'change_seq'])
+        log_activity(request, 'delete_message', 'Deleted a direct message.')
+    return JsonResponse({'deleted': message.pk, 'seq': message.change_seq})
+
+
+@login_required
+@require_POST
+def message_react(request, pk, message_id):
+    """Add or take back one emoji on a message. Participants only; not on deleted messages."""
+    thread = _thread_for(request, pk)
+    message = get_object_or_404(ThreadMessage, pk=message_id, thread=thread, is_deleted=False)
+    try:
+        data = json.loads(request.body or b'{}')
+    except json.JSONDecodeError:
+        data = request.POST
+    emoji = str(data.get('emoji') or '')
+    if emoji not in REACTIONS:
+        return _send_error('invalid_reaction', 'That reaction is not available.')
+    with transaction.atomic():
+        removed, _ = MessageReaction.objects.filter(message=message, user=request.user, emoji=emoji).delete()
+        if not removed:
+            try:
+                with transaction.atomic():
+                    MessageReaction.objects.create(message=message, user=request.user, emoji=emoji)
+            except IntegrityError:
+                pass  # the same click arrived twice; one reaction is what was meant
+        message.change_seq = thread.next_seq()
+        message.save(update_fields=['change_seq'])
+    message = _message_queryset(thread).get(pk=message.pk)
+    return JsonResponse({'ok': True, 'message': _message_json(message, request.user,
+                                                              _other_read_upto(thread, request.user))})
+
+
+@login_required
+@require_POST
+def typing(request, pk):
+    """Say this person is typing in this conversation (or has stopped)."""
+    thread = _thread_for(request, pk)
+    if is_passive_request(request):
+        return JsonResponse({'ok': True})
+    try:
+        data = json.loads(request.body or b'{}')
+    except json.JSONDecodeError:
+        data = {}
+    until = timezone.now() + timedelta(seconds=TYPING_SECONDS) if data.get('typing', True) else None
+    state, _ = ThreadRead.objects.get_or_create(thread=thread, user=request.user)
+    ThreadRead.objects.filter(pk=state.pk).update(typing_until=until)
+    return JsonResponse({'ok': True})
+
+
+def _typing_names(thread, viewer) -> list:
+    return [_display(state.user) for state in
+            thread.read_states.select_related('user')
+            .exclude(user=viewer).filter(typing_until__gt=timezone.now())]
+
+
+@login_required
+@require_GET
+def attachment(request, attachment_id):
+    """
+    One attachment, to a participant of its conversation and nobody else.
+
+    Pictures and voice messages are shown in the page; every other file is a
+    download. The type comes from the server's own check of the content, the
+    response may not be framed or run anything, and a deleted message's
+    files are no longer handed out.
+    """
+    att = (MessageAttachment.objects.select_related('message__thread')
+           .filter(pk=attachment_id, message__is_deleted=False,
+                   message__thread__participants=request.user).first())
+    if att is None:
+        raise Http404
+    use_thumb = request.GET.get('v') == 'thumb' and att.thumbnail
+    stored = att.thumbnail if use_thumb else att.file
+    try:
+        handle = stored.open('rb')
+    except (FileNotFoundError, OSError, ValueError):
+        raise Http404
+    inline = att.kind in (MessageAttachment.KIND_IMAGE, MessageAttachment.KIND_VOICE) \
+        and request.GET.get('download') != '1'
+    content_type = ('image/jpeg' if str(stored.name).endswith('.jpg') else 'image/png') if use_thumb \
+        else att.content_type
+    response = FileResponse(handle, content_type=content_type, as_attachment=not inline,
+                            filename=att.original_name)
+    response['Cache-Control'] = 'private, max-age=86400'
+    response['Content-Security-Policy'] = "default-src 'none'; img-src 'self'; media-src 'self'; sandbox"
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 # --------------------------------------------------------------------------- #
@@ -498,18 +800,40 @@ def sync(request):
             # conversation that no longer exists.
             payload['thread_gone'] = True
         if thread is not None:
-            fresh = thread.visible_messages().select_related('sender__profile', 'document')
             try:
                 on_screen = max(int(after or 0), 0)
             except (TypeError, ValueError):
                 on_screen = 0
-            if on_screen:
-                fresh = fresh.filter(pk__gt=on_screen)
             other_read_upto = _other_read_upto(thread, request.user)
-            rows = list(fresh.order_by('id')[:50])
-            payload['messages'] = [
-                _message_json(m, request.user, other_read_upto) for m in rows
-            ]
+            since = request.GET.get('seq')
+            if since is not None and str(since).isdigit():
+                # Everything that changed after the page's change number: new
+                # messages, deletions, reactions. The current number is read
+                # first; every change up to it has committed with it (see
+                # Thread.next_seq), so nothing between the two reads is lost --
+                # it simply arrives with the next sync.
+                cursor = Thread.objects.filter(pk=thread.pk).values_list('change_seq', flat=True)[0]
+                changed = list(_message_queryset(thread)
+                               .filter(change_seq__gt=int(since), change_seq__lte=cursor)
+                               .order_by('change_seq', 'id')[:200])
+                payload['changes'] = [
+                    _tombstone(m) if m.is_deleted else _message_json(m, request.user, other_read_upto)
+                    for m in changed
+                ]
+                # A page can only fall this far behind after a long absence;
+                # it is told to reload the conversation rather than patch it.
+                payload['seq'] = changed[-1].change_seq if len(changed) == 200 else cursor
+                payload['reload'] = len(changed) == 200
+                rows = [m for m in changed if not m.is_deleted and m.pk > on_screen]
+                payload['typing'] = _typing_names(thread, request.user)
+            else:
+                fresh = thread.visible_messages().select_related('sender__profile', 'document')
+                if on_screen:
+                    fresh = fresh.filter(pk__gt=on_screen)
+                rows = list(fresh.order_by('id')[:50])
+                payload['messages'] = [
+                    _message_json(m, request.user, other_read_upto) for m in rows
+                ]
             # Seeing them is reading them -- when someone is there to see them.
             # A passive refresh (nobody has touched the page for a minute) still
             # puts new messages on screen, but must not report them read: the
@@ -524,7 +848,7 @@ def sync(request):
             # delivers, or those already shown (`after`). A message that lands
             # while this request runs stays unread until a refresh delivers it.
             if not is_passive_request(request):
-                seen = rows[-1].pk if rows else on_screen
+                seen = max([m.pk for m in rows] + [on_screen])
                 if seen and thread.mark_read_for(request.user, upto=seen):
                     payload['unread_messages'] = unread_total_for(request.user)
             # Read receipts change without any new message arriving, so the
@@ -568,6 +892,7 @@ def _notify_recipients(thread: Thread, sender, message: ThreadMessage) -> None:
         for recipient in recipients:
             text = message_arrived_message(
                 _display(sender), thread.unread_count_for(recipient), bool(message.body),
+                attachment_rules.describe(a.kind for a in message.attachments.all()),
             )
             standing = (Notification.objects
                         .filter(user=recipient, category='message', link=link, is_read=False)

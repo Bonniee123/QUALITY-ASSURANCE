@@ -26,6 +26,8 @@ _SCOPES = {
     'chatbot': ('CHATBOT_RATE_LIMIT', 'CHATBOT_RATE_LIMIT_WINDOW', 20, 60, 'QA Assistant messages'),
     'upload': ('UPLOAD_RATE_LIMIT', 'UPLOAD_RATE_LIMIT_WINDOW', 15, 600, 'upload batches'),
     'zip': ('ZIP_RATE_LIMIT', 'ZIP_RATE_LIMIT_WINDOW', 10, 600, 'ZIP downloads'),
+    'message_files': ('MESSAGE_FILES_RATE_LIMIT', 'MESSAGE_FILES_RATE_LIMIT_WINDOW', 40, 600,
+                      'messages with files'),
 }
 
 

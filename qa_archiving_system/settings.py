@@ -153,6 +153,9 @@ DELETE_UNDO_SECONDS = int(os.getenv('DELETE_UNDO_SECONDS', '10'))
 # Extra seconds the server allows for an Undo clicked in the last moment to arrive.
 DELETE_UNDO_GRACE_SECONDS = int(os.getenv('DELETE_UNDO_GRACE_SECONDS', '3'))
 BULK_DELETE_MAX = int(os.getenv('BULK_DELETE_MAX', '500'))
+# Messages: the largest file that can be sent, and how many files per message.
+MESSAGE_ATTACHMENT_MAX_MB = int(os.getenv('MESSAGE_ATTACHMENT_MAX_MB', '15'))
+MESSAGE_ATTACHMENTS_PER_MESSAGE = int(os.getenv('MESSAGE_ATTACHMENTS_PER_MESSAGE', '10'))
 
 # Below this many characters a document is not characterised well enough for
 # cosine similarity over its terms to mean anything. Two unrelated flowcharts

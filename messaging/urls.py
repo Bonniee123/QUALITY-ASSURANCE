@@ -13,6 +13,11 @@ urlpatterns = [
     path('threads/<int:pk>/send/', views.message_send, name='message_send'),
     path('threads/<int:pk>/messages/<int:message_id>/delete/',
          views.message_delete, name='message_delete'),
+    path('threads/<int:pk>/messages/<int:message_id>/react/',
+         views.message_react, name='message_react'),
+    path('threads/<int:pk>/typing/', views.typing, name='typing'),
+    # Attachments are served only to the conversation's participants.
+    path('attachments/<int:attachment_id>/', views.attachment, name='attachment'),
     path('people/', views.people, name='people'),
     path('unread/', views.unread_count, name='unread_count'),
     # One request per tick: badge counts, thread list, and any new messages in
