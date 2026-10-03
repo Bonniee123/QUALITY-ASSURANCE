@@ -211,8 +211,7 @@
     top: 0;
     z-index: 2;
 }
-.rpt-table tbody tr:nth-child(even) { background: var(--color-canvas); }
-.rpt-table tbody tr:hover { background: var(--color-overlay); }
+.rpt-table tbody tr:nth-child(even) > * { --bs-table-bg-type: var(--color-canvas); }
 .rpt-table tbody td { border-bottom: 1px solid hsl(210, 20%, 93%); }
 </style>
 {% endblock %}

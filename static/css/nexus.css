@@ -810,7 +810,7 @@
 }
 .nx-table tbody tr:last-child td { border-bottom: none; }
 .nx-table tbody tr { transition: background 0.12s; }
-.nx-table tbody tr:hover { background: hsl(220, 25%, 99%); }
+.nx-table tbody tr:hover { background: var(--row-hover); }
 
 .nx-program-link {
     display: flex;

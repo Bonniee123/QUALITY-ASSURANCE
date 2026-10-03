@@ -187,6 +187,55 @@ window.qaToast = function (message, variant) {
     t.show();
 };
 
+/**
+ * One sentence for a request that failed, saying which kind of failure it was.
+ *
+ * "Something went wrong" reads the same whether the connection dropped, the
+ * session ended, the file was too big or the server broke, and each of those
+ * asks the person for something different. `status` is the HTTP status (0 when
+ * the request never got an answer), `data` the JSON body if there was one, and
+ * `action` what was being attempted: 'upload', 'delete', 'undo' or 'load'.
+ */
+window.qaRequestError = function (status, data, action) {
+    data = data || {};
+    const code = data.code || '';
+    const said = data.error || data.message || '';
+    if (status === 0 || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+        return "You're offline. Check your internet connection — nothing was changed.";
+    }
+    if (status === 401) {
+        return 'Your session has expired. Sign in again to continue.';
+    }
+    if (status === 403) {
+        if (code === 'csrf' || /csrf/i.test(said)) {
+            return 'This page is out of date. Refresh it and try again.';
+        }
+        return said || 'You do not have permission to do that.';
+    }
+    if (action === 'undo') {
+        if (status === 410 || code === 'expired') {
+            return 'Too late to undo — the time ran out and the documents were permanently deleted.';
+        }
+        if (status === 409 || code === 'already_restored') { return 'These documents were already restored.'; }
+        if (status === 404 || code === 'not_found') { return 'This deletion can only be undone by the person who made it.'; }
+    }
+    if (status === 404) { return said || 'That item no longer exists. Refresh the list and try again.'; }
+    if (status === 413 || code === 'too_large') { return said || 'The file is too large to upload.'; }
+    if (status === 415 || code === 'invalid_type') { return said || 'That file type is not allowed.'; }
+    if (status === 429) { return said || 'Too many requests at once. Wait a moment and try again.'; }
+    if (status >= 500) {
+        return 'The server ran into a problem' + (action === 'upload' ? ' and the upload did not finish' : '')
+            + '. Nothing was changed — try again in a moment.';
+    }
+    if (said) { return said; }
+    return {
+        upload: 'The upload failed. Try again.',
+        delete: 'Nothing was deleted. Refresh the list and try again.',
+        undo: 'The documents could not be restored.',
+        load: 'Could not load this. Try again.'
+    }[action] || 'That did not work. Try again.';
+};
+
 document.addEventListener('click', function (e) {
     const trigger = e.target.closest('.js-qa-delete-confirm');
     if (!trigger) {
@@ -201,10 +250,50 @@ document.addEventListener('click', function (e) {
     if (!url || !form || !modalEl || !body) {
         return;
     }
-    body.textContent = 'Delete "' + title + '"? You can undo this for ten seconds afterwards.';
+    // A single delete is final: this dialog is the safeguard. Only a bulk
+    // delete leaves time to undo.
+    body.textContent = 'Delete "' + title + '"? This cannot be undone — the file is removed, '
+        + 'and the record of who uploaded and deleted it is kept in Document History.';
     form.action = url;
     if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
         bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+});
+
+// A confirmed delete is sent once. The button says what is happening, and a
+// second click while the first request is on its way does nothing.
+document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!form || form.id !== 'qaDeleteDocumentForm') {
+        return;
+    }
+    if (form.dataset.busy === '1') {
+        e.preventDefault();
+        return;
+    }
+    form.dataset.busy = '1';
+    const button = form.querySelector('[type=submit]');
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>'
+            + qaEscapeHtml(button.getAttribute('data-busy-text') || 'Working…');
+    }
+});
+
+// Coming back to a page from the browser's history restores it as it was
+// left -- including a delete button stuck on "Deleting…".
+window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) {
+        return;
+    }
+    const form = document.getElementById('qaDeleteDocumentForm');
+    if (form && form.dataset.busy === '1') {
+        form.dataset.busy = '';
+        const button = form.querySelector('[type=submit]');
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-trash3 me-1"></i>Delete permanently';
+        }
     }
 });
 
@@ -363,3 +452,15 @@ document.addEventListener('scroll', function (e) {
         window.qaSizeScrollPanels = sizePanels;
     }
 })();
+
+// The offline page. A service worker keeps a copy of it and shows it in place
+// of a page that cannot load for want of a connection (see /sw.js). Browsers
+// allow service workers only on https and on this machine (localhost).
+if ('serviceWorker' in navigator && window.isSecureContext) {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {
+            /* Not available (private window, policy): pages just fail the usual way. */
+        });
+    });
+}
+

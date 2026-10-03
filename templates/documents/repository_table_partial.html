@@ -1,11 +1,15 @@
 {% load dict_extras %}
 {% for doc in documents %}
 <tr class="doc-row {% if doc.is_archived %}table-secondary{% endif %}" data-doc-id="{{ doc.pk }}">
-    {% if rbac_is_qa_staff_or_admin %}
-    <td class="text-center">
-        <input class="form-check-input js-bulk-doc-checkbox" type="checkbox" value="{{ doc.pk }}" aria-label="Select {{ doc.title }}">
+    {% comment %}
+    Every role selects what it may delete: staff any row, Faculty their own
+    uploads. Other rows keep the cell, empty, so the columns stay aligned.
+    {% endcomment %}
+    <td class="text-center repo-col-select">
+        {% if not rbac_is_faculty or doc.uploaded_by_id == user.id %}
+        <input class="form-check-input js-bulk-doc-checkbox" type="checkbox" name="document_ids" value="{{ doc.pk }}" aria-label="Select {{ doc.title }}">
+        {% endif %}
     </td>
-    {% endif %}
     {% comment %}
     The title is emitted in full and truncated by CSS, not by `truncatechars`.
     Cutting it server-side put an already-shortened string in the DOM, so the
@@ -63,7 +67,7 @@
     <td class="repo-col-actions text-end">{% include 'documents/_row_actions.html' with doc=doc %}</td>
 </tr>
 {% empty %}
-<tr><td colspan="{% if rbac_is_qa_staff_or_admin %}12{% else %}9{% endif %}">
+<tr><td colspan="{% if rbac_is_qa_staff_or_admin %}12{% else %}10{% endif %}">
     {% if rbac_is_faculty %}
     {% include 'includes/empty_state.html' with empty_icon='bi-archive' empty_title='No documents found' empty_text='Try adjusting your filters. Use the Upload Document page to add a new file.' %}
     {% else %}

@@ -1,4 +1,6 @@
 """Template context for RBAC helpers."""
+from django.conf import settings
+
 from .permissions import (
     is_admin,
     is_faculty,
@@ -23,4 +25,6 @@ def rbac_context(request):
         'rbac_can_run_ai_processing': user_has_permission(user, PERM_RUN_AI_PROCESSING),
         'rbac_can_view_reports': user_has_permission(user, PERM_VIEW_REPORTS),
         'rbac_can_delete_documents': user_has_permission(user, PERM_DELETE_DOCUMENTS),
+        # How long a bulk delete can be undone, for the undo toasts.
+        'delete_undo_seconds': int(getattr(settings, 'DELETE_UNDO_SECONDS', 10)),
     }

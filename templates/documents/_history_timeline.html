@@ -1,0 +1,34 @@
+{% load audit_tags %}
+{% comment %}
+One document's history, oldest first: uploaded, edited, deleted, restored,
+permanently deleted. Each entry carries the name of whoever acted as it was
+when they acted, so it still reads correctly after the document is gone or
+the account was removed. `entries` is a list of ActivityLog rows.
+{% endcomment %}
+<ol class="doc-timeline">
+    {% for entry in entries %}
+    <li class="doc-timeline-item is-{% if entry.action == 'upload_document' %}upload{% elif entry.action == 'restore_document' or entry.action == 'version_unarchive' %}restore{% elif entry.action == 'purge_document' %}purge{% elif entry.action == 'delete_document' or entry.action == 'bulk_delete_document' or entry.action == 'upload_rejected' %}delete{% else %}other{% endif %}">
+        <span class="doc-timeline-dot" aria-hidden="true">
+            {% if entry.action == 'upload_document' %}<i class="bi bi-cloud-arrow-up"></i>
+            {% elif entry.action == 'restore_document' or entry.action == 'version_unarchive' %}<i class="bi bi-arrow-counterclockwise"></i>
+            {% elif entry.action == 'purge_document' %}<i class="bi bi-x-octagon"></i>
+            {% elif entry.action == 'delete_document' or entry.action == 'bulk_delete_document' or entry.action == 'upload_rejected' %}<i class="bi bi-trash3"></i>
+            {% elif entry.action == 'edit_document' %}<i class="bi bi-pencil"></i>
+            {% elif entry.action == 'document_processed' %}<i class="bi bi-cpu"></i>
+            {% elif entry.action == 'version_supersede' %}<i class="bi bi-layers"></i>
+            {% elif entry.action == 'duplicate_confirmed' or entry.action == 'duplicate_dismissed' %}<i class="bi bi-shield-check"></i>
+            {% else %}<i class="bi bi-dot"></i>{% endif %}
+        </span>
+        <div class="doc-timeline-body">
+            <div class="doc-timeline-head">
+                <strong>{{ entry.action|audit_action_label }}</strong>
+                {% if entry.actor_name %}<span>by {{ entry.actor_name }}</span>{% elif entry.user %}<span>by {{ entry.user.get_full_name|default:entry.user.username }}</span>{% elif entry.action == 'purge_document' %}<span>{% if entry.batch.kind == 'single' %}file removed after the confirmed delete{% else %}undo window closed{% endif %}</span>{% endif %}
+            </div>
+            <time datetime="{{ entry.created_at|date:'c' }}">{{ entry.created_at|date:"M d, Y · g:i:s A" }}</time>
+            {% if entry.description %}<div class="doc-timeline-note">{{ entry.description }}</div>{% endif %}
+        </div>
+    </li>
+    {% empty %}
+    <li class="doc-timeline-empty">No recorded activity for this document yet.</li>
+    {% endfor %}
+</ol>

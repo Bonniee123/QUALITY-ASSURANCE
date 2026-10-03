@@ -11,6 +11,7 @@ from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db.models import Case, Count, IntegerField, Q, Value, When
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
@@ -20,7 +21,7 @@ from urllib.parse import urlencode
 
 from .forms import DepartmentForm, LoginForm, UserCreateForm, UserEditForm
 from .models import Department, UserProfile
-from .decorators import admin_required
+from .decorators import admin_required, qa_staff_required
 from .permissions import ROLE_ADMIN, get_user_role
 from .presence import presence
 from .auth_security import (
@@ -526,6 +527,95 @@ def audit_log(request):
             'date_from': date_from,
             'date_to': date_to,
         },
+        'query_string': urlencode(filter_params),
+    })
+
+
+@login_required
+@qa_staff_required
+def document_history(request):
+    """
+    Every document ever archived, including deleted ones, with who uploaded
+    and who deleted it and its full history.
+
+    The rows are documents, not log entries: "what happened to this file" is
+    the question, and a deleted document stays listed -- with the name it had,
+    who removed it and when -- after its file is gone.
+    """
+    from django.db.models import Prefetch, prefetch_related_objects
+
+    from documents.audit import DOCUMENT_EVENT_ACTIONS
+    from documents.deletion import finalize_expired_batches
+    from documents.models import DeletionBatch, Document
+
+    finalize_expired_batches()
+    now = timezone.now()
+    qs = Document.objects.select_related('uploaded_by', 'deleted_by', 'deletion_batch', 'acc_area')
+
+    q = request.GET.get('q', '').strip()
+    status = request.GET.get('status', '').strip()
+    uploader = request.GET.get('uploader', '').strip()
+    deleter = request.GET.get('deleter', '').strip()
+
+    if q:
+        qs = qs.filter(
+            Q(title__icontains=q) | Q(original_filename__icontains=q)
+            | Q(uploaded_by__username__icontains=q) | Q(uploaded_by__first_name__icontains=q)
+            | Q(uploaded_by__last_name__icontains=q) | Q(deleted_by__username__icontains=q)
+            | Q(deleted_by__first_name__icontains=q) | Q(deleted_by__last_name__icontains=q)
+            | Q(deletion_batch__user_name__icontains=q)
+        )
+    pending = Q(deleted_at__isnull=False, purged_at__isnull=True,
+                deletion_batch__status=DeletionBatch.STATUS_PENDING, deletion_batch__expires_at__gt=now)
+    if status == 'active':
+        qs = qs.filter(deleted_at__isnull=True)
+    elif status == 'pending':
+        qs = qs.filter(pending)
+    elif status == 'deleted':
+        qs = qs.filter(deleted_at__isnull=False)
+    elif status == 'purged':
+        qs = qs.filter(purged_at__isnull=False)
+    elif status == 'restored':
+        qs = qs.filter(deleted_at__isnull=True, activity__action='restore_document').distinct()
+    else:
+        status = ''
+    if uploader.isdigit():
+        qs = qs.filter(uploaded_by_id=int(uploader))
+    if deleter.isdigit():
+        qs = qs.filter(deleted_by_id=int(deleter))
+
+    # Deleted documents first, newest change first: what someone opens this
+    # page to check is usually what just disappeared.
+    qs = qs.order_by(Coalesce('deleted_at', 'uploaded_at').desc(), '-pk')
+    page_obj = Paginator(qs, 25).get_page(request.GET.get('page'))
+    rows = list(page_obj.object_list)
+    events = Prefetch(
+        'activity',
+        queryset=ActivityLog.objects.filter(action__in=DOCUMENT_EVENT_ACTIONS).select_related('user', 'batch').order_by('created_at', 'pk'),
+        to_attr='history',
+    )
+    prefetch_related_objects(rows, events)
+
+    counts = Document.objects.aggregate(
+        total=Count('pk'),
+        active=Count('pk', filter=Q(deleted_at__isnull=True)),
+        deleted=Count('pk', filter=Q(deleted_at__isnull=False)),
+        purged=Count('pk', filter=Q(purged_at__isnull=False)),
+    )
+    filter_params = {k: v for k, v in (('q', q), ('status', status), ('uploader', uploader), ('deleter', deleter)) if v}
+    people = User.objects.order_by('first_name', 'last_name', 'username')
+
+    return render(request, 'accounts/document_history.html', {
+        'page_obj': page_obj,
+        'rows': rows,
+        'counts': counts,
+        'filters': {'q': q, 'status': status, 'uploader': uploader, 'deleter': deleter},
+        'status_choices': [
+            ('active', 'Active'), ('pending', 'Deleted — undo available'), ('deleted', 'Deleted (all)'),
+            ('purged', 'Permanently deleted'), ('restored', 'Restored after a delete'),
+        ],
+        'uploader_choices': people.filter(pk__in=Document.objects.values('uploaded_by')),
+        'deleter_choices': people.filter(pk__in=Document.objects.filter(deleted_by__isnull=False).values('deleted_by')),
         'query_string': urlencode(filter_params),
     })
 

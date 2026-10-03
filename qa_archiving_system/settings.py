@@ -146,6 +146,14 @@ AI_AUTO_FULL_PIPELINE_MAX_DOCS = int(os.getenv('AI_AUTO_FULL_PIPELINE_MAX_DOCS',
 # Set to 0 to switch the check off.
 JOB_STALE_MINUTES = int(os.getenv('JOB_STALE_MINUTES', '20'))
 
+# Bulk deletes can be undone for this many seconds; then the documents' files
+# are removed and the deletion is permanent (the records and their history
+# stay). A single delete is confirmed in a dialog and is permanent at once.
+DELETE_UNDO_SECONDS = int(os.getenv('DELETE_UNDO_SECONDS', '10'))
+# Extra seconds the server allows for an Undo clicked in the last moment to arrive.
+DELETE_UNDO_GRACE_SECONDS = int(os.getenv('DELETE_UNDO_GRACE_SECONDS', '3'))
+BULK_DELETE_MAX = int(os.getenv('BULK_DELETE_MAX', '500'))
+
 # Below this many characters a document is not characterised well enough for
 # cosine similarity over its terms to mean anything. Two unrelated flowcharts
 # whose OCR yields a dozen shared words ("The system", "uploads document")

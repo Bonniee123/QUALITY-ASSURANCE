@@ -16,6 +16,7 @@ from django.utils.http import content_disposition_header
 from django.conf import settings
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
+from .audit import DOCUMENT_EVENT_ACTIONS, record_document_event
 from .near_duplicates import as_percent, blocked_message
 from .jobs import enqueue_job, serialize_job
 from .models import Document, ActivityLog, BackgroundJob
@@ -477,6 +478,7 @@ def bulk_upload(request):
                     # The title column holds 255 characters; MySQL refuses a
                     # longer value where SQLite quietly stored it.
                     title=os.path.splitext(filename)[0][:255],
+                    original_filename=filename[:255],
                     file=f,
                     file_type=ext.lstrip('.'),
                     year=datetime.now().year,
@@ -499,6 +501,8 @@ def bulk_upload(request):
 
         job = None
         if uploaded_doc_ids:
+            # Announced by the job once the files are processed: a file it
+            # turns away as a near-duplicate is never named in a notification.
             job = enqueue_job(
                 'bulk_upload_process',
                 payload={
@@ -670,7 +674,10 @@ def structured_upload(request):
             doc = form.save(commit=False)
             doc.uploaded_by = request.user
             doc.file_type = os.path.splitext(doc.file.name)[1].lower().lstrip('.') if doc.file else 'pdf'
+            doc.original_filename = (doc.file.name or '')[:255] if doc.file else ''
             doc.save()
+            from .document_events import announce_uploads
+            announce_uploads(request.user, [doc])
 
             problem = ''
             if doc.file and hasattr(doc.file, 'path') and os.path.exists(doc.file.path):
@@ -695,11 +702,6 @@ def structured_upload(request):
             except Exception as exc:
                 logger.warning('Post-upload full AI failed: %s', exc)
 
-            ActivityLog.objects.create(
-                user=request.user,
-                action='structured_upload',
-                description=f'Structured upload: {doc.title}',
-            )
             if problem:
                 messages.warning(request, f'Document saved, but: {problem}')
             else:
@@ -839,15 +841,12 @@ def faculty_upload(request):
                 area_obj = AccreditationArea.objects.filter(area_code=doc.qa_area).first()
                 if area_obj:
                     doc.acc_area = area_obj
+                doc.original_filename = (doc.file.name or '')[:255] if doc.file else ''
                 doc.save()
+                from .document_events import announce_uploads
+                announce_uploads(request.user, [doc])
 
                 problem = _finalize_uploaded_document(request, doc)
-
-                ActivityLog.objects.create(
-                    user=request.user,
-                    action='faculty_upload',
-                    description=f'Faculty upload ({doc.qa_area}): {doc.title}',
-                )
                 if problem:
                     messages.warning(request, f'Document "{doc.title}" was saved to {doc.qa_area}, but: {problem}')
                 else:
@@ -1092,19 +1091,19 @@ def repository_list(request):
     # the whole id list here rather than guessing from what is on screen,
     # which is what kept a selection of "247" silently meaning the six rows
     # the reader could see.
+    #
+    # Only rows this person may delete can be selected: Faculty select among
+    # their own uploads. The server checks every id again at delete time.
+    selectable_qs = documents_qs if area_scope is None else documents_qs.filter(uploaded_by=request.user)
     if request.GET.get('ids') == '1':
         return JsonResponse({
-            'ids': list(documents_qs.values_list('pk', flat=True)),
-            'total': total_count,
+            'ids': list(selectable_qs.values_list('pk', flat=True)),
+            'total': selectable_qs.count(),
         })
-
-    # Read once and cleared: an undo offer belongs to the page load that
-    # follows the deletion, not to every later visit.
-    pending_undo = request.session.pop('pending_undo', None)
 
     context = {
         'documents': page_obj.object_list,
-        'pending_undo': pending_undo,
+        'selectable_count': total_count if area_scope is None else selectable_qs.count(),
         'total_count': total_count,
         'page_obj': page_obj,
         'has_more': has_more,
@@ -1137,9 +1136,9 @@ def repository_list(request):
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         html = render_to_string('documents/repository_table_partial.html', context, request=request)
         if query or filters or show_archived or uploaded:
-            count_html = f'Found <strong>{total_count}</strong> result{"s" if total_count != 1 else ""}'
+            count_html = f'Found <strong id="filterCountNum">{total_count}</strong> result{"s" if total_count != 1 else ""}'
         else:
-            count_html = f'<strong>{total_count}</strong> document{"s" if total_count != 1 else ""} total'
+            count_html = f'<strong id="filterCountNum">{total_count}</strong> document{"s" if total_count != 1 else ""} total'
         if has_more:
             count_html += ' <span class="text-muted">· scroll the document list for more</span>'
         return JsonResponse(
@@ -1150,6 +1149,7 @@ def repository_list(request):
                 'next_page': next_page,
                 'page': page_number,
                 'total': total_count,
+                'selectable_total': context['selectable_count'],
             }
         )
 
@@ -1403,7 +1403,7 @@ def _describe_similarity(doc, other, match):
 @repository_access_required
 def document_detail(request, pk):
     """View document details including AI processing results and version history."""
-    doc = get_object_or_404(Document, pk=pk)
+    doc = get_object_or_404(Document.objects.live(), pk=pk)
     if not user_can_access_document(request.user, doc):
         messages.error(request, 'That document is outside your assigned area(s).')
         return redirect('documents:repository')
@@ -1468,6 +1468,11 @@ def document_detail(request, pk):
         'version_chain': version_chain,
         'can_manage_versions': can_manage_versions,
         'candidate_older_docs': candidate_older_docs,
+        # Who uploaded, edited and changed it, oldest first. Staff only, like
+        # the rest of the audit trail.
+        'history': list(doc.activity.filter(action__in=DOCUMENT_EVENT_ACTIONS)
+                        .select_related('user', 'batch').order_by('created_at', 'pk'))
+                   if staff_view else [],
     }
 
     if request.GET.get('panel') == '1':
@@ -1506,13 +1511,13 @@ def _decision_response(request, doc, note):
 @login_required
 @qa_staff_required
 def mark_duplicate_confirmed(request, pk):
-    doc = get_object_or_404(Document, pk=pk)
+    doc = get_object_or_404(Document.objects.live(), pk=pk)
     if request.method == 'POST':
         from .ai_pipeline import REVIEW_CONFIRMED, record_duplicate_review
 
         # Kept on each listed match, so the next AI run leaves the decision alone.
         record_duplicate_review(doc, REVIEW_CONFIRMED)
-        ActivityLog.objects.create(user=request.user, action='duplicate_confirmed', description=f'Confirmed duplicate: {doc.title}')
+        record_document_event(doc, 'duplicate_confirmed', request.user, description=f'Confirmed duplicate: {doc.title}')
         return _decision_response(request, doc, 'Marked as a confirmed duplicate.')
     return redirect('documents:detail', pk=pk)
 
@@ -1520,14 +1525,14 @@ def mark_duplicate_confirmed(request, pk):
 @login_required
 @qa_staff_required
 def dismiss_duplicate(request, pk):
-    doc = get_object_or_404(Document, pk=pk)
+    doc = get_object_or_404(Document.objects.live(), pk=pk)
     if request.method == 'POST':
         from .ai_pipeline import REVIEW_DISMISSED, record_duplicate_review
 
         # Kept on each listed match: the next AI run neither re-flags this
         # document for them nor announces them again.
         record_duplicate_review(doc, REVIEW_DISMISSED)
-        ActivityLog.objects.create(user=request.user, action='duplicate_dismissed', description=f'Dismissed duplicate flag: {doc.title}')
+        record_document_event(doc, 'duplicate_dismissed', request.user, description=f'Dismissed duplicate flag: {doc.title}')
         return _decision_response(request, doc, 'Cleared — kept as a separate version.')
     return redirect('documents:detail', pk=pk)
 
@@ -1535,7 +1540,7 @@ def dismiss_duplicate(request, pk):
 @login_required
 @qa_staff_required
 def retry_ocr(request, pk):
-    doc = get_object_or_404(Document, pk=pk)
+    doc = get_object_or_404(Document.objects.live(), pk=pk)
     if request.method == 'POST' and doc.file_type in ('docx', 'xlsx'):
         # OCR reads pictures of text; a Word or Excel file's text is read directly.
         messages.info(request, 'OCR does not apply to Word or Excel files - their text is read directly.')
@@ -1562,7 +1567,7 @@ def mark_as_version(request, pk):
 
     POST: previous_id — the older document to archive and link as previous_version.
     """
-    doc = get_object_or_404(Document, pk=pk)
+    doc = get_object_or_404(Document.objects.live(), pk=pk)
     if request.method != 'POST':
         return redirect('documents:detail', pk=pk)
 
@@ -1603,11 +1608,8 @@ def mark_as_version(request, pk):
     older.is_archived = True
     older.save(update_fields=['is_archived'])
 
-    ActivityLog.objects.create(
-        user=request.user,
-        action='version_supersede',
-        description=f'"{doc.title}" now supersedes "{older.title}" (archived).',
-    )
+    record_document_event(doc, 'version_supersede', request.user,
+                          description=f'"{doc.title}" now supersedes "{older.title}" (archived).')
     try:
         from notifications.services import notify_qa_staff
         from notifications.user_messages import version_supersede_message
@@ -1634,7 +1636,7 @@ def unarchive_document(request, pk):
     document was both current and "an older version", and a later supersede in
     the other direction made a cycle.
     """
-    doc = get_object_or_404(Document, pk=pk)
+    doc = get_object_or_404(Document.objects.live(), pk=pk)
     if request.method == 'POST':
         doc.is_archived = False
         doc.save(update_fields=['is_archived'])
@@ -1642,9 +1644,8 @@ def unarchive_document(request, pk):
         for newer in unlinked:
             newer.previous_version = None
             newer.save(update_fields=['previous_version'])
-        ActivityLog.objects.create(
-            user=request.user,
-            action='version_unarchive',
+        record_document_event(
+            doc, 'version_unarchive', request.user,
             description=f'Restored archived document: {doc.title}'
                         + (f' (no longer an older version of "{unlinked[0].title}")' if unlinked else ''),
         )
@@ -1652,36 +1653,11 @@ def unarchive_document(request, pk):
     return redirect('documents:detail', pk=pk)
 
 
-def _restore_orphaned_version(older_pk, user):
-    """
-    Bring back the older version of a document that was just deleted.
-
-    It was archived only because the deleted document replaced it; left
-    archived, nothing pointed at it any more and no page could reach it.
-    """
-    if not older_pk:
-        return
-    older = Document.objects.filter(pk=older_pk, is_archived=True).first()
-    # A deleted successor does not count as one. Deletion stamps the row
-    # rather than removing it, so a plain `.exists()` still found the very
-    # document that had just been deleted, concluded the older version was
-    # still superseded, and left it unreachable.
-    if older is None or older.superseded_by.filter(deleted_at__isnull=True).exists():
-        return
-    older.is_archived = False
-    older.save(update_fields=['is_archived'])
-    ActivityLog.objects.create(
-        user=user,
-        action='version_unarchive',
-        description=f'Restored "{older.title}": the newer version that replaced it was deleted.',
-    )
-
-
 @login_required
 @repository_access_required
 def document_download(request, pk):
     """Download a document file."""
-    doc = get_object_or_404(Document, pk=pk)
+    doc = get_object_or_404(Document.objects.live(), pk=pk)
     if not user_can_access_document(request.user, doc):
         raise Http404("File not found.")
     if doc.file and os.path.exists(doc.file.path):
@@ -2128,7 +2104,7 @@ def area_submissions(request):
 @repository_access_required
 def document_edit(request, pk):
     """Edit document metadata (full page or modal panel via ?panel=1)."""
-    doc = get_object_or_404(Document, pk=pk)
+    doc = get_object_or_404(Document.objects.live(), pk=pk)
     is_panel = request.GET.get('panel') == '1'
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
@@ -2145,11 +2121,8 @@ def document_edit(request, pk):
         form = DocumentEditForm(request.POST, instance=doc)
         if form.is_valid():
             doc = form.save()
-            ActivityLog.objects.create(
-                user=request.user,
-                action='edit_document',
-                description=f'Edited metadata for: {doc.title}'
-            )
+            record_document_event(doc, 'edit_document', request.user,
+                                  description=f'Edited metadata for: {doc.title}')
             if is_ajax:
                 return JsonResponse({
                     'success': True,
@@ -2181,10 +2154,19 @@ def document_edit(request, pk):
 @login_required
 @repository_access_required
 def document_delete(request, pk):
-    """Delete a document (Admin & QA Head: any; Faculty: their own uploads in their area only)."""
-    try:
-        doc = Document.objects.get(pk=pk)
-    except Document.DoesNotExist:
+    """
+    Delete one document, after the confirmation dialog.
+
+    A single delete is confirmed first and is then permanent: the dialog is
+    the safeguard, not a ten-second undo. Bulk deletes are the ones that can
+    be undone. Admin & QA Head may delete any document; Faculty only their own
+    uploads in their area -- checked here, whatever the page offered.
+    """
+    from .deletion import DeletionError, delete_documents, finalize_expired_batches
+
+    finalize_expired_batches()
+    doc = Document.objects.live().filter(pk=pk).select_related('acc_area', 'uploaded_by').first()
+    if doc is None:
         messages.warning(
             request,
             'That document is not in the repository anymore. It may have already been deleted, '
@@ -2195,177 +2177,122 @@ def document_delete(request, pk):
         messages.error(request, 'You can only delete your own uploads within your assigned area(s).')
         return redirect('documents:repository')
     if request.method == 'POST':
-        from .ai_pipeline import forget_deleted_matches
-
-        title = doc.title
-        deleted_pk = doc.pk
-        older_pk = doc.previous_version_id
-        # Deleting one document is the same event as deleting fifty, so it is
-        # the same kind of delete: a `deleted_at` stamp that every listing
-        # filters out and the undo strip can lift again. This used to remove
-        # the row and erase the file, which meant the wording of the two
-        # buttons was the only thing telling a person that one Delete was
-        # permanent and the other was not -- and a document was lost that way.
-        #
-        # The file stays on disk for the same reason as in the bulk path: an
-        # undo that gave back a database row pointing at an erased file would
-        # give back a broken document.
-        Document.objects.filter(pk=deleted_pk).update(deleted_at=timezone.now())
-        forget_deleted_matches([deleted_pk])
-        _restore_orphaned_version(older_pk, request.user)
-        ActivityLog.objects.create(
-            user=request.user,
-            action='delete_document',
-            description=f'Deleted document: {title}'
-        )
-        # The repository page picks this up on the next load and opens the undo
-        # strip there. A single delete is an ordinary form post that ends in a
-        # redirect, so it has no page left to show the offer on itself.
-        request.session['pending_undo'] = {'ids': [deleted_pk], 'count': 1}
+        from .models import DeletionBatch
+        try:
+            delete_documents(request.user, [doc], kind=DeletionBatch.KIND_SINGLE, request=request)
+        except DeletionError as exc:
+            messages.warning(request, exc.message)
+            return redirect('documents:repository')
+        messages.success(request, f'“{doc.title}” was deleted.')
         return redirect('documents:repository')
     return render(request, 'documents/confirm_delete.html', {'document': doc})
 
 
-@login_required
-@qa_staff_required
-def documents_bulk_delete(request):
-    """Delete multiple documents from the repository in one action (Admin & QA Head)."""
-    if request.method != 'POST':
-        return redirect('documents:repository')
-
-    raw_ids = request.POST.getlist('document_ids')
+def _requested_ids(request):
     ids = []
-    for val in raw_ids:
+    for value in request.POST.getlist('document_ids'):
         try:
-            ids.append(int(val))
+            ids.append(int(value))
         except (TypeError, ValueError):
             continue
-
-    if not ids:
-        messages.warning(request, 'No documents were selected for deletion.')
-        return redirect('documents:repository')
-
-    docs = list(Document.objects.live().filter(pk__in=ids))
-    if not docs:
-        messages.warning(request, 'Selected documents were not found. Refresh and try again.')
-        return _bulk_delete_response(request, 0, [], 'Selected documents were not found.')
-
-    # A bulk delete is now reversible, so it stamps `deleted_at` instead of
-    # removing rows and unlinking files. The file stays on disk: an undo that
-    # restored a database row pointing at a file that had been erased would
-    # give back a broken document.
-    #
-    # Version links are left exactly as they are. Deleting the newer of two
-    # versions does not un-archive the older one here, because the undo would
-    # then have to put that back too, and a half-restored chain is worse than
-    # an unchanged one. Restoring the newer version returns the pair to the
-    # state it was in.
-    stamp = timezone.now()
-    deleted_ids = [doc.pk for doc in docs]
-    Document.objects.filter(pk__in=deleted_ids).update(deleted_at=stamp)
-
-    for doc in docs:
-        ActivityLog.objects.create(
-            user=request.user,
-            action='delete_document',
-            description=f'Deleted document: {doc.title}',
-        )
-
-    # A document left flagged against something that has been deleted asks a
-    # reader to review a pair that no longer exists, so the survivor's flag is
-    # cleared here as it was before.
-    #
-    # This part is not symmetrical with the undo: restoring a document brings
-    # back the document, not the duplicate flags, which the analysis pipeline
-    # recomputes on its next run. Storing the old match lists purely to
-    # reinstate them for ten seconds would cost more than it is worth.
-    from .ai_pipeline import forget_deleted_matches
-    forget_deleted_matches(deleted_ids)
-
-    # Deleting the newer of two versions puts the older one back in the
-    # repository, as it did when this was a hard delete. The undo re-archives
-    # it, so the pair returns to the state it was in.
-    for doc in docs:
-        if doc.previous_version_id and doc.previous_version_id not in deleted_ids:
-            _restore_orphaned_version(doc.previous_version_id, request.user)
-
-    count = len(deleted_ids)
-    return _bulk_delete_response(
-        request, count, deleted_ids,
-        f'{count} document{"" if count == 1 else "s"} deleted.',
-    )
+    return ids
 
 
-def _bulk_delete_response(request, count, deleted_ids, message):
+def _batch_json(batch):
+    return {
+        'id': batch.pk,
+        'count': batch.document_count,
+        'created_at': batch.created_at.isoformat(),
+        # Milliseconds since the epoch, so the page's countdown runs off the
+        # server's clock rather than whenever the response happened to arrive.
+        'expires_at_ms': int(batch.expires_at.timestamp() * 1000),
+        'server_now_ms': int(timezone.now().timestamp() * 1000),
+    }
+
+
+@login_required
+@repository_access_required
+@require_POST
+def documents_bulk_delete(request):
     """
-    Answer a bulk delete for a browser or for a script.
+    Delete several documents as one undoable batch (every role).
 
-    The page posts this with fetch and shows its own undo strip, so it wants
-    the ids back. A plain form post -- no JavaScript -- still gets the
-    redirect and the flash message it has always had.
+    The ids come from the browser, so each one is checked here: Admin and QA
+    Head may delete any document, Faculty only their own uploads in their area.
+    Ids that fail the check are refused and reported, never deleted.
     """
+    from .deletion import DeletionError, delete_documents, deletable, finalize_expired_batches
+    from .models import DeletionBatch
+
+    finalize_expired_batches()
     wants_json = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    ids = _requested_ids(request)
+    if not ids:
+        return _bulk_delete_failure(request, wants_json, 'nothing', 'No documents were selected.', 400)
+    max_batch = int(getattr(settings, 'BULK_DELETE_MAX', 500))
+    if len(ids) > max_batch:
+        return _bulk_delete_failure(request, wants_json, 'too_many',
+                                    f'Delete at most {max_batch} documents at a time.', 400)
+
+    allowed, refused = deletable(request.user, ids)
+    if not allowed:
+        code, status = ('forbidden', 403) if refused and Document.objects.live().filter(pk__in=ids).exists() \
+            else ('gone', 404)
+        message = ('You can only delete your own uploads within your assigned area(s).' if code == 'forbidden'
+                   else 'Those documents were already deleted. Refresh the list.')
+        return _bulk_delete_failure(request, wants_json, code, message, status)
+    try:
+        batch = delete_documents(request.user, allowed, kind=DeletionBatch.KIND_BULK, request=request)
+    except DeletionError as exc:
+        return _bulk_delete_failure(request, wants_json, exc.code, exc.message, 409)
+
+    count = batch.document_count
+    message = f'{count} document{"" if count == 1 else "s"} deleted.'
     if wants_json:
         return JsonResponse({
-            'ok': bool(count),
-            'deleted': count,
-            'ids': deleted_ids,
-            'message': message,
+            'ok': True, 'deleted': count, 'ids': batch.document_ids, 'refused': refused,
+            'message': message, 'batch': _batch_json(batch),
         })
-    if count:
-        messages.success(request, message)
+    messages.success(request, message)
+    return redirect('documents:repository')
+
+
+def _bulk_delete_failure(request, wants_json, code, message, status):
+    if wants_json:
+        return JsonResponse({'ok': False, 'code': code, 'error': message}, status=status)
+    messages.warning(request, message)
     return redirect('documents:repository')
 
 
 @login_required
 @repository_access_required
 @require_POST
-def documents_bulk_restore(request):
-    """
-    Put back what a bulk delete removed.
+def deletion_undo(request, batch_id):
+    """Undo one bulk delete, if it is this person's, still pending, and inside its window."""
+    from .deletion import DeletionError, finalize_expired_batches, undo_batch
 
-    This is the other half of the undo strip on the repository page. It only
-    clears the deletion stamp, so a document comes back exactly as it was --
-    same file, same metadata, same cluster, same place in any version chain.
-    """
-    raw_ids = request.POST.getlist('document_ids')
-    ids = []
-    for value in raw_ids:
-        try:
-            ids.append(int(value))
-        except (TypeError, ValueError):
-            continue
+    try:
+        batch, restored, refused = undo_batch(request.user, batch_id, request=request)
+    except DeletionError as exc:
+        status = {'not_found': 404, 'expired': 410, 'already_restored': 409}.get(exc.code, 400)
+        finalize_expired_batches()
+        return JsonResponse({'ok': False, 'code': exc.code, 'error': exc.message}, status=status)
+    finalize_expired_batches()
+    message = f'{restored} document{"" if restored == 1 else "s"} restored.'
+    if refused:
+        message += f' {refused} could not be restored: you no longer manage them.'
+    return JsonResponse({'ok': True, 'restored': restored, 'refused': refused,
+                         'ids': batch.document_ids, 'message': message})
 
-    restored = 0
-    if ids:
-        targets = Document.objects.deleted().filter(pk__in=ids)
-        # Faculty may delete their own uploads, so they must be able to undo
-        # them. Restoring is checked per document with the same rule that
-        # allowed the deletion, rather than by role alone: the endpoint must
-        # not become a way to bring back somebody else's document.
-        allowed = [d.pk for d in targets if user_can_modify_document(request.user, d)]
-        targets = Document.objects.deleted().filter(pk__in=allowed)
-        restored = targets.count()
-        coming_back = list(targets)
-        targets.update(deleted_at=None)
-        # A restored document supersedes its predecessor again, so the older
-        # version goes back to being archived. Without this the repository
-        # would show both halves of a version pair at once.
-        older_ids = [d.previous_version_id for d in coming_back if d.previous_version_id]
-        if older_ids:
-            Document.objects.filter(pk__in=older_ids).update(is_archived=True)
-        for doc in Document.objects.filter(pk__in=ids):
-            ActivityLog.objects.create(
-                user=request.user,
-                action='restore_document',
-                description=f'Restored document: {doc.title}',
-            )
 
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({'ok': bool(restored), 'restored': restored})
-    if restored:
-        messages.success(request, f'{restored} document(s) restored.')
-    return redirect('documents:repository')
+@login_required
+@repository_access_required
+def deletions_pending(request):
+    """This person's bulk deletes that can still be undone, so any page can offer them."""
+    from .deletion import finalize_expired_batches, pending_batches_for
+
+    finalize_expired_batches()
+    return JsonResponse({'batches': [_batch_json(b) for b in pending_batches_for(request.user)]})
 
 
 @login_required
@@ -2374,7 +2301,7 @@ def document_view(request, pk):
     """View document content inline in the browser — Google Drive style."""
     from .preview_service import uses_pdf_preview, build_pdf_preview, prefer_docx_js_preview
 
-    doc = get_object_or_404(Document, pk=pk)
+    doc = get_object_or_404(Document.objects.live(), pk=pk)
     if not user_can_access_document(request.user, doc):
         messages.error(request, 'That document is outside your assigned area(s).')
         return redirect('documents:repository')
@@ -2428,7 +2355,7 @@ def document_preview(request, pk):
     """Serve a faithful PDF preview (DOCX → PDF) for in-browser viewing."""
     from .preview_service import uses_pdf_preview, build_pdf_preview
 
-    doc = get_object_or_404(Document, pk=pk)
+    doc = get_object_or_404(Document.objects.live(), pk=pk)
     if not user_can_access_document(request.user, doc):
         raise Http404('Preview not available.')
     if doc.file_type == 'pdf':
@@ -2459,7 +2386,7 @@ def document_preview(request, pk):
 @xframe_options_sameorigin
 def document_serve(request, pk):
     """Serve the file for inline viewing (no download header)."""
-    doc = get_object_or_404(Document, pk=pk)
+    doc = get_object_or_404(Document.objects.live(), pk=pk)
     if not user_can_access_document(request.user, doc):
         raise Http404("File not found.")
     if not doc.file:

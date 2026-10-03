@@ -99,6 +99,8 @@ Setting **`POSTGRES_DB`** (or other old Postgres-only vars) will cause Django to
 - **Production install**: `pip install -r requirements.txt -r requirements-prod.txt`, set `MYSQL_DATABASE` (and other `MYSQL_*` as needed), `DEBUG=False`, `SECRET_KEY`, `ALLOWED_HOSTS`, and proxy-related variables above.  
 - **Static files**: `python manage.py collectstatic` before serving with gunicorn + nginx.  
 - **Error pages**: custom `templates/404.html`, `403.html`, `403_csrf.html`, `400.html` and `500.html` are used in every mode, `DEBUG=True` included (`qa_archiving_system/error_pages.py`); tracebacks still go to the console. Set `SHOW_DEBUG_ERROR_PAGES=True` to see Django's technical pages while developing.
+- **Offline page**: `/offline/` is shown in place of a page that cannot load without a connection (served by the service worker at `/sw.js`; browsers allow it on `localhost` and HTTPS). `/healthz/` answers `204` with no database or session, for the reconnect check and for uptime monitors.
+- **Deletions**: a bulk delete can be undone for `DELETE_UNDO_SECONDS` (default 10), then the files are removed and the record kept (see Document History). Expired undo windows are closed automatically while anyone uses the system; to close them on a schedule too, run `python manage.py finalize_deletions` every few minutes (Task Scheduler / cron).
 - **Security before deployment**: see [`docs/SECURITY_BEFORE_DEPLOYMENT.md`](docs/SECURITY_BEFORE_DEPLOYMENT.md).
 
 ## User Roles

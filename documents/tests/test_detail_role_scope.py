@@ -135,5 +135,7 @@ class RepositoryClusterScopeTests(TestCase):
                 row = html[html.index('class="doc-row'):]
                 row = row[:row.index('</tr>')]
                 self.assertEqual(head.count('<th'), row.count('<td'))
+                # Faculty have the select column too now: they bulk delete
+                # their own uploads.
                 self.assertEqual(row.count('<td'),
-                                 12 if user.profile.role == 'qa_staff' else 9)
+                                 12 if user.profile.role == 'qa_staff' else 10)

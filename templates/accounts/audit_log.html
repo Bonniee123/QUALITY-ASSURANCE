@@ -1,120 +1,9 @@
 {% extends 'base.html' %}
-{% load audit_tags %}
+{% load audit_tags asset_tags %}
 {% block title %}Audit Log{% endblock %}
 
 {% block extra_css %}
-<style>
-.audit-card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: var(--card-radius);
-    box-shadow: var(--card-shadow);
-    overflow: hidden;
-    margin-bottom: 32px;
-}
-.audit-filters {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 12px;
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-overlay);
-}
-.audit-filters label {
-    display: block;
-    font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--color-text-secondary);
-    margin-bottom: 4px;
-}
-.audit-filters input,
-.audit-filters select {
-    width: 100%;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    padding: 8px 10px;
-    font-size: var(--text-sm);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    transition: border-color var(--transition-base), box-shadow var(--transition-base);
-}
-.audit-filters input:focus,
-.audit-filters select:focus {
-    outline: none;
-    border-color: var(--color-brand);
-    box-shadow: 0 0 0 3px var(--color-brand-light);
-}
-.audit-filter-actions {
-    display: flex;
-    align-items: end;
-    gap: 8px;
-}
-.audit-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-.audit-table th {
-    background: var(--color-overlay);
-    color: var(--color-text-secondary);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--color-border);
-    text-align: left;
-}
-.audit-table td {
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--color-border);
-    font-size: var(--text-sm);
-    color: var(--color-text-primary);
-    vertical-align: top;
-}
-.audit-table tr:hover td { background: var(--color-overlay); }
-.audit-table tr:last-child td { border-bottom: none; }
-.audit-action-badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: var(--radius-full);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    background: var(--color-brand-light);
-    color: var(--color-brand-dark);
-    white-space: nowrap;
-}
-.audit-action-badge.security {
-    background: var(--color-danger-light);
-    color: hsl(0, 60%, 38%);
-}
-.audit-action-badge.document {
-    background: var(--color-success-light);
-    color: hsl(142, 52%, 28%);
-}
-.audit-user {
-    font-weight: 600;
-    color: var(--color-text-primary);
-}
-.audit-meta {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-}
-.audit-empty {
-    padding: 48px 24px;
-    text-align: center;
-    color: var(--color-text-muted);
-}
-.audit-pagination {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 24px;
-    border-top: 1px solid var(--color-border);
-    font-size: var(--text-sm);
-}
-</style>
+<link rel="stylesheet" href="{% static_v 'css/audit.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -180,6 +69,9 @@
                     <td>
                         {% if entry.user %}
                         <span class="audit-user">{{ entry.user.username }}</span>
+                        {% elif entry.actor_name %}
+                        <span class="audit-user">{{ entry.actor_name }}</span>
+                        <div class="audit-meta">account removed</div>
                         {% else %}
                         <span class="audit-meta">System / anonymous</span>
                         {% endif %}
@@ -187,7 +79,9 @@
                     <td>
                         {% if entry.action == 'login_failed' or entry.action == 'permission_denied' or entry.action == 'login' or entry.action == 'logout' %}
                         <span class="audit-action-badge security">{{ entry.action|audit_action_label }}</span>
-                        {% elif entry.action == 'view_document' or entry.action == 'download' or entry.action == 'edit_document' or entry.action == 'delete_document' %}
+                        {% elif entry.action == 'delete_document' or entry.action == 'bulk_delete_document' or entry.action == 'purge_document' %}
+                        <span class="audit-action-badge security">{{ entry.action|audit_action_label }}</span>
+                        {% elif entry.action == 'view_document' or entry.action == 'download' or entry.action == 'edit_document' or entry.action == 'upload_document' or entry.action == 'restore_document' %}
                         <span class="audit-action-badge document">{{ entry.action|audit_action_label }}</span>
                         {% else %}
                         <span class="audit-action-badge">{{ entry.action|audit_action_label }}</span>

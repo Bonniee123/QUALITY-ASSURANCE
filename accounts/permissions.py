@@ -189,9 +189,19 @@ def scope_documents_for_user(qs, user):
     return qs.filter(build_area_filter_q(scope))
 
 
-def user_can_access_document(user, doc) -> bool:
-    """True if the user may view a specific document (area scope for Faculty)."""
+def user_can_access_document(user, doc, *, allow_deleted=False) -> bool:
+    """
+    True if the user may view a specific document (area scope for Faculty).
+
+    A deleted document is no one's to open. Every view that serves a file asks
+    this question, so answering it here is what keeps a saved link, an old
+    notification or a typed address from downloading something after it was
+    deleted. `allow_deleted` is for the undo, which has to judge a document
+    that is deleted by definition.
+    """
     if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if not allow_deleted and (getattr(doc, 'deleted_at', None) or getattr(doc, 'purged_at', None)):
         return False
     if user.is_superuser:
         return True
@@ -207,13 +217,17 @@ def user_can_access_document(user, doc) -> bool:
     return False
 
 
-def user_can_modify_document(user, doc) -> bool:
+def user_can_modify_document(user, doc, *, allow_deleted=False) -> bool:
     """True if the user may edit/delete a specific document.
 
     Admin (and superuser) may modify anything; QA Head may edit metadata; Faculty
     may only modify their own uploads that fall within their assigned area.
     """
     if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(doc, 'purged_at', None):
+        return False
+    if not allow_deleted and getattr(doc, 'deleted_at', None):
         return False
     if user.is_superuser:
         return True
@@ -223,5 +237,6 @@ def user_can_modify_document(user, doc) -> bool:
     if role == ROLE_QA_STAFF:
         return True
     if role == ROLE_FACULTY:
-        return bool(doc.uploaded_by_id == user.id and user_can_access_document(user, doc))
+        return bool(doc.uploaded_by_id == user.id
+                    and user_can_access_document(user, doc, allow_deleted=allow_deleted))
     return False

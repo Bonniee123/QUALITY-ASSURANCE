@@ -20,8 +20,9 @@ import re
 
 # Actions that describe something happening to the archive.
 ARCHIVE_ACTIONS = {
-    'upload', 'bulk_upload', 'faculty_upload',
-    'edit_document', 'delete_document', 'archive_document', 'restore_document',
+    'upload', 'bulk_upload', 'faculty_upload', 'upload_document',
+    'edit_document', 'delete_document', 'bulk_delete_document', 'purge_document', 'upload_rejected',
+    'archive_document', 'restore_document',
     'map_evidence', 'suggest_mappings', 'auto_map',
     'duplicate_confirmed', 'duplicate_dismissed',
     'ai_processing', 'ai_processing_queued', 'auto_ai_processing', 'retry_ocr',

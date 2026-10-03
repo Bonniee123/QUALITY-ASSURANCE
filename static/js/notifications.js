@@ -37,9 +37,16 @@
             })
             .then(function () {
                 if (wrap) {
-                    var badge = wrap.querySelector('.notif-bell .badge');
-                    if (badge) {
-                        badge.remove();
+                    // The bell's badge is a .qa-count-badge; looking for
+                    // `.badge` found nothing, so the number stayed up after
+                    // everything had been marked read.
+                    if (typeof window.qaSetBadge === 'function') {
+                        window.qaSetBadge('bell', 0);
+                    } else {
+                        var badge = wrap.querySelector('.notif-bell .qa-count-badge');
+                        if (badge) {
+                            badge.remove();
+                        }
                     }
                     wrap.querySelectorAll('.dropdown-item.fw-semibold').forEach(function (item) {
                         item.classList.remove('fw-semibold');

@@ -1,0 +1,177 @@
+/* Shared by the Audit Log and Document History pages. */
+.audit-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    margin-bottom: 32px;
+}
+.audit-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-overlay);
+}
+.audit-filters label {
+    display: block;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--color-text-secondary);
+    margin-bottom: 4px;
+}
+.audit-filters input,
+.audit-filters select {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    font-size: var(--text-sm);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+.audit-filters input:focus,
+.audit-filters select:focus {
+    outline: none;
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 3px var(--color-brand-light);
+}
+.audit-filter-actions {
+    display: flex;
+    align-items: end;
+    gap: 8px;
+}
+.audit-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.audit-table th {
+    background: var(--color-overlay);
+    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-border);
+    text-align: left;
+}
+.audit-table td {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    vertical-align: top;
+}
+.audit-table tbody tr:hover td { background: var(--row-hover, var(--color-overlay)); }
+.audit-table td { transition: background-color var(--transition-fast); }
+.audit-table tr:last-child td { border-bottom: none; }
+.audit-action-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    background: var(--color-brand-light);
+    color: var(--color-brand-dark);
+    white-space: nowrap;
+}
+.audit-action-badge.security {
+    background: var(--color-danger-light);
+    color: hsl(0, 60%, 38%);
+}
+.audit-action-badge.document {
+    background: var(--color-success-light);
+    color: hsl(142, 52%, 28%);
+}
+.audit-user {
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+.audit-meta {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+}
+.audit-empty {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--color-text-muted);
+}
+.audit-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-top: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+}
+
+/* Document History */
+.doc-history-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.doc-history-tabs a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-decoration: none;
+}
+.doc-history-tabs a:hover { border-color: var(--color-border-strong); color: var(--color-text-primary); }
+.doc-history-tabs a.is-active {
+    background: var(--color-brand-light);
+    border-color: var(--color-brand);
+    color: var(--color-brand-dark);
+}
+.doc-history-tabs span {
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+.doc-history-title { overflow-wrap: anywhere; }
+.doc-history-table td { vertical-align: middle; }
+.doc-history-table .doc-history-detail td,
+.doc-history-table .doc-history-detail:hover td {
+    background: var(--color-overlay);
+    padding: 18px 24px;
+}
+.doc-history-table .js-doc-history-toggle[aria-expanded="true"] {
+    background: var(--color-brand-light);
+    border-color: var(--color-brand);
+    color: var(--color-brand-dark);
+}
+.doc-status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--color-overlay);
+    color: var(--color-text-secondary);
+}
+.doc-status.is-active { background: var(--color-success-light); color: var(--color-success-text); }
+.doc-status.is-pending,
+.doc-status.is-deleted { background: var(--color-warning-light); color: var(--color-warning-text); }
+.doc-status.is-purged { background: var(--color-danger-light); color: var(--color-danger); }
+/* Sticky header cells are positioned one by one, and at fractional widths a
+   1px seam of the white table behind them showed between two of them. Each
+   cell now paints one pixel past its right edge in its own colour. */
+.repo-scroll-panel .audit-table thead th {
+    box-shadow: 1px 0 0 var(--color-overlay), 0 1px 0 var(--color-border);
+}
+.doc-history-table .js-doc-history-toggle { white-space: nowrap; }

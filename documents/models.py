@@ -8,6 +8,7 @@ import os
 
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,21 @@ class Document(models.Model):
         help_text='Set when a user deletes this document; null means not deleted. '
                   'Clearing it restores the document.',
     )
+    # Who deleted it and in which batch. Kept after the deletion becomes
+    # permanent: removing a document must never remove the record of who
+    # removed it.
+    deleted_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    deletion_batch = models.ForeignKey(
+        'DeletionBatch', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='documents',
+    )
+    # Set when the undo window closed and the file itself was removed. The
+    # row stays, without its file, as the record of what was archived.
+    purged_at = models.DateTimeField(null=True, blank=True)
+    # The name the file had, kept because the file field is cleared on purge.
+    original_filename = models.CharField(max_length=255, blank=True, default='')
 
     # The accreditation area a document belongs to.
     #
@@ -163,6 +179,25 @@ class Document(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def lifecycle_status(self):
+        """
+        Where this document stands, as (key, label), for the history pages.
+
+        Reads `deletion_batch`, so listings should select_related it.
+        """
+        if self.purged_at:
+            return 'purged', 'Permanently deleted'
+        if self.deleted_at:
+            batch = self.deletion_batch
+            if (batch is not None and batch.status == DeletionBatch.STATUS_PENDING
+                    and batch.expires_at > timezone.now()):
+                return 'pending', 'Deleted — undo available'
+            return 'deleted', 'Deleted'
+        if self.is_archived:
+            return 'archived', 'Older version'
+        return 'active', 'Active'
 
     def save(self, *args, **kwargs):
         """
@@ -293,12 +328,70 @@ class ActivityLog(models.Model):
     action = models.CharField(max_length=50)
     description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    # A document's history is the log rows that name it. The title and the
+    # actor's name are copied in, so the history still reads correctly after
+    # the document is deleted or the account that acted is removed.
+    document = models.ForeignKey(
+        'Document', on_delete=models.SET_NULL, null=True, blank=True, related_name='activity',
+    )
+    document_title = models.CharField(max_length=255, blank=True, default='')
+    actor_name = models.CharField(max_length=150, blank=True, default='')
+    batch = models.ForeignKey(
+        'DeletionBatch', on_delete=models.SET_NULL, null=True, blank=True, related_name='activity',
+    )
 
     class Meta:
         ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.user} - {self.action} at {self.created_at}"
+
+
+class DeletionBatch(models.Model):
+    """
+    One delete action: the documents it removed, and how long it can be undone.
+
+    Every delete is a batch of its own -- a single delete is a batch of one --
+    so two deletions never share state. Deleting ten documents and then five
+    more makes two batches, each with its own expiry; undoing one leaves the
+    other running. A batch is undone or finalized as a whole, by moving its
+    status away from PENDING with a conditional update, so an undo and an
+    expiry that arrive together cannot both win.
+    """
+
+    KIND_SINGLE = 'single'
+    KIND_BULK = 'bulk'
+    KIND_CHOICES = [(KIND_SINGLE, 'Single delete'), (KIND_BULK, 'Bulk delete')]
+
+    STATUS_PENDING = 'pending'
+    STATUS_RESTORED = 'restored'
+    STATUS_FINALIZED = 'finalized'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Undo available'),
+        (STATUS_RESTORED, 'Restored'),
+        (STATUS_FINALIZED, 'Permanently deleted'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='deletion_batches')
+    user_name = models.CharField(max_length=150, blank=True, default='')
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default=KIND_BULK)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    # The ids this batch removed, fixed at creation. A document's own
+    # `deletion_batch` moves if it is restored and deleted again; this does not.
+    document_ids = models.JSONField(default=list)
+    document_count = models.PositiveIntegerField(default=0)
+    restored_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField(db_index=True)
+    restored_at = models.DateTimeField(null=True, blank=True)
+    finalized_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['status', 'expires_at'])]
+
+    def __str__(self):
+        return f'{self.get_kind_display()} of {self.document_count} by {self.user_name} ({self.status})'
 
 
 class BackgroundJob(models.Model):

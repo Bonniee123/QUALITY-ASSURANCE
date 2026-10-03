@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', function () {
             signal: controller.signal,
         })
             .then(function (res) {
-                if (!res.ok) throw new Error('Request failed (' + res.status + ')');
+                if (!res.ok) throw Object.assign(new Error('load failed'), { status: res.status });
                 return res.text();
             })
             .then(function (html) {
@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(function (err) {
                 if (err && err.name === 'AbortError') return;
                 if (typeof window.qaToast === 'function') {
-                    window.qaToast(err.message || 'Could not load area.', 'error');
+                    window.qaToast(window.qaRequestError(err && err.status || 0, {}, 'load'), 'error');
                 }
             })
             .finally(function () {

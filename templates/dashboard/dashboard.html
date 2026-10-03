@@ -9,7 +9,13 @@
 {% block extra_css %}<link rel="stylesheet" href="{% static_v 'css/nexus.css' %}">{% endblock %}
 
 {% block content %}
-<div class="nexus-dashboard">
+{% comment %}
+`data-live-page`: this page changes nothing when it is loaded, so the live
+poll may re-read it and update the marked figures and lists in place when
+documents change (see realtime.js). The charts keep the figures they were
+drawn with until the page is next opened.
+{% endcomment %}
+<div class="nexus-dashboard" data-live-page>
 
     <!-- ================= TOP ACTION BAR ================= -->
     <div class="nx-actionbar">
@@ -147,7 +153,7 @@
             stays in the footer, where it is labelled.
             {% endcomment %}
             <div class="nx-kpi-body">
-                <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ total_documents }}">{{ total_documents|default:0 }}</span></div>
+                <div class="nx-kpi-value"><span class="nx-num" id="liveTotalDocs" data-live-text data-countup="{{ total_documents }}">{{ total_documents|default:0 }}</span></div>
             </div>
             <div class="nx-kpi-spark"><canvas id="kpiSparkTotal"></canvas></div>
             {% comment %}
@@ -161,15 +167,15 @@
             <div class="nx-kpi-split">
                 <div class="nx-kpi-split-cell">
                     <span class="nx-kpi-split-label">Last 30 days</span>
-                    <span class="nx-kpi-split-value">{{ docs_last30|default:0 }}</span>
+                    <span class="nx-kpi-split-value" id="liveDocs30" data-live-text>{{ docs_last30|default:0 }}</span>
                 </div>
                 <div class="nx-kpi-split-cell">
                     <span class="nx-kpi-split-label">Analyzed</span>
-                    <span class="nx-kpi-split-value">{{ ai_processed_count|default:0 }} <span class="nx-kpi-split-unit">of {{ total_documents|default:0 }}</span></span>
+                    <span class="nx-kpi-split-value" id="liveAnalyzed" data-live-region>{{ ai_processed_count|default:0 }} <span class="nx-kpi-split-unit">of {{ total_documents|default:0 }}</span></span>
                     <div class="nx-bar-track"><div class="nx-bar-fill nx-bar-fill-green" style="width: {{ ai_processed_pct }}%;"></div></div>
                 </div>
             </div>
-            <div class="nx-kpi-foot">
+            <div class="nx-kpi-foot" id="liveAnalyzedFoot" data-live-region>
                 {% if total_documents %}{{ ai_processed_pct }}% of the archive analyzed{% else %}No documents yet &mdash; upload to get started{% endif %}
             </div>
         </a>
@@ -196,7 +202,7 @@
                 <i class="bi bi-arrow-right nx-kpi-go" aria-hidden="true"></i>
             </div>
             <div class="nx-kpi-body">
-                <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ docs_last7 }}">{{ docs_last7|default:0 }}</span></div>
+                <div class="nx-kpi-value"><span class="nx-num" id="liveDocs7" data-live-text data-countup="{{ docs_last7 }}">{{ docs_last7|default:0 }}</span></div>
                 {% comment %}
                 'new' means the previous 7 days were empty, so there is no
                 percentage to state. The footer below says why, rather than
@@ -224,7 +230,7 @@
                 <i class="bi bi-arrow-right nx-kpi-go" aria-hidden="true"></i>
             </div>
             <div class="nx-kpi-body">
-                <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ duplicate_review_count }}">{{ duplicate_review_count|default:0 }}</span></div>
+                <div class="nx-kpi-value"><span class="nx-num" id="liveDupReview" data-live-text data-countup="{{ duplicate_review_count }}">{{ duplicate_review_count|default:0 }}</span></div>
                 {% if duplicate_review_count > 0 %}
                 <span class="nx-delta nx-delta-down nx-delta-warn">Action needed</span>
                 {% else %}
@@ -240,7 +246,7 @@
                 <i class="bi bi-arrow-right nx-kpi-go" aria-hidden="true"></i>
             </div>
             <div class="nx-kpi-body">
-                <div class="nx-kpi-value"><span class="nx-num" data-countup="{{ cluster_count }}">{{ cluster_count|default:0 }}</span></div>
+                <div class="nx-kpi-value"><span class="nx-num" id="liveClusters" data-live-text data-countup="{{ cluster_count }}">{{ cluster_count|default:0 }}</span></div>
             </div>
         </a>
         {% endif %}
@@ -365,7 +371,7 @@
                 <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="Recent uploads">
                 <table class="nx-table nx-table-rich">
                     <thead><tr><th>Document</th><th>Uploaded by</th><th>Cluster</th><th class="text-end">Date</th><th class="nx-th-actions"></th></tr></thead>
-                    <tbody>
+                    <tbody id="liveRecentUploads" data-live-region>
                     {% for doc in recent_uploads %}
                     <tr>
                         <td>
@@ -431,13 +437,14 @@
                 </div>
                 <span class="nx-pill-mini">Latest</span>
             </div>
-            <div class="nx-card-body repo-scroll-panel repo-scroll-panel--embedded nx-activity-panel" role="region" aria-label="Activity feed">
+            <div class="nx-card-body repo-scroll-panel repo-scroll-panel--embedded nx-activity-panel" role="region" aria-label="Activity feed" id="liveActivityFeed" data-live-region>
                 {% for log in recent_activity %}
                 <div class="nx-activity">
-                    <div class="nx-activity-icon {% if log.action == 'upload' or log.action == 'bulk_upload' %}upload{% elif log.action == 'auto_ai_processing' or log.action == 'ai_processing' %}ai{% elif log.action == 'delete' or log.action == 'bulk_delete' %}delete{% elif log.action == 'edit' or log.action == 'edit_document' or log.action == 'update' %}edit{% elif log.action == 'login' or log.action == 'logout' %}auth{% else %}default{% endif %}">
-                        {% if log.action == 'upload' or log.action == 'bulk_upload' %}<i class="bi bi-cloud-arrow-up"></i>
-                        {% elif log.action == 'auto_ai_processing' or log.action == 'ai_processing' %}<i class="bi bi-cpu"></i>
-                        {% elif log.action == 'delete' or log.action == 'bulk_delete' %}<i class="bi bi-trash3"></i>
+                    <div class="nx-activity-icon {% if log.action == 'upload' or log.action == 'bulk_upload' or log.action == 'upload_document' %}upload{% elif log.action == 'auto_ai_processing' or log.action == 'ai_processing' or log.action == 'document_processed' %}ai{% elif log.action == 'delete' or log.action == 'bulk_delete' or log.action == 'delete_document' or log.action == 'bulk_delete_document' or log.action == 'purge_document' %}delete{% elif log.action == 'restore_document' %}upload{% elif log.action == 'edit' or log.action == 'edit_document' or log.action == 'update' %}edit{% elif log.action == 'login' or log.action == 'logout' %}auth{% else %}default{% endif %}">
+                        {% if log.action == 'upload' or log.action == 'bulk_upload' or log.action == 'upload_document' %}<i class="bi bi-cloud-arrow-up"></i>
+                        {% elif log.action == 'auto_ai_processing' or log.action == 'ai_processing' or log.action == 'document_processed' %}<i class="bi bi-cpu"></i>
+                        {% elif log.action == 'delete' or log.action == 'bulk_delete' or log.action == 'delete_document' or log.action == 'bulk_delete_document' or log.action == 'purge_document' %}<i class="bi bi-trash3"></i>
+                        {% elif log.action == 'restore_document' %}<i class="bi bi-arrow-counterclockwise"></i>
                         {% elif log.action == 'edit' or log.action == 'edit_document' or log.action == 'update' %}<i class="bi bi-pencil"></i>
                         {% elif log.action == 'login' or log.action == 'logout' %}<i class="bi bi-box-arrow-in-right"></i>
                         {% else %}<i class="bi bi-activity"></i>{% endif %}

@@ -196,22 +196,55 @@
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                     <form method="post" id="qaDeleteDocumentForm" class="d-inline">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-danger">Delete</button>
+                        <button type="submit" class="btn btn-danger" data-busy-text="Deleting…"><i class="bi bi-trash3 me-1"></i>Delete permanently</button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
 
+    {% if rbac_is_qa_staff_or_admin or rbac_is_faculty %}
+    {% comment %}
+    Where a bulk delete's Undo appears: one toast per delete, each with its own
+    countdown. On every page, not only the Repository, because the offer
+    follows the person while its time runs. Filled by deletion-undo.js.
+    {% endcomment %}
+    <div class="qa-undo-queue" id="qaUndoQueue" aria-live="polite" aria-label="Recent deletions"
+         data-pending-deletions-url="{% url 'documents:deletions_pending' %}"
+         data-undo-url-template="{% url 'documents:deletion_undo' 0 %}"
+         data-undo-seconds="{{ delete_undo_seconds|default:10 }}"></div>
+    {% endif %}
+
     {% else %}
     <!-- Unauthenticated content (login page) -->
     {% block content_unauth %}{% endblock %}
     {% endif %}
 
+    {% comment %}
+    The offline card, laid over the page when an open page loses its
+    connection (connection.js). The same card the offline page shows, from the
+    same templates; the page underneath is left exactly as it was.
+    {% endcomment %}
+    <style>
+{% include 'status/_styles.css' %}
+    </style>
+    <div class="qa-offline-overlay" id="qaOfflineOverlay" hidden>
+        <div class="err-card" role="alertdialog" aria-modal="true" aria-labelledby="qaOfflineTitle" aria-describedby="qaOfflineText">
+            {% include 'status/_offline_card.html' with in_app=True %}
+        </div>
+    </div>
+    <button type="button" class="qa-offline-pill" id="qaOfflinePill" hidden>
+        <span class="qa-offline-pill-dot" aria-hidden="true"></span>Offline — reconnecting · <u>Show</u>
+    </button>
+    <script>
+{% include 'status/_reconnect.js' %}
+    </script>
+
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
     <script src="{% static_v 'js/main.js' %}"></script>
+    <script src="{% static_v 'js/connection.js' %}"></script>
     {% if user.is_authenticated %}
     <script src="{% static_v 'js/job-status.js' %}"></script>
     <script src="{% static_v 'js/notifications.js' %}"></script>
@@ -219,6 +252,7 @@
     <script src="{% static_v 'js/doc-detail.js' %}"></script>
     <script src="{% static_v 'js/doc-edit.js' %}"></script>
     <script src="{% static_v 'js/doc-preview.js' %}"></script>
+    <script src="{% static_v 'js/deletion-undo.js' %}"></script>
     <script>
     /* A sign-in page still open in another tab listens for this, so it follows
        this sign-in to the dashboard instead of sitting on "Signing in". */

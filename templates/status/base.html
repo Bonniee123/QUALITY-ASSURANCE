@@ -1,0 +1,49 @@
+{% comment %}
+The layout every status page shares: 400, 403, 404, 500, the expired-form page
+and the offline page. Standalone on purpose -- no base.html, no stylesheet, no
+context processors -- because these are shown when something is broken and are
+rendered without a request (qa_archiving_system.error_pages).
+
+A page fills `card` with the parts from status/_styles.css: .err-art, an
+optional .err-code, .err-title, .err-text and .err-actions with .err-btn
+buttons (.is-secondary for the second one).
+{% endcomment %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>{% block title %}{% endblock %} | QA Archiving System</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: hsl(210, 20%, 97%);
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+{% include 'status/_styles.css' %}
+    </style>
+</head>
+<body>
+    <main class="err-card">
+        {% block card %}{% endblock %}
+    </main>
+    <script>
+    /* "Go back" goes back when there is somewhere to go, and home otherwise:
+       a page opened from a bookmark or a new tab has no history to return to. */
+    document.addEventListener('click', function (e) {
+        var back = e.target.closest('[data-err-back]');
+        if (!back) { return; }
+        e.preventDefault();
+        if (window.history.length > 1 && document.referrer) { window.history.back(); }
+        else { window.location.href = '/'; }
+    });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

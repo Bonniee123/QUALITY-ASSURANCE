@@ -6,4 +6,5 @@ app_name = 'dashboard'
 
 urlpatterns = [
     path('', views.dashboard_home, name='home'),
+    path('live/', views.live_status, name='live'),
 ]

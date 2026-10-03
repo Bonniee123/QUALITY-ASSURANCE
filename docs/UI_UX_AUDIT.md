@@ -1872,3 +1872,68 @@ unchanged, and "all areas" ZIP held only the Faculty member's own area.
 
 **Open:** Django 4.2 reached end of support in April 2026; moving to 5.2 LTS
 is recommended. Full suite: **982 / 982** (19 skipped by their own conditions).
+
+## 30. Deleting, undoing, document history, live updates, and the status pages
+
+### Deleting: two ways, each with its own safeguard
+
+| | Single delete (row menu) | Bulk delete (checkboxes) |
+|---|---|---|
+| Steps | Delete → confirmation dialog → **Delete permanently** | Select → **Bulk Delete (N)** → confirm → deleted → **Undo** for 10 s |
+| Safeguard | The dialog. It says the delete cannot be undone. | The undo toast for that batch. |
+| Who | Admin and QA Head: any document. Faculty: their own uploads in their areas. | The same rule for each document. |
+
+- **Faculty can bulk delete their own uploads.** Their checkboxes appear only on rows they uploaded. The server checks every id again, so a page that sends someone else's id gets `403`, and a mixed selection deletes only the person's own uploads and reports the rest as refused.
+- **Every delete is a batch** (`DeletionBatch`) with its own expiry. If you delete 10 and then 5, you get two toasts and a line saying *"15 documents can be undone"*. Each toast counts down from its own deadline, and undoing one leaves the other running. An undo and an expiry that arrive together cannot both happen: a batch leaves *pending* through a conditional update.
+- **Undo checks permission again.** Only the person who deleted can undo, and only for documents they may still manage. If their area assignment changed in the meantime, they get back what they may still edit, and the rest stays deleted.
+- **When the window closes, the deletion becomes permanent.** The file and its preview are removed. The row stays without a file, with the title, file name, uploader, deleter and the times. Expired batches are finalized on each live poll, on each delete or undo, and by `python manage.py finalize_deletions` (schedule it if the system is often left unattended). A late undo is refused with *"Too late to undo"*.
+- **The undo queue follows you between pages.** It is rebuilt from the server on every page load (`/documents/deletions/pending/`), so leaving the Repository does not lose an offer that is still running. Ctrl+Z undoes the most recent one.
+- Deleted documents are out of every page and every link. Detail, view, download, preview and edit return 404, and a deleted document can no longer be opened by guessing its URL.
+
+### Document History (Administrator and QA Head)
+
+The new **Document History** page in the sidebar lists every document ever archived, deleted ones included. For each it shows the title and original file name, who uploaded it and when, its status (*Active*, *Deleted — undo available*, *Permanently deleted*), and who deleted it, when, and how (single delete, or a bulk delete of N). Each row opens a timeline:
+
+> Document uploaded · Document deleted (bulk) · Document restored (undo) · Document deleted (bulk) · Document permanently deleted
+
+Every entry stores the actor's name and the document title as they were at that moment, so the history still reads correctly after the file is gone or the account is removed. Uploads are recorded from a signal, so every upload path records one, including bulk upload, the Faculty page, the structured upload and import scripts. Existing documents were given their upload entry by migration `documents.0015`. The document details panel shows the same timeline to staff.
+
+### Notifications, once each
+
+- *"New Document — Faculty A uploaded "Report.pdf""*, or *"New Documents — Faculty A uploaded 12 documents"* for a batch.
+- *"Document Deleted — Faculty B deleted "Report.pdf""*, sent when a deletion becomes **permanent**. An undone delete therefore never notifies anyone, and a notification never points at a document that came back.
+- Each one carries a key (`dedupe_key`), so a retried request or a second caller cannot send it twice. The person who acted is not notified about their own action.
+- Opening an older notification whose document has since been deleted no longer leads to *Page not found*. Staff land on that document's history, and Faculty on the Repository with a note saying it was deleted.
+
+### Live updates without reloading
+
+`static/js/realtime.js` now polls `/dashboard/live/` every 5 s. It pauses while the tab is hidden and is marked passive when nobody is at the page, so an idle screen still signs out. The answer carries the two badge counts and a fingerprint of the documents the person can see. When the fingerprint changes:
+
+- the dashboard's figures, Recent Uploads and Activity Feed update in place (`data-live-page`, `data-live-region`, `data-live-text`);
+- the Repository list reloads itself, keeping the selection. If you have scrolled into the list, it says *"List updated — refresh"* instead of jumping you back to the top;
+- the sidebar's Repository count and the bell update, and the bell's list is re-rendered (`notifications:dropdown`), but never while it is open.
+
+### Errors that say which error it was
+
+`window.qaRequestError(status, data, action)` gives one sentence each for: offline; session expired; permission refused; page out of date (CSRF); not found; too large; wrong file type; too many requests; server error. For undo it also covers too late, already restored, and "not yours". The Repository, Area Submissions, Clusters, the upload page, bulk delete and undo use it, and none of them shows the browser's "Failed to fetch" any more. A Repository search that fails while offline puts the list back as it was, and runs again by itself once the connection returns.
+
+**Loading states:** *Deleting…* (the confirm button, and the rows dim and become inert) → *Undo available · 9s* → *Restoring…* → *Restored*, or *Permanently deleted*. Every one of these blocks a second click while its request is in flight. A single delete shows *Deleting…*. The upload flow already went *Uploading → Checking → Uploaded — preparing your files → processing*. Whole-request failures there now say whether the connection, the session, the size or the server was the cause, and that the files are still selected.
+
+### One design for every status page
+
+400, 403, 404, 500, the expired-form page and the new **offline page** are now one family. They share one layout (`templates/status/base.html`), one stylesheet (`templates/status/_styles.css`) and one illustration scene (`_scene.html`, with a different sign on the screen for each). The design is the existing 404 page's: white card, illustration, short title, one sentence, and pill buttons with the hover lift. Every page has a second, outlined pill (*Go back*, *Back to Dashboard*, *Try again*). A test checks that all six render the same card and button rules.
+
+### Offline
+
+- **A page that cannot load** because the connection is down shows the offline page at the address that was asked for. A small service worker (`/sw.js`, network-first, page loads only, with nothing else cached) serves it. When the connection returns, the page reloads itself and lands on the page that was asked for. Browsers allow this on `localhost`/`127.0.0.1` and on HTTPS.
+- **A page that is already open** and loses its connection gets the same card laid over it. It says either *You're offline* or *Can't reach the server*; the second case is detected from failing live polls while the network is up. The page underneath is not touched: typed text, selections and scroll position stay. **Keep browsing** tucks the card into a small pill. **Retry connection** checks `/healthz/` straight away, and the card also re-checks on its own at 3, 6, 12, then every 15 seconds. When it reconnects, it says *Back online* and catches up: the badges, the undo queue, and any search that failed.
+
+### Tables
+
+Row hover is now one rule for every data table, a tint of the brand colour. Bootstrap 5.3 paints each cell, so the old `tr:hover` background sat underneath white cells and never showed. Hover now goes through Bootstrap's own cell-state variable. Selected rows are tinted more strongly. Nothing moves on hover, so checkboxes, menus and links stay where the pointer expects them. The User Management, Reports, Audit Log, Document History and dashboard tables use the same tokens.
+
+### Verified
+
+- Browser, Faculty account created for this check, 16 uploads (32 checks). Selection count, partial and indeterminate state, clear selection; single delete cancelled, then confirmed (final, file removed, no undo); bulk delete 10, then 5 four seconds later; two toasts, *15 documents can be undone*, the first clock not reset; both toasts followed to the dashboard; undid only the 5 while the 10 kept counting; the 10 became permanent (files removed, rows kept); a late undo refused with 410; a second Faculty account offered no checkboxes on those rows; the Administrator notified once about the 10, not about the undone 5; Document History showing the full timeline.
+- Browser, live (8 checks). The Faculty member uploaded; the Administrator's dashboard total, Recent Uploads, bell and open Repository tab all updated without a reload, and the upload was announced once.
+- Browser, status and offline (18 checks). All status pages share one card and button style; the overlay appeared when the connection dropped and left by itself when it came back, with typed text and the list kept; a server outage was detected and described as such; the service worker showed the offline page at the requested address and returned to that page when back online.

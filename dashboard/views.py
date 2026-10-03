@@ -504,3 +504,45 @@ def dashboard_home(request):
         'generated_at': local_now,
     }
     return render(request, 'dashboard/dashboard.html', context)
+
+
+@login_required
+def live_status(request):
+    """
+    What every open page needs to stay current, in one small answer.
+
+    Polled by static/js/realtime.js every few seconds (there are no WebSockets
+    in this stack). It carries the two badge counts and, for anyone who can
+    see documents, a fingerprint of the documents in their view: when an
+    upload, a deletion, a restore or a finished processing run changes it, the
+    page refreshes the parts that show documents. Expired undo windows are
+    closed here as well, so a deletion becomes permanent within seconds of its
+    window ending while anyone has the system open.
+    """
+    from django.db.models import Max
+    from django.http import JsonResponse
+
+    from accounts.permissions import user_has_permission
+    from documents.deletion import finalize_expired_batches
+    from messaging.models import unread_total_for
+    from notifications.models import Notification
+
+    finalize_expired_batches()
+    payload = {
+        'unread_messages': unread_total_for(request.user),
+        'unread_notifications': Notification.objects.filter(user=request.user, is_read=False).count(),
+    }
+    if user_has_permission(request.user, 'view_repository'):
+        visible = scope_documents_for_user(Document.objects.live().filter(is_archived=False), request.user)
+        agg = visible.aggregate(
+            n=Count('id'), last=Max('id'),
+            processed=Count('id', filter=Q(is_processed=True)),
+            review=Count('id', filter=Q(duplicate_status='possible')),
+        )
+        last_event = (ActivityLog.objects.filter(document__in=scope_documents_for_user(
+            Document.objects.all(), request.user)).aggregate(m=Max('id'))['m'] or 0)
+        payload['documents'] = {
+            'count': agg['n'],
+            'stamp': f"{agg['n']}-{agg['last'] or 0}-{agg['processed']}-{agg['review']}-{last_event}",
+        }
+    return JsonResponse(payload)

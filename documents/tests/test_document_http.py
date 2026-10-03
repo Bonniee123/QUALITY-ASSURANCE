@@ -149,6 +149,12 @@ class DocumentDeleteTests(TestCase):
         cls.admin.profile.role = 'admin'
         cls.admin.profile.save()
 
+    def setUp(self):
+        # A final delete removes the file, and the file system is not rolled
+        # back between tests the way the database is.
+        _write_media_file('uploaded_documents/2099/02/del_test.pdf',
+                          b'%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n')
+
     def test_delete_post_missing_pk_redirects_to_repository(self):
         self.client.login(username='del_admin', password='testpass123')
         missing_id = Document.objects.order_by('-pk').first().pk + 1000
@@ -158,36 +164,46 @@ class DocumentDeleteTests(TestCase):
 
     def test_delete_post_removes_document(self):
         """
-        One document deleted from the row menu is as reversible as fifty.
+        A single delete is confirmed in a dialog and is then final.
 
-        This used to remove the row and erase the file, so the only thing
-        distinguishing a permanent Delete from an undoable one was which menu
-        it was pressed in. The row now carries a deletion stamp instead, and
-        the repository is told to offer the undo on the page it redirects to.
+        The row stays, stamped and without its file, so who uploaded and who
+        deleted it is still on record; it is out of every listing.
         """
         self.client.login(username='del_admin', password='testpass123')
         pk = self.doc.pk
         r = self.client.post(f'/documents/{pk}/delete/', {})
         self.assertEqual(r.status_code, 302)
         self.assertFalse(Document.objects.live().filter(pk=pk).exists())
-        self.assertTrue(Document.objects.deleted().filter(pk=pk).exists())
-        self.assertEqual(self.client.session.get('pending_undo'), {'ids': [pk], 'count': 1})
+        doc = Document.objects.deleted().get(pk=pk)
+        self.assertIsNotNone(doc.purged_at)
+        self.assertEqual(doc.deleted_by.username, 'del_admin')
+        self.assertEqual(doc.deletion_batch.kind, 'single')
+        self.assertEqual(doc.deletion_batch.status, 'finalized')
 
-    def test_a_single_delete_can_be_undone(self):
+    def test_a_single_delete_offers_no_undo(self):
+        """The confirmation dialog is the safeguard; there is nothing to undo after it."""
         self.client.login(username='del_admin', password='testpass123')
         pk = self.doc.pk
         self.client.post(f'/documents/{pk}/delete/', {})
-        self.client.post('/documents/bulk-restore/', {'document_ids': [pk]})
-        self.assertTrue(Document.objects.live().filter(pk=pk).exists())
-        self.assertIsNone(Document.objects.get(pk=pk).deleted_at)
+        batch = Document.objects.get(pk=pk).deletion_batch
+        r = self.client.post(f'/documents/deletions/{batch.pk}/undo/', {}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(r.status_code, 410)
+        self.assertFalse(Document.objects.live().filter(pk=pk).exists())
+        self.assertEqual(self.client.get('/documents/deletions/pending/').json()['batches'], [])
 
-    def test_a_single_delete_keeps_the_file_on_disk(self):
-        """An undo that restored a row pointing at an erased file is no undo."""
+    def test_a_single_delete_removes_the_file(self):
+        """No orphaned file is left behind once a deletion is final."""
         self.client.login(username='del_admin', password='testpass123')
         path = Path(self.doc.file.path)
         self.assertTrue(path.exists())
         self.client.post(f'/documents/{self.doc.pk}/delete/', {})
-        self.assertTrue(path.exists())
+        self.assertFalse(path.exists())
+
+    def test_a_get_to_delete_shows_the_confirmation_and_deletes_nothing(self):
+        self.client.login(username='del_admin', password='testpass123')
+        r = self.client.get(f'/documents/{self.doc.pk}/delete/')
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(Document.objects.live().filter(pk=self.doc.pk).exists())
 
     def test_bulk_delete_post_removes_selected_documents(self):
         self.client.login(username='del_admin', password='testpass123')
@@ -204,23 +220,27 @@ class DocumentDeleteTests(TestCase):
         )
         r = self.client.post('/documents/bulk-delete/', {'document_ids': [self.doc.pk, doc2.pk]})
         self.assertEqual(r.status_code, 302)
-        # Deletion is reversible now: the rows stay, stamped and out of every
-        # listing, so a ten-second undo has something to restore. What a user
-        # can still reach is what `live()` returns.
+        # A bulk delete stays undoable for a few seconds: the rows are stamped
+        # and out of every listing, and the files are still there for an undo.
         self.assertFalse(Document.objects.live().filter(pk=self.doc.pk).exists())
         self.assertFalse(Document.objects.live().filter(pk=doc2.pk).exists())
         self.assertEqual(Document.objects.deleted().filter(
-            pk__in=[self.doc.pk, doc2.pk]).count(), 2)
+            pk__in=[self.doc.pk, doc2.pk], purged_at__isnull=True).count(), 2)
+        self.assertTrue(Path(self.doc.file.path).exists())
 
     def test_a_bulk_delete_can_be_undone(self):
-        """The undo strip's other half: restoring puts the documents back."""
+        """Undo puts the documents back, files included."""
         self.client.login(username='del_admin', password='testpass123')
-        self.client.post('/documents/bulk-delete/', {'document_ids': [self.doc.pk]})
+        r = self.client.post('/documents/bulk-delete/', {'document_ids': [self.doc.pk]},
+                             HTTP_X_REQUESTED_WITH='XMLHttpRequest')
         self.assertFalse(Document.objects.live().filter(pk=self.doc.pk).exists())
 
-        self.client.post('/documents/bulk-restore/', {'document_ids': [self.doc.pk]})
+        batch_id = r.json()['batch']['id']
+        r = self.client.post(f'/documents/deletions/{batch_id}/undo/', {}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(r.json()['restored'], 1)
         self.assertTrue(Document.objects.live().filter(pk=self.doc.pk).exists())
         self.assertIsNone(Document.objects.get(pk=self.doc.pk).deleted_at)
+        self.assertTrue(Path(Document.objects.get(pk=self.doc.pk).file.path).exists())
 
     def test_bulk_delete_post_without_selection_redirects(self):
         self.client.login(username='del_admin', password='testpass123')

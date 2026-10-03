@@ -18,9 +18,15 @@ ACTION_LABELS = {
     'view_document': 'Document viewed',
     'download': 'Document downloaded',
     'edit_document': 'Document metadata edited',
+    'upload_document': 'Document uploaded',
     'delete_document': 'Document deleted',
+    'bulk_delete_document': 'Document deleted (bulk)',
+    'restore_document': 'Document restored (undo)',
+    'purge_document': 'Document permanently deleted',
     'structured_upload': 'Structured upload',
     'bulk_upload': 'Bulk upload',
+    'document_processed': 'Document processed',
+    'upload_rejected': 'Upload turned away (duplicate)',
     'duplicate_confirmed': 'Duplicate confirmed',
     'duplicate_dismissed': 'Duplicate dismissed',
     'retry_ocr': 'OCR retry',
@@ -66,6 +72,52 @@ def log_activity(request, action: str, description: str, user=None) -> None:
         )
     except Exception:
         pass
+
+
+# The actions that make up a document's history, in the order they can happen.
+DOCUMENT_EVENT_ACTIONS = (
+    'upload_document', 'upload_rejected', 'document_processed', 'edit_document', 'delete_document', 'bulk_delete_document',
+    'restore_document', 'purge_document', 'version_supersede', 'version_unarchive',
+    'duplicate_confirmed', 'duplicate_dismissed',
+)
+
+
+def person_name(user) -> str:
+    if user is None:
+        return ''
+    return ((user.get_full_name() or '').strip() or user.get_username())[:150]
+
+
+def record_document_event(document, action: str, actor=None, *, request=None,
+                          batch=None, description: str = ''):
+    """
+    Add one entry to a document's history.
+
+    Unlike log_activity this does not swallow failures: an upload, deletion or
+    restore that cannot be recorded should not be reported as done, so callers
+    run it inside the same transaction as the change it records.
+    """
+    from .models import ActivityLog
+
+    if actor is None and request is not None:
+        candidate = getattr(request, 'user', None)
+        if candidate is not None and candidate.is_authenticated:
+            actor = candidate
+    text = description or f'{action_label(action)}: {document.title}'
+    if request is not None:
+        from accounts.auth_security import get_client_ip
+        ip = get_client_ip(request)
+        if ip and ip != 'unknown':
+            text = f'{text} (IP {ip})'
+    return ActivityLog.objects.create(
+        user=actor,
+        actor_name=person_name(actor),
+        action=action[:50],
+        description=text[:4000],
+        document=document,
+        document_title=(document.title or '')[:255],
+        batch=batch,
+    )
 
 
 def distinct_logged_actions():

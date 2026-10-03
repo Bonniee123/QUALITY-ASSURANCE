@@ -286,7 +286,23 @@ button,a,[role="button"],.btn,.form-control,.form-select{transition:color var(--
 .table{font-size:var(--text-sm);color:var(--color-text-primary)}
 .table thead th{background:var(--color-overlay);border-bottom:2px solid var(--color-border);font-weight:600;font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.5px;color:var(--color-text-secondary);padding:12px 16px;white-space:nowrap}
 .table tbody td{padding:12px 16px;vertical-align:middle;border-bottom:1px solid var(--color-border)}
-.table tbody tr:hover{background:hsla(210,78%,46%,.03)}
+/* Row hover, one rule for every data table.
+   Bootstrap 5.3 paints each cell with its own background and draws hover and
+   striping as an inset shadow from --bs-table-bg-state, so a background on the
+   <tr> -- what this rule used to set -- sits underneath white cells and never
+   showed. Setting the state variable on the cells is what Bootstrap itself
+   does for .table-hover. A tint of the brand colour, not a different blue,
+   and nothing moves: checkboxes, menus and links in the row stay exactly
+   where the pointer expects them. */
+:root{--row-hover:hsla(193,70%,34%,.055);--row-selected:hsla(193,70%,34%,.11);--row-selected-hover:hsla(193,70%,34%,.15)}
+.table tbody tr > *{transition:box-shadow var(--transition-fast)}
+.table tbody tr:hover > *{--bs-table-bg-state:var(--row-hover)}
+.table tbody tr.is-selected > *{--bs-table-bg-state:var(--row-selected)}
+.table tbody tr.is-selected:hover > *{--bs-table-bg-state:var(--row-selected-hover)}
+.table tbody tr.repo-skeleton-row:hover > *,
+.table tbody tr:only-child > td[colspan]{--bs-table-bg-state:transparent}
+/* A row on its way out: dimmed and inert while its delete is in flight. */
+.table tbody tr.repo-row-busy{opacity:.45;pointer-events:none;transition:opacity var(--transition-base)}
 .table tbody tr:last-child td{border-bottom:none}
 
 /* Scrollable list/table panel (repository pattern — use site-wide for long lists) */
@@ -774,97 +790,111 @@ body::-webkit-scrollbar{width:0;height:0;display:none}
 }
 
 /* ============================================================================
-   UNDO STRIP
+   UNDO QUEUE
    ----------------------------------------------------------------------------
-   Shown after a bulk delete, which happens immediately and without a
-   confirmation step. The strip is the way back, so it has to be findable: in
-   the flow of the page it could sit above the fold on a scrolled list, and a
-   reader who had just deleted forty rows would not see the only control that
-   could return them. It floats instead, pinned to the bottom of the viewport.
+   One toast per bulk delete, stacked at the bottom of the viewport, each with
+   its own countdown. Deleting 10 and then 5 shows two toasts and a line saying
+   15 can be undone; one running out never touches the other.
 
-   Dark surface, flat, no gradient: it is a temporary overlay, so it is the one
-   place a shadow is earned.
+   Floating, because the way back has to be findable from a scrolled list.
+   Dark brand surface, flat: a temporary overlay is the one place a shadow is
+   earned.
+
+   Visible the moment it is in the page. Nothing about being visible may wait
+   on an animation or a frame: a tab that is not being rendered never delivers
+   requestAnimationFrame and freezes animations at their first keyframe, and a
+   toast held at opacity 0 there left a deletion with no visible way back. So
+   the entrance animates only the slide; opacity is 1 throughout.
    ========================================================================== */
-.repo-undo {
+.qa-undo-queue {
     position: fixed;
     left: 50%;
     bottom: 24px;
-    transform: translateX(-50%) translateY(8px);
+    transform: translateX(-50%);
     z-index: 1080;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: min(92vw, 440px);
+    pointer-events: none;
+}
+.qa-undo-queue > * { pointer-events: auto; }
+.qa-undo-summary {
+    align-self: center;
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-brand-dark);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.qa-undo-summary[hidden] { display: none; }
+.qa-undo-item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 12px 12px 14px;
-    min-width: 320px;
-    max-width: min(92vw, 520px);
+    padding: 10px 12px 12px 12px;
     border-radius: 10px;
-    /* The system's own dark brand colour, not a neutral slate, so the strip
-       reads as part of this application rather than as a browser chrome. */
     background: var(--color-brand-dark);
     color: #fff;
     font-size: 13px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-    /* Visible as soon as it is not [hidden], and nothing about being visible
-       may depend on animation or on a frame arriving.
-
-       A transition was tried first and needed a class toggled on a later
-       frame, which requestAnimationFrame never delivers in a tab that is not
-       being rendered: the strip stayed at opacity 0 with the documents already
-       deleted. An opacity keyframe has the same fault in a milder form,
-       because a page that is not rendering does not advance the animation
-       clock at all -- the animation reports itself as running with a
-       currentTime frozen at 0, so the strip is held at the first keyframe.
-
-       So the entrance animates only the slide. Opacity stays at 1 throughout,
-       which means a frozen animation costs the strip 8px of position and
-       nothing else. It is legible from the first moment it exists. */
+    overflow: hidden;
     opacity: 1;
-    transform: translateX(-50%);
-    animation: repoUndoIn .18s ease-out;
+    animation: qaUndoIn .18s ease-out;
 }
-.repo-undo[hidden] { display: none; }
-.repo-undo.is-leaving { opacity: 0; transition: opacity .18s ease; }
-
-@keyframes repoUndoIn {
-    from { transform: translateX(-50%) translateY(8px); }
-    to   { transform: translateX(-50%) translateY(0); }
+.qa-undo-item.is-leaving { opacity: 0; transition: opacity .2s ease; }
+@keyframes qaUndoIn {
+    from { transform: translateY(8px); }
+    to   { transform: translateY(0); }
 }
-
-.repo-undo-icon { opacity: .7; font-size: 14px; flex-shrink: 0; }
-.repo-undo-text { flex: 1 1 auto; font-variant-numeric: tabular-nums; }
-
-.repo-undo-btn {
+.qa-undo-icon {
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-full);
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    justify-content: center;
+    background: rgba(255, 255, 255, .1);
+    font-size: 14px;
+}
+.qa-undo-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.qa-undo-title { font-weight: 600; }
+.qa-undo-status { font-size: 12px; opacity: .78; font-variant-numeric: tabular-nums; }
+.qa-undo-item.is-error .qa-undo-status { opacity: 1; color: #ffd8d4; }
+.qa-undo-item.is-restored .qa-undo-icon { background: var(--color-success); }
+.qa-undo-item.is-expired .qa-undo-icon,
+.qa-undo-item.is-error .qa-undo-icon { background: rgba(176, 42, 33, .85); }
+.qa-undo-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     flex-shrink: 0;
-    padding: 5px 12px;
-    /* Filled in the brand colour: this is the one thing on the strip a person
-       is meant to press, and an outline on a dark surface did not say so.
-       The hover is a lighter brand tone rather than the usual darker one,
-       because --color-brand-hover is darker than the button and would read as
-       the button receding into the surface behind it. */
+    padding: 6px 14px;
     border: 1px solid var(--color-brand);
-    border-radius: 6px;
+    border-radius: var(--radius-full);
     background: var(--color-brand);
     color: #fff;
     font-size: 12.5px;
     font-weight: 600;
     cursor: pointer;
-    transition: background .15s ease, border-color .15s ease;
+    transition: background .15s ease, border-color .15s ease, transform .15s ease;
 }
-.repo-undo-btn:hover { background: #2494b0; border-color: #2494b0; }
-.repo-undo-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-
-.repo-undo-timer {
-    flex-shrink: 0;
-    font-size: 11px;
-    opacity: .65;
-    font-variant-numeric: tabular-nums;
-    min-width: 22px;
-    text-align: right;
-}
-.repo-undo-close {
+/* The hover is a lighter brand tone: the darker one would read as the
+   button sinking into the dark surface behind it. */
+.qa-undo-btn:hover:not(:disabled) { background: #2494b0; border-color: #2494b0; transform: translateY(-1px); }
+.qa-undo-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.qa-undo-btn:disabled { cursor: default; opacity: .85; }
+.qa-undo-item.is-restored .qa-undo-btn { background: var(--color-success); border-color: var(--color-success); }
+.qa-undo-item.is-expired .qa-undo-btn,
+.qa-undo-item.is-error .qa-undo-btn:disabled { background: transparent; border-color: rgba(255, 255, 255, .35); }
+.qa-undo-close {
     flex-shrink: 0;
     border: 0;
     background: none;
@@ -875,39 +905,68 @@ body::-webkit-scrollbar{width:0;height:0;display:none}
     padding: 0 2px;
     cursor: pointer;
 }
-.repo-undo-close:hover { opacity: 1; }
-
-/* The remaining time, drained rather than counted. */
-.repo-undo-progress {
+.qa-undo-close:hover { opacity: 1; }
+/* The remaining time, drained rather than counted. Width is set from the
+   batch's own deadline on every tick, so each toast runs on its own clock. */
+.qa-undo-progress {
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
     height: 3px;
-    border-radius: 0 0 10px 10px;
-    overflow: hidden;
     background: rgba(255, 255, 255, .16);
 }
-.repo-undo-progress i {
+.qa-undo-progress i {
     display: block;
     height: 100%;
     width: 100%;
-    /* Brand teal, the same colour as the Undo button it is timing. */
     background: var(--color-brand);
-    opacity: 1;
-    transform-origin: left center;
-    /* Driven by a keyframe for the same reason: no frame callback required. */
-    animation: repoUndoDrain linear forwards;
-    animation-duration: var(--repo-undo-seconds, 10s);
+    transition: width .25s linear;
+}
+@media (max-width: 575px) {
+    .qa-undo-queue { bottom: 12px; }
+    .qa-undo-item { flex-wrap: wrap; }
+    .qa-undo-text { flex-basis: calc(100% - 80px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .qa-undo-item { animation: none; }
+    .qa-undo-item.is-leaving, .qa-undo-progress i { transition: none; }
+    .qa-undo-btn:hover:not(:disabled) { transform: none; }
 }
 
-@keyframes repoUndoDrain {
-    from { transform: scaleX(1); }
-    to   { transform: scaleX(0); }
-}
-/* Someone who has asked for less motion still gets the strip, just not the
-   slide, and the bar jumps rather than sweeps. */
-@media (prefers-reduced-motion: reduce) {
-    .repo-undo { animation: none; transform: translateX(-50%); }
-    .repo-undo.is-leaving { transition: none; }
-}
+/* DOCUMENT HISTORY TIMELINE
+   Used in the document details panel and on the Document History page. One
+   vertical rail, one dot per event, coloured only by what happened. */
+.doc-timeline{list-style:none;margin:0;padding:0;position:relative}
+.doc-timeline-item{position:relative;display:flex;gap:12px;padding:0 0 14px 0}
+.doc-timeline-item:last-child{padding-bottom:0}
+.doc-timeline-item:not(:last-child)::before{content:"";position:absolute;left:13px;top:28px;bottom:2px;width:2px;background:var(--color-border)}
+.doc-timeline-dot{flex:0 0 28px;width:28px;height:28px;border-radius:var(--radius-full);display:inline-flex;align-items:center;justify-content:center;font-size:13px;background:var(--color-overlay);color:var(--color-text-secondary)}
+.doc-timeline-item.is-upload .doc-timeline-dot{background:var(--color-brand-light);color:var(--color-brand-on-overlay)}
+.doc-timeline-item.is-restore .doc-timeline-dot{background:var(--color-success-light);color:var(--color-success-text)}
+.doc-timeline-item.is-delete .doc-timeline-dot{background:var(--color-warning-light);color:var(--color-warning-text)}
+.doc-timeline-item.is-purge .doc-timeline-dot{background:var(--color-danger-light);color:var(--color-danger)}
+.doc-timeline-body{min-width:0;flex:1;padding-top:3px}
+.doc-timeline-head{font-size:var(--text-sm);color:var(--color-text-primary);display:flex;flex-wrap:wrap;gap:4px 6px}
+.doc-timeline-head span{color:var(--color-text-secondary)}
+.doc-timeline-body time{display:block;font-size:var(--text-xs);color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.doc-timeline-note{font-size:var(--text-xs);color:var(--color-text-secondary);margin-top:2px;overflow-wrap:anywhere}
+.doc-timeline-empty{font-size:var(--text-sm);color:var(--color-text-muted)}
+
+/* A live figure that just changed: a brief tint, so a number updating under
+   the reader's eyes is noticed without anything moving. */
+@keyframes qaLiveFlash { from { background: var(--color-brand-light); } to { background: transparent; } }
+.qa-live-flash { animation: qaLiveFlash 1.2s ease-out; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { .qa-live-flash { animation: none; } }
+
+/* OFFLINE OVERLAY
+   The offline card (templates/status/) over the page that lost its connection.
+   The page stays underneath, untouched, dimmed rather than hidden. */
+.qa-offline-overlay{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(15,23,42,.42);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.qa-offline-overlay[hidden]{display:none}
+.qa-offline-overlay .err-card{max-height:calc(100vh - 48px);overflow:auto;box-shadow:0 24px 60px rgba(2,32,48,.25)}
+.qa-offline-overlay .err-title{margin-top:14px}
+.qa-offline-pill{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2000;display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border:1px solid #fecaca;border-radius:9999px;background:#fff;color:#7f1d1d;font-size:13px;font-weight:600;box-shadow:var(--shadow-md);cursor:pointer}
+.qa-offline-pill[hidden]{display:none}
+.qa-offline-pill-dot{width:8px;height:8px;border-radius:50%;background:#DC2626;animation:errPulse 1.2s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.qa-offline-pill-dot{animation:none}}

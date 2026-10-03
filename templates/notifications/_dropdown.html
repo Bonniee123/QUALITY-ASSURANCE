@@ -1,0 +1,40 @@
+{% comment %}
+The bell's list. Its own template so the live poll can re-render it when a
+notification arrives (notifications:dropdown), instead of showing a new
+number above an old list.
+{% endcomment %}
+                <li class="d-flex justify-content-between align-items-center px-3 py-2" style="background:hsl(220,15%,97%);border-bottom:1px solid hsl(220,10%,90%);">
+                    <strong style="font-size:14px;color:hsl(220,20%,20%);"><i class="bi bi-bell me-2"></i>Notifications</strong>
+                    {% if notifications_unread_count and notifications_unread_count > 0 %}
+                    <span id="qaNotifMarkAllWrap">
+                        <button type="button" class="btn btn-link btn-sm p-0 js-notif-mark-all-read" style="font-size:12px;text-decoration:none;">Mark all read</button>
+                    </span>
+                    {% endif %}
+                </li>
+                <li style="max-height:420px;overflow-y:auto;overflow-x:hidden;">
+                {% if recent_notifications %}
+                    {% for n in recent_notifications %}
+                    <div>
+                        <a href="{% url 'notifications:open' n.pk %}" class="dropdown-item d-flex align-items-start px-3 py-2 {% if not n.is_read %}fw-semibold{% endif %}" style="white-space:normal;border-bottom:1px solid hsl(220,10%,95%);">
+                            <span class="me-2" style="margin-top:2px;">
+                                {% if n.category == 'duplicate' %}<i class="bi bi-exclamation-triangle text-warning"></i>
+                                {% elif n.category == 'completion' %}<i class="bi bi-check-circle text-success"></i>
+                                {% elif n.category == 'evidence' %}<i class="bi bi-link-45deg text-primary"></i>
+                                {% elif n.category == 'upload' %}<i class="bi bi-cloud-upload text-primary"></i>
+                                {% elif n.category == 'deletion' %}<i class="bi bi-trash3 text-danger"></i>
+                                {% else %}<i class="bi bi-info-circle text-muted"></i>{% endif %}
+                            </span>
+                            <span style="flex:1;min-width:0;">
+                                <span style="font-size:13px;display:block;">{{ n.display_message }}</span>
+                                <small class="text-muted" style="font-size:11px;">{% with ago=n.created_at|timesince %}{% if ago|slice:":1" == "0" %}just now{% else %}{{ ago }} ago{% endif %}{% endwith %}</small>
+                            </span>
+                        </a>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="px-3 py-4 text-center text-muted" style="font-size:13px;">
+                        <i class="bi bi-bell-slash" style="font-size:22px;display:block;margin-bottom:6px;"></i>
+                        No notifications yet
+                    </div>
+                {% endif %}
+                </li>

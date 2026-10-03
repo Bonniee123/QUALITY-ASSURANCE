@@ -1,0 +1,116 @@
+/* ---------------------------------------------------------------------------
+   Status pages: one design for 400, 403, 404, 500, the expired-form page, the
+   offline page, and the offline overlay inside the app.
+
+   Included inline (as a template) rather than linked, on purpose: these pages
+   are shown when something is broken -- the server, the session, the network
+   -- and must not depend on a stylesheet arriving. The offline page is served
+   by the service worker with no network at all.
+
+   The design is the 404 page's: a white card, an illustration, a short title,
+   one sentence of explanation, and pill buttons.
+   --------------------------------------------------------------------------- */
+.err-card {
+    --err-ink: #0F172A;
+    --err-text: #1e293b;
+    --err-muted: #64748b;
+    --err-brand: #1D4ED8;
+    --err-brand-dark: #1E3A8A;
+    --err-border: hsl(215, 16%, 88%);
+    background: #fff;
+    border: 1px solid var(--err-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+    max-width: 560px;
+    width: 100%;
+    padding: 40px 36px 44px;
+    text-align: center;
+    color: var(--err-text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    /* Slides in; never fades in. Opacity stays 1 so a tab that is not being
+       painted still shows the card the moment it is looked at. */
+    animation: errCardIn .35s ease-out;
+}
+@keyframes errCardIn { from { transform: translateY(10px); } to { transform: translateY(0); } }
+.err-art { display: block; width: 100%; max-width: 380px; height: auto; margin: 0 auto; }
+.err-code {
+    font-size: 84px;
+    font-weight: 800;
+    letter-spacing: -3px;
+    line-height: 1;
+    color: var(--err-ink);
+    margin: 4px 0 6px;
+}
+.err-title { font-size: 20px; font-weight: 700; letter-spacing: -0.2px; margin: 14px 0 10px; color: var(--err-ink); }
+.err-code + .err-title { margin-top: 0; }
+.err-text { font-size: 15px; color: var(--err-muted); line-height: 1.6; margin: 0 auto 26px; max-width: 400px; }
+.err-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.err-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--err-brand);
+    color: #fff;
+    border: 1px solid var(--err-brand);
+    text-decoration: none;
+    padding: 12px 26px;
+    border-radius: 9999px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background .18s, border-color .18s, color .18s, transform .1s, box-shadow .18s;
+}
+.err-btn:hover { background: var(--err-brand-dark); border-color: var(--err-brand-dark); color: #fff; transform: translateY(-1px); }
+.err-btn:focus-visible { outline: 3px solid #C7D7FE; outline-offset: 2px; }
+.err-btn:active { transform: translateY(0); }
+.err-btn[disabled] { cursor: default; opacity: .8; transform: none; }
+.err-btn.is-secondary { background: #fff; color: var(--err-brand); border-color: #C7D7FE; }
+.err-btn.is-secondary:hover { background: #EEF3FF; color: var(--err-brand-dark); border-color: #9DBAFD; }
+.err-btn svg { width: 16px; height: 16px; flex: 0 0 16px; }
+.err-spin { animation: errSpin .9s linear infinite; transform-origin: 50% 50%; }
+@keyframes errSpin { to { transform: rotate(360deg); } }
+.err-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: -10px auto 22px;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    background: #F1F5F9;
+    color: var(--err-muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+.err-status::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #94A3B8;
+    flex: 0 0 8px;
+}
+.err-status[data-state="checking"]::before { background: #F59E0B; animation: errPulse 1s ease-in-out infinite; }
+.err-status[data-state="offline"]::before { background: #DC2626; }
+.err-status[data-state="online"] { background: #ECFDF5; color: #047857; }
+.err-status[data-state="online"]::before { background: #10B981; }
+@keyframes errPulse { 50% { transform: scale(.6); } }
+/* The Wi-Fi arcs on the offline illustration fade in turn, like a signal
+   being looked for. */
+.err-wave { animation: errWave 1.8s ease-in-out infinite; }
+.err-wave.w2 { animation-delay: .2s; }
+.err-wave.w3 { animation-delay: .4s; }
+@keyframes errWave { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@media (max-width: 480px) {
+    .err-card { padding: 28px 20px 32px; }
+    .err-code { font-size: 62px; letter-spacing: -2px; }
+    .err-title { font-size: 18px; }
+    .err-actions { flex-direction: column; }
+    .err-btn { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .err-card, .err-wave, .err-spin, .err-status[data-state="checking"]::before { animation: none; }
+    .err-btn, .err-btn:hover { transition: none; transform: none; }
+}

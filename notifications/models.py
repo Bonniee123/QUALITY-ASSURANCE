@@ -11,6 +11,7 @@ class Notification(models.Model):
         ('duplicate', 'Duplicate Detected'),
         ('completion', 'Requirement Completed'),
         ('upload', 'Upload'),
+        ('deletion', 'Deletion'),
         ('message', 'Direct Message'),
         ('system', 'System'),
     ]
@@ -20,6 +21,9 @@ class Notification(models.Model):
     message = models.CharField(max_length=400)
     link = models.CharField(max_length=400, blank=True, default='')
     is_read = models.BooleanField(default=False)
+    # Names the event a notification is about ("deleted:42"), so the same event
+    # processed twice cannot notify the same person twice. Blank for ordinary ones.
+    dedupe_key = models.CharField(max_length=100, blank=True, default='', db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

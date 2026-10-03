@@ -291,4 +291,16 @@
     </div>
     {% endif %}
     {% endif %}
+
+    {% if history %}
+    <div class="card mt-3 mb-0" style="border-radius: 12px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+        <div class="card-header py-2 d-flex align-items-center justify-content-between" style="background: white; border-bottom: 2px solid hsl(220,10%,95%); font-weight: 600; font-size: 14px;">
+            <span><i class="bi bi-clock-history me-2 text-primary"></i>History</span>
+            <a href="{% url 'accounts:document_history' %}?q={{ document.title|urlencode }}" class="small text-decoration-none" style="font-weight:500;">All documents</a>
+        </div>
+        <div class="card-body px-3 py-3">
+            {% include 'documents/_history_timeline.html' with entries=history %}
+        </div>
+    </div>
+    {% endif %}
 </div>

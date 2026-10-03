@@ -8,6 +8,7 @@ from django.conf.urls.static import static
 from django.views.generic import RedirectView
 from django.templatetags.static import static as static_url
 from accounts.views import home_redirect
+from . import views as site_views
 
 urlpatterns = [
     # Django admin's own sign-in page has no failed-attempt lockout, so it goes
@@ -28,6 +29,11 @@ urlpatterns = [
     path('chatbot/', include('chatbot.urls')),
     path('notifications/', include('notifications.urls')),
     path('messages/', include('messaging.urls')),
+    # Reachable without signing in, and needing no database: the offline page,
+    # the service worker that serves it, and the "is the server back?" check.
+    path('offline/', site_views.offline, name='offline'),
+    path('healthz/', site_views.healthz, name='healthz'),
+    path('sw.js', site_views.service_worker, name='service_worker'),
     path('', home_redirect, name='home'),
 ]
 

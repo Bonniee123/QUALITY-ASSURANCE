@@ -978,7 +978,10 @@ form.addEventListener('submit', function(e) {
                 ? (allDuplicates
                     ? rejected + ' file(s) not uploaded \u2014 already in the archive'
                     : rejected + ' file(s) not uploaded: ' + (reasons[0] || 'see the file list'))
-                : (data.error || 'Upload failed.');
+                // Nothing reached the per-file checks: say which failure it
+                // was -- session, permission, too large, server -- and that
+                // the chosen files are still selected for another try.
+                : window.qaRequestError(xhr.status, data, 'upload');
             if (uploadProgressBar) {
                 uploadProgressBar.style.width = '100%';
                 uploadProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
@@ -1042,14 +1045,22 @@ form.addEventListener('submit', function(e) {
         finishUpload();
     });
 
+    // No answer at all: the connection dropped mid-upload, or the server is
+    // down. Nothing was saved, and the files stay selected for a retry.
     xhr.addEventListener('error', function() {
+        const offline = navigator.onLine === false;
         if (uploadProgressBar) {
             uploadProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
             uploadProgressBar.classList.add('bg-danger');
         }
-        if (uploadProgressLabel) uploadProgressLabel.innerHTML = '<i class="bi bi-x-circle me-1"></i>Upload failed';
-        if (window.qaToast) window.qaToast('Upload failed. Please try again.', 'error');
-        else alert('Upload failed. Please try again.');
+        if (uploadProgressLabel) {
+            uploadProgressLabel.innerHTML = '<i class="bi bi-wifi-off me-1"></i>'
+                + (offline ? 'Upload stopped — no internet connection' : 'Upload stopped — the server did not answer');
+        }
+        const msg = window.qaRequestError ? window.qaRequestError(0, {}, 'upload') : 'Upload failed. Please try again.';
+        if (window.qaToast) window.qaToast(msg + ' Your files are still selected.', 'error');
+        else alert(msg);
+        if (window.qaConnection && !offline) window.qaConnection.failed();
         finishUpload();
     });
 

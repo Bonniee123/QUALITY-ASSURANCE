@@ -7,7 +7,7 @@
         <h4>Delete Document</h4>
         <p>Are you sure you want to delete <strong>{{ document.title }}</strong>?</p>
         <div class="del-warning">
-            <i class="bi bi-info-circle me-1"></i>The document is taken out of the repository. You can undo this for ten seconds afterwards.
+            <i class="bi bi-info-circle me-1"></i>This cannot be undone. The file is removed from the repository; the record of who uploaded and deleted it is kept.
         </div>
         <form method="post" class="del-actions">
             {% csrf_token %}

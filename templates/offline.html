@@ -1,0 +1,27 @@
+{% extends 'status/base.html' %}
+{% comment %}
+Shown in place of a page that could not load because the connection is down.
+The service worker (/sw.js) keeps a copy and serves it at the address that
+failed, so when the connection returns a reload lands on the page that was
+asked for, not on a generic home page.
+{% endcomment %}
+{% block title %}Offline{% endblock %}
+{% block card %}
+        {% include 'status/_offline_card.html' %}
+{% endblock %}
+{% block scripts %}
+    <script>
+{% include 'status/_reconnect.js' %}
+    (function () {
+        var card = document.querySelector('.err-card');
+        var link = window.qaReconnect(card, function () {
+            setTimeout(function () {
+                // Opened at /offline/ itself, there is no page to return to.
+                if (window.location.pathname === '/offline/') { window.location.href = '/'; }
+                else { window.location.reload(); }
+            }, 500);
+        });
+        link.check();
+    })();
+    </script>
+{% endblock %}

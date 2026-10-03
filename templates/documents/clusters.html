@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function () {
             credentials: 'same-origin',
             signal: controller.signal,
         })
-            .then(function (res) { if (!res.ok) throw new Error('Request failed (' + res.status + ')'); return res.text(); })
+            .then(function (res) { if (!res.ok) throw Object.assign(new Error('load failed'), { status: res.status }); return res.text(); })
             .then(function (html) {
                 if (myToken !== loadToken) return;
                 content.innerHTML = html;
@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(function (err) {
                 if (err && err.name === 'AbortError') return;
-                if (typeof window.qaToast === 'function') window.qaToast(err.message || 'Could not load cluster.', 'error');
+                if (typeof window.qaToast === 'function') window.qaToast(window.qaRequestError(err && err.status || 0, {}, 'load'), 'error');
             })
             .finally(function () {
                 if (myToken === loadToken) {

@@ -120,16 +120,18 @@
 </div>
 {% endif %}
 
-{% if rbac_is_qa_staff_or_admin %}
-
-<!-- Bulk delete confirmation modal -->
+{% comment %}
+Bulk Delete asks once, with the number in the question, and then leaves time
+to undo. Every role reaches it: Faculty select among their own uploads, and the
+server checks each document again whatever the page sent.
+{% endcomment %}
 <div class="modal fade" id="repoBulkDeleteModal" tabindex="-1" aria-labelledby="repoBulkDeleteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: var(--shadow-lg, 0 12px 40px rgba(0,0,0,.12));">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title d-flex align-items-center gap-2" id="repoBulkDeleteModalLabel">
                     <i class="bi bi-exclamation-triangle text-danger"></i>
-                    Delete selected documents
+                    <span id="repoBulkDeleteTitle">Delete selected documents?</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -139,34 +141,29 @@
             <div class="modal-footer border-0 pt-0">
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-danger" id="repoBulkDeleteConfirmBtn">
-                    <i class="bi bi-trash3 me-1"></i>Delete
+                    <i class="bi bi-trash3 me-1"></i><span>Delete</span>
                 </button>
             </div>
         </div>
     </div>
 </div>
-{% endif %}
 
-<div class="repo-scroll-panel{% if rbac_is_qa_staff_or_admin %} has-bulkbar{% endif %}" id="repoScrollArea" data-fill-viewport role="region" aria-label="Document list — scroll for more rows">
-    {% if rbac_is_qa_staff_or_admin %}
+<div class="repo-scroll-panel has-bulkbar" id="repoScrollArea" data-fill-viewport role="region" aria-label="Document list — scroll for more rows">
     {% comment %}
     Inside the scroll panel and pinned above the header row, so selection stays
-    reachable while the list is scrolled. It used to sit outside the panel and
-    scrolled away with the page, which meant selecting rows near the bottom of a
-    long list left the count and the delete button off screen.
-    {% endcomment %}
-    {% comment %}
-    The bar reports three things a reader needs before a destructive action:
-    how many documents match the current filters, how many of them are
-    selected, and what the delete button is about to affect. It used to say
-    "Select all visible", which quietly meant the rows that had loaded -- so a
-    reader who filtered to 247 documents, pressed it, and deleted, removed the
-    handful on screen and believed they had removed 247.
+    reachable while the list is scrolled.
+
+    The bar reports what a reader needs before a destructive action: how many
+    documents they can select under the current filters, how many are
+    selected, and the number Bulk Delete is about to affect. "Select all"
+    offers every matching document, not only the rows that have loaded.
+
+    Faculty see it too: their checkboxes are on their own uploads only, which
+    is all they may delete. `data-total` is that selectable count.
     {% endcomment %}
     <div class="repo-bulkbar" id="repoBulkBar"
-         data-total="{{ total_count }}"
-         data-ids-url="{% url 'documents:repository' %}"
-         data-restore-url="{% url 'documents:bulk_restore' %}">
+         data-total="{{ selectable_count }}"
+         data-ids-url="{% url 'documents:repository' %}">
         <div class="form-check mb-0">
             <input class="form-check-input" type="checkbox" id="repoSelectAll"
                    aria-describedby="repoSelectAllHint">
@@ -174,52 +171,21 @@
         </div>
         <form method="post" action="{% url 'documents:bulk_delete' %}" id="repoBulkDeleteForm" class="d-flex align-items-center gap-2">
             {% csrf_token %}
-            <span class="text-muted small" id="repoSelectedCount">{{ total_count }} document{{ total_count|pluralize }}</span>
+            <span class="text-muted small" id="repoSelectedCount" aria-live="polite">{% if rbac_is_faculty %}{{ selectable_count }} of your upload{{ selectable_count|pluralize }}{% else %}{{ selectable_count }} document{{ selectable_count|pluralize }}{% endif %}</span>
             <a href="#" class="small d-none" id="repoSelectAllMatching" role="button"></a>
+            <a href="#" class="small d-none" id="repoClearSelection" role="button">Clear selection</a>
+            <span class="small d-none" id="repoListUpdated">
+                <a href="#" role="button" id="repoListUpdatedLink"><i class="bi bi-arrow-clockwise me-1"></i>List updated — refresh</a>
+            </span>
             <button type="submit" class="btn btn-outline-danger btn-sm" id="repoBulkDeleteBtn" disabled>
-                <i class="bi bi-trash3 me-1"></i><span id="repoBulkDeleteLabel">Delete</span>
+                <i class="bi bi-trash3 me-1"></i><span id="repoBulkDeleteLabel">Bulk Delete</span>
             </button>
         </form>
-    </div>
-    {% endif %}
-    {% comment %}
-    The undo strip. A delete is immediate and reversible, so there is no
-    confirmation step in front of the bulk one: the count sits inside the
-    button that performs it, and this offers the way back for ten seconds
-    afterwards.
-
-    It sits outside the QA-staff block that holds the bulk bar, because a
-    faculty member may delete their own upload from the row menu and needs the
-    same ten seconds. For that reason it also carries its own restore URL and
-    CSRF token rather than borrowing the bulk form's.
-
-    `data-pending-*` is set when the page was reached by a redirect from a
-    single delete, which has no page of its own left to show the offer on.
-    {% endcomment %}
-    <div class="repo-undo" id="repoUndoBar" role="status" aria-live="polite" hidden
-         data-restore-url="{% url 'documents:bulk_restore' %}"
-         {% if pending_undo %}data-pending-ids="{{ pending_undo.ids|join:',' }}"
-         data-pending-count="{{ pending_undo.count }}"{% endif %}>
-        <form class="d-none" id="repoUndoCsrf">{% csrf_token %}</form>
-        <i class="bi bi-trash3 repo-undo-icon" aria-hidden="true"></i>
-        <span class="repo-undo-text" id="repoUndoText"></span>
-        <button type="button" class="repo-undo-btn" id="repoUndoBtn">
-            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
-            <span>Undo</span>
-        </button>
-        <span class="repo-undo-timer" id="repoUndoTimer" aria-hidden="true"></span>
-        <button type="button" class="repo-undo-close" id="repoUndoClose"
-                aria-label="Dismiss">&times;</button>
-        {% comment %}
-        The bar drains rather than counting, so the time left is readable at a
-        glance without reading a number.
-        {% endcomment %}
-        <span class="repo-undo-progress" aria-hidden="true"><i id="repoUndoFill"></i></span>
     </div>
     <div class="table-responsive">
     <table class="table" id="repo-table">
         <thead><tr>
-            {% if rbac_is_qa_staff_or_admin %}<th style="width:38px;"></th>{% endif %}
+            <th style="width:38px;"><span class="visually-hidden">Select</span></th>
             <th class="repo-col-title"><button type="button" class="repo-sort-btn{% if current_sort == 'title' %} is-active{% endif %}" data-sort="title">Title{% if current_sort == 'title' %} <i class="bi repo-sort-caret bi-caret-{% if current_sort_dir == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</button></th>
             <th class="repo-col-category">Category</th>
             <th class="repo-col-status">Status</th>
@@ -297,8 +263,8 @@
    147px, which is backwards for the column people actually read. */
 /* The selection bar pins to the top of the scroll panel, and the header row
    pins directly beneath it. The offset is a fixed height rather than a measured
-   one so the two never overlap mid-scroll; `has-bulkbar` is only set when the
-   bar is actually rendered, so a faculty view keeps the header at the top. */
+   one so the two never overlap mid-scroll. Every role has the bar now, so
+   `has-bulkbar` is always set. */
 .repo-bulkbar {
     position: sticky;
     top: 0;
@@ -313,6 +279,21 @@
     border-bottom: 1px solid var(--color-border);
 }
 .repo-scroll-panel.has-bulkbar thead th { top: 46px; }
+.repo-bulkbar .form-check-label,
+.repo-bulkbar #repoSelectedCount,
+.repo-bulkbar .btn { white-space: nowrap; }
+/* On a phone the bar's four items did not fit its one line and wrapped
+   inside a fixed 46px. The header checkbox needs no caption there (it keeps
+   its accessible name), and Clear selection is one tap on that checkbox. */
+@media (max-width: 575px) {
+    .repo-bulkbar { gap: 8px; padding: 0 10px; }
+    .repo-bulkbar .form-check-label {
+        position: absolute; width: 1px; height: 1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap;
+    }
+    .repo-bulkbar #repoClearSelection { display: none !important; }
+    .repo-bulkbar #repoBulkDeleteForm { gap: 8px !important; }
+}
 
 /* The title absorbs whatever width the other columns leave, instead of taking
    a fixed slice of it. `width:100%` with `max-width:0` is the standard way to
@@ -549,6 +530,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     const selects = form.querySelectorAll('select');
+    const listUpdated = document.getElementById('repoListUpdated');
+    const listUpdatedLink = document.getElementById('repoListUpdatedLink');
+    let pagesLoaded = 1;
+    let previousList = null;
+    let retryAfterReconnect = false;
     let debounceTimer;
     let listLoadToken = 0;
     let appendInFlight = false;
@@ -558,7 +544,8 @@ document.addEventListener('DOMContentLoaded', function() {
         hasMore: {{ has_more|yesno:"true,false" }},
         nextPage: {% if next_page %}{{ next_page }}{% else %}null{% endif %}
     };
-    const skeletonCols = ({% if rbac_is_qa_staff_or_admin %}10{% else %}8{% endif %});
+    // As many skeleton cells as the header has columns, whichever role this is.
+    const skeletonCols = document.querySelectorAll('#repo-table thead th').length || 10;
 
     function buildSearchParams(page) {
         const fd = new FormData(form);
@@ -590,7 +577,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const bulkBar = document.getElementById('repoBulkBar');
     const bulkDeleteLabel = document.getElementById('repoBulkDeleteLabel');
     const selectAllMatchingLink = document.getElementById('repoSelectAllMatching');
-    const matchingTotal = bulkBar ? parseInt(bulkBar.dataset.total, 10) || 0 : 0;
+    // How many documents this person may select under the current filters:
+    // everything for staff, their own uploads for Faculty.
+    let matchingTotal = bulkBar ? parseInt(bulkBar.dataset.total, 10) || 0 : 0;
+    const selectNoun = {{ rbac_is_faculty|yesno:"true,false" }} ? ['of your uploads', 'of your upload'] : ['documents', 'document'];
+    const clearSelection = document.getElementById('repoClearSelection');
 
     /**
      * Say what is selected, out of what, and what Delete will affect.
@@ -603,16 +594,16 @@ document.addEventListener('DOMContentLoaded', function() {
     function refreshBulkDeleteUI() {
         if (!bulkDeleteBtn || !selectedCountLabel) return;
         const picked = bulkSelection.size;
-        const noun = matchingTotal === 1 ? 'document' : 'documents';
 
         selectedCountLabel.textContent = picked
             ? picked + ' of ' + matchingTotal + ' selected'
-            : matchingTotal + ' ' + noun;
+            : matchingTotal + ' ' + (matchingTotal === 1 ? selectNoun[1] : selectNoun[0]);
 
         bulkDeleteBtn.disabled = picked === 0;
         if (bulkDeleteLabel) {
-            bulkDeleteLabel.textContent = picked ? 'Delete ' + picked : 'Delete';
+            bulkDeleteLabel.textContent = picked ? 'Bulk Delete (' + picked + ')' : 'Bulk Delete';
         }
+        if (clearSelection) clearSelection.classList.toggle('d-none', picked === 0);
 
         // Offer the rest of the filtered set only when the reader has taken
         // everything on screen and there is genuinely more behind it.
@@ -642,14 +633,19 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function (data) {
                 if (!data || !data.ids) return;
                 data.ids.forEach(function (id) { bulkSelection.add(String(id)); });
+                if (typeof data.total === 'number') matchingTotal = data.total;
                 syncVisibleCheckboxes();
             })
-            .catch(function () {});
+            .catch(function () {
+                if (window.qaToast) window.qaToast(window.qaRequestError(0, {}, 'load'), 'error');
+            });
     }
 
     function syncVisibleCheckboxes() {
         tableBody.querySelectorAll('.js-bulk-doc-checkbox').forEach(function (cb) {
             cb.checked = bulkSelection.has(cb.value);
+            const row = cb.closest('tr');
+            if (row) row.classList.toggle('is-selected', cb.checked);
         });
         if (selectAll) {
             const visible = Array.from(tableBody.querySelectorAll('.js-bulk-doc-checkbox'));
@@ -682,6 +678,8 @@ document.addEventListener('DOMContentLoaded', function() {
             replaceController = new AbortController();
             replaceInFlight = true;
             appendInFlight = false;
+            // Kept so a failed load can put the list back as it was.
+            previousList = { html: tableBody.innerHTML, hasMore: repoState.hasMore, nextPage: repoState.nextPage };
             repoState.hasMore = false;
             repoState.nextPage = null;
             tableBody.innerHTML = skeletonHtml(8);
@@ -701,7 +699,8 @@ document.addEventListener('DOMContentLoaded', function() {
             signal: mode === 'replace' && replaceController ? replaceController.signal : undefined,
         })
             .then(function (res) {
-                if (!res.ok) throw new Error('Request failed (' + res.status + ')');
+                if (window.qaActivity && window.qaActivity.expired(res)) throw Object.assign(new Error('expired'), { name: 'AbortError' });
+                if (!res.ok) throw Object.assign(new Error('load failed'), { status: res.status });
                 return res.json();
             })
             .then(function (data) {
@@ -709,8 +708,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (mode === 'replace') {
                     tableBody.innerHTML = data.html;
                     if (data.count_html != null && filterCount) filterCount.innerHTML = data.count_html;
+                    if (typeof data.selectable_total === 'number') matchingTotal = data.selectable_total;
+                    pagesLoaded = 1;
+                    if (listUpdated) listUpdated.classList.add('d-none');
                     window.history.replaceState({}, '', url);
                 } else {
+                    pagesLoaded += 1;
                     const wrap = document.createElement('tbody');
                     wrap.innerHTML = data.html;
                     while (wrap.firstChild) tableBody.appendChild(wrap.firstChild);
@@ -722,12 +725,21 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(function (err) {
                 if (err && err.name === 'AbortError') return;
+                // Say which failure it was -- offline, server, session -- not
+                // the browser's "Failed to fetch".
                 if (typeof window.qaToast === 'function') {
-                    window.qaToast(err.message || 'Could not load documents.', 'error');
+                    window.qaToast(window.qaRequestError(err && err.status || 0, {}, 'load'), 'error');
                 }
                 if (myToken !== listLoadToken) return;
-                if (mode === 'replace') {
-                    tableBody.innerHTML = '<tr><td colspan="' + skeletonCols + '" class="text-danger p-3">Failed to load results. Try again or refresh the page.</td></tr>';
+                if (mode === 'replace' && previousList) {
+                    // Put back what was there: a dropped connection should not
+                    // cost the reader the list they were looking at. The search
+                    // runs again by itself once the connection is back.
+                    tableBody.innerHTML = previousList.html;
+                    repoState.hasMore = previousList.hasMore;
+                    repoState.nextPage = previousList.nextPage;
+                    retryAfterReconnect = true;
+                    syncVisibleCheckboxes();
                 }
                 updateSentinelIdle();
             })
@@ -877,250 +889,213 @@ document.addEventListener('DOMContentLoaded', function() {
         syncVisibleCheckboxes();
     });
 
-    function submitBulkDelete() {
-        bulkDeleteForm.querySelectorAll('input[name="document_ids"]').forEach(function (n) { n.remove(); });
-        Array.from(bulkSelection).forEach(function (id) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'document_ids';
-            input.value = id;
-            bulkDeleteForm.appendChild(input);
+    const clearSelectionLink = document.getElementById('repoClearSelection');
+    if (clearSelectionLink) {
+        clearSelectionLink.addEventListener('click', function (e) {
+            e.preventDefault();
+            bulkSelection.clear();
+            syncVisibleCheckboxes();
         });
-        bulkDeleteForm.submit();
     }
 
+    /*
+     * Bulk Delete: Select -> Bulk Delete (N) -> confirm -> deleted, with an
+     * Undo toast for this batch alone.
+     *
+     * Every bulk delete becomes its own batch on the server with its own
+     * expiry, so a second one never replaces or restarts the first one's
+     * Undo. The toasts live in the global queue (deletion-undo.js), which is
+     * on every page, so the offer survives leaving the Repository.
+     */
     if (bulkDeleteForm) {
         const bulkModalEl = document.getElementById('repoBulkDeleteModal');
+        const bulkModalTitle = document.getElementById('repoBulkDeleteTitle');
         const bulkModalBody = document.getElementById('repoBulkDeleteBody');
         const bulkConfirmBtn = document.getElementById('repoBulkDeleteConfirmBtn');
         const hasBootstrapModal = typeof bootstrap !== 'undefined' && bootstrap.Modal && bulkModalEl;
+        const undoSeconds = parseInt(document.getElementById('qaUndoQueue')
+            ? document.getElementById('qaUndoQueue').getAttribute('data-undo-seconds') : '10', 10) || 10;
+        let deleting = false;
 
-        /*
-         * Delete immediately, then offer the way back.
-         *
-         * The confirmation modal asked "are you sure?" about a number the
-         * reader had just read on the button they pressed, so it added a step
-         * without adding information. Deletion is reversible now -- the rows
-         * are stamped, not destroyed, and the files stay on disk -- so the
-         * honest interaction is to do it and leave an undo within reach.
-         */
+        function confirmLabel(text) {
+            bulkConfirmBtn.querySelector('span').textContent = text;
+        }
+
         bulkDeleteForm.addEventListener('submit', function (e) {
             e.preventDefault();
-            if (!bulkSelection.size) return;
+            if (!bulkSelection.size || deleting) return;
+            const n = bulkSelection.size;
+            const noun = n === 1 ? 'document' : 'documents';
+            if (!hasBootstrapModal) {
+                if (window.confirm('Delete ' + n + ' ' + noun + '? You can undo this for ' + undoSeconds + ' seconds.')) {
+                    performBulkDelete();
+                }
+                return;
+            }
+            bulkModalTitle.textContent = 'Delete ' + n + ' ' + noun + '?';
+            bulkModalBody.textContent = (n === 1 ? 'It is' : 'They are') + ' taken out of the repository at once. '
+                + 'You can undo this for ' + undoSeconds + ' seconds; after that the '
+                + (n === 1 ? 'file is' : 'files are') + ' permanently removed. '
+                + 'Who uploaded and who deleted ' + (n === 1 ? 'it' : 'them') + ' stays on record.';
+            confirmLabel('Delete ' + n);
+            bulkConfirmBtn.disabled = false;
+            bootstrap.Modal.getOrCreateInstance(bulkModalEl).show();
+        });
 
+        if (bulkConfirmBtn) {
+            bulkConfirmBtn.addEventListener('click', performBulkDelete);
+        }
+
+        function performBulkDelete() {
+            if (deleting || !bulkSelection.size) return;
+            deleting = true;
             const ids = Array.from(bulkSelection);
             const body = new FormData();
             body.append('csrfmiddlewaretoken',
                         bulkDeleteForm.querySelector('[name=csrfmiddlewaretoken]').value);
             ids.forEach(function (id) { body.append('document_ids', id); });
 
+            // Deleting -> Deleted -> Undo available.
+            if (bulkConfirmBtn) {
+                bulkConfirmBtn.disabled = true;
+                bulkConfirmBtn.querySelector('i').className = 'spinner-border spinner-border-sm me-1';
+                confirmLabel('Deleting…');
+            }
             bulkDeleteBtn.disabled = true;
+            if (bulkDeleteLabel) bulkDeleteLabel.textContent = 'Deleting…';
+            ids.forEach(function (id) {
+                const row = tableBody.querySelector('tr[data-doc-id="' + id + '"]');
+                if (row) row.classList.add('repo-row-busy');
+            });
+
             fetch(bulkDeleteForm.action, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 body: body
             })
-                .then(function (r) { return r.ok ? r.json() : null; })
-                .then(function (data) {
-                    if (!data || !data.ok) {
-                        if (typeof window.qaToast === 'function') {
-                            window.qaToast('Nothing was deleted. Refresh and try again.', 'error');
-                        }
-                        refreshBulkDeleteUI();
+                .then(function (r) {
+                    if (window.qaActivity && window.qaActivity.expired(r)) return null;
+                    return r.json().catch(function () { return {}; }).then(function (data) {
+                        return { status: r.status, ok: r.ok, data: data || {} };
+                    });
+                })
+                .then(function (res) {
+                    if (!res) return;
+                    if (!res.ok || !res.data.ok) {
+                        if (window.qaToast) window.qaToast(window.qaRequestError(res.status, res.data, 'delete'), 'error');
                         return;
                     }
-                    // Take the rows off the page at once, so the action feels
-                    // done rather than pending.
-                    ids.forEach(function (id) {
-                        const cb = tableBody.querySelector(
-                            '.js-bulk-doc-checkbox[value="' + id + '"]');
-                        const row = cb ? cb.closest('tr') : null;
+                    const data = res.data;
+                    // Take the rows off the page at once: the delete is done.
+                    (data.ids || []).forEach(function (id) {
+                        const row = tableBody.querySelector('tr[data-doc-id="' + id + '"]');
                         if (row) row.remove();
+                        bulkSelection.delete(String(id));
                     });
-                    bulkSelection.clear();
-                    syncVisibleCheckboxes();
-                    showUndo(data.deleted, data.ids);
+                    if (data.refused && window.qaToast) {
+                        window.qaToast(data.refused + ' of the selected ' + (data.refused === 1 ? 'document was' : 'documents were')
+                            + ' not deleted: you can only delete your own uploads.', 'warning');
+                    }
+                    adjustTotals(-(data.deleted || 0));
+                    // Nothing left on screen: load again, which shows the
+                    // empty state or the rows that were behind these.
+                    if (!tableBody.querySelector('tr[data-doc-id]')) fetchRepo(1, 'replace');
+                    if (window.qaUndoQueue && data.batch) window.qaUndoQueue.add(data.batch);
+                    if (hasBootstrapModal) bootstrap.Modal.getOrCreateInstance(bulkModalEl).hide();
+                    document.dispatchEvent(new CustomEvent('qa:documents-changed', { detail: { reason: 'delete', local: true } }));
                 })
                 .catch(function () {
-                    refreshBulkDeleteUI();
+                    if (window.qaToast) window.qaToast(window.qaRequestError(0, {}, 'delete'), 'error');
+                })
+                .finally(function () {
+                    deleting = false;
+                    tableBody.querySelectorAll('.repo-row-busy').forEach(function (row) {
+                        row.classList.remove('repo-row-busy');
+                    });
+                    if (bulkConfirmBtn) {
+                        bulkConfirmBtn.querySelector('i').className = 'bi bi-trash3 me-1';
+                        bulkConfirmBtn.disabled = false;
+                    }
+                    if (hasBootstrapModal) bootstrap.Modal.getOrCreateInstance(bulkModalEl).hide();
+                    syncVisibleCheckboxes();
                 });
-        });
+        }
     }
 
-    /* --- The undo strip: ten seconds, then gone. ------------------------- */
-    const undoBar = document.getElementById('repoUndoBar');
-    const undoText = document.getElementById('repoUndoText');
-    const undoBtn = document.getElementById('repoUndoBtn');
-    const undoTimerEl = document.getElementById('repoUndoTimer');
-    const undoFill = document.getElementById('repoUndoFill');
-    const undoClose = document.getElementById('repoUndoClose');
-    // The strip carries its own restore URL, because it is shown to faculty
-    // as well and the bulk bar they never see is where it used to come from.
-    const restoreUrl = (undoBar && undoBar.dataset.restoreUrl)
-                       || (bulkBar ? bulkBar.dataset.restoreUrl : '');
-    const UNDO_SECONDS = 10;
-    let undoTimer = null;
-    let undoTick = null;
-    let pendingUndoIds = null;
+    /** Keep the "N documents" counts honest after rows leave or come back. */
+    function adjustTotals(delta) {
+        matchingTotal = Math.max(0, matchingTotal + delta);
+        const num = document.getElementById('filterCountNum');
+        if (num) num.textContent = Math.max(0, (parseInt(num.textContent, 10) || 0) + delta);
+        refreshBulkDeleteUI();
+    }
 
     /*
-     * A deletion outlives the page view it happened on.
+     * The list follows changes made elsewhere: an undo (here or on another
+     * page), or a colleague's upload or delete picked up by the live poll.
      *
-     * The strip used to be nothing but page state, so leaving the repository
-     * and coming back dropped the offer while its ten seconds were still
-     * running: the rows were gone from every listing and there was no longer
-     * anything on screen to ask for them back. The pending deletion is kept in
-     * sessionStorage instead -- the same tab, cleared when the tab closes --
-     * and what is stored is the instant the offer expires rather than a
-     * countdown, so any later page load can work out how much of it is left.
+     * When the reader is at the top of a list that has not been paged, it is
+     * simply reloaded in place -- selection kept, since it lives in
+     * `bulkSelection` and is re-applied to the new rows. Deep in a scrolled
+     * list, reloading would throw them back to the top, so they are told the
+     * list changed and choose when to refresh.
      */
-    const UNDO_KEY = 'qaRepoPendingUndo';
 
-    function rememberUndo(count, ids, until) {
-        try {
-            sessionStorage.setItem(UNDO_KEY, JSON.stringify({ count: count, ids: ids, until: until }));
-        } catch (err) { /* Blocked or full storage: the offer stays page-local, as before. */ }
-    }
-
-    function forgetUndo() {
-        try { sessionStorage.removeItem(UNDO_KEY); } catch (err) { /* See rememberUndo. */ }
-    }
-
-    function readUndo() {
-        try {
-            const saved = JSON.parse(sessionStorage.getItem(UNDO_KEY) || 'null');
-            if (!saved || !Array.isArray(saved.ids) || !saved.ids.length || !saved.until) return null;
-            return saved;
-        } catch (err) { return null; }
-    }
-
-    function hideUndo() {
-        if (undoTimer) { clearTimeout(undoTimer); undoTimer = null; }
-        if (undoTick) { clearInterval(undoTick); undoTick = null; }
-        forgetUndo();
-        pendingUndoIds = null;
-        if (!undoBar) return;
-        undoBar.classList.add('is-leaving');
-        // Let the fade finish before it is taken out of the layout.
-        setTimeout(function () {
-            if (undoBar.classList.contains('is-leaving')) {
-                undoBar.hidden = true;
-                undoBar.classList.remove('is-leaving');
-            }
-        }, 200);
-    }
-
-    function runUndo() {
-        if (!pendingUndoIds || !pendingUndoIds.length) return;
-        const ids = pendingUndoIds;
-        const token = (undoBar && undoBar.querySelector('[name=csrfmiddlewaretoken]'))
-                      || (bulkDeleteForm && bulkDeleteForm.querySelector('[name=csrfmiddlewaretoken]'));
-        if (!token) return;
-        const body = new FormData();
-        body.append('csrfmiddlewaretoken', token.value);
-        ids.forEach(function (id) { body.append('document_ids', id); });
-        if (undoBtn) undoBtn.disabled = true;
-        fetch(restoreUrl, {
-            method: 'POST',
-            credentials: 'same-origin',
+    function quietRefresh() {
+        if (replaceInFlight || appendInFlight) return;
+        const atTop = !scrollRoot || scrollRoot.scrollTop < 40;
+        if (!atTop || pagesLoaded > 1) {
+            if (listUpdated) listUpdated.classList.remove('d-none');
+            return;
+        }
+        const params = buildSearchParams(1);
+        fetch(historyUrl(params), {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: body
+            credentials: 'same-origin'
         })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (data) {
-                hideUndo();
-                // The rows were taken off the page, so it is reloaded to put
-                // them back in their proper order rather than guessing where
-                // each one belonged.
-                if (data && data.ok) window.location.reload();
-                else if (undoBtn) undoBtn.disabled = false;
+                if (!data || replaceInFlight || appendInFlight) return;
+                tableBody.innerHTML = data.html;
+                if (data.count_html != null && filterCount) filterCount.innerHTML = data.count_html;
+                if (typeof data.selectable_total === 'number') matchingTotal = data.selectable_total;
+                repoState.hasMore = !!data.has_more;
+                repoState.nextPage = data.next_page != null ? data.next_page : null;
+                if (listUpdated) listUpdated.classList.add('d-none');
+                syncVisibleCheckboxes();
+                updateSentinelIdle();
             })
-            .catch(function () {
-                if (undoBtn) undoBtn.disabled = false;
-                hideUndo();
-            });
+            .catch(function () {});
     }
 
-    function showUndo(count, ids, until) {
-        if (!undoBar || !undoText) return;
-        // `until` is passed only when resuming an offer made on an earlier page
-        // view. A fresh deletion starts its own ten seconds and records them.
-        const deadline = until || (Date.now() + UNDO_SECONDS * 1000);
-        const secondsLeft = Math.min(UNDO_SECONDS, Math.ceil((deadline - Date.now()) / 1000));
-        if (secondsLeft <= 0) { forgetUndo(); return; }
-        if (!until) rememberUndo(count, ids, deadline);
-        pendingUndoIds = ids;
-        undoText.textContent = count + ' ' + (count === 1 ? 'document' : 'documents') + ' deleted.';
-        if (undoBtn) undoBtn.disabled = false;
+    if (listUpdatedLink) {
+        listUpdatedLink.addEventListener('click', function (e) {
+            e.preventDefault();
+            listUpdated.classList.add('d-none');
+            fetchRepo(1, 'replace');
+        });
+    }
 
-        undoBar.classList.remove('is-leaving');
-        undoBar.hidden = false;
-
-        let left = secondsLeft;
-        if (undoTimerEl) undoTimerEl.textContent = left + 's';
-        if (undoFill) {
-            // Restart the drain by re-triggering its animation. Reading
-            // offsetWidth between the two assignments is what forces the
-            // browser to notice the removal.
-            undoBar.style.setProperty('--repo-undo-seconds', secondsLeft + 's');
-            undoFill.style.animation = 'none';
-            void undoFill.offsetWidth;
-            undoFill.style.animation = '';
+    document.addEventListener('qa:reconnected', function () {
+        if (retryAfterReconnect) {
+            retryAfterReconnect = false;
+            fetchRepo(1, 'replace');
+        } else {
+            quietRefresh();
         }
-
-        if (undoTick) clearInterval(undoTick);
-        undoTick = setInterval(function () {
-            left -= 1;
-            if (undoTimerEl) undoTimerEl.textContent = Math.max(left, 0) + 's';
-            if (left <= 0) { clearInterval(undoTick); undoTick = null; }
-        }, 1000);
-
-        if (undoTimer) clearTimeout(undoTimer);
-        undoTimer = setTimeout(hideUndo, secondsLeft * 1000);
-    }
-
-    if (undoBtn) undoBtn.addEventListener('click', runUndo);
-    if (undoClose) undoClose.addEventListener('click', hideUndo);
-
-    /*
-     * Ctrl+Z / Cmd+Z while the strip is up, which is what a keyboard reaches
-     * for after a deletion. Ignored while typing, so it cannot fire from the
-     * search box.
-     */
-    document.addEventListener('keydown', function (e) {
-        if (!pendingUndoIds) return;
-        const key = (e.key || '').toLowerCase();
-        if (key !== 'z' || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
-        const el = document.activeElement;
-        const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
-        if (typing) return;
-        e.preventDefault();
-        runUndo();
     });
 
-    /*
-     * Two ways the strip can appear on a page it did not start on.
-     *
-     * `data-pending-ids` is a delete that happened on the request before
-     * this one -- a single delete from the row menu, which redirects here.
-     * Its ten seconds start now, because now is when the offer first
-     * becomes visible. It wins over a stored offer, being the newer event.
-     *
-     * Otherwise a stored offer is resumed with whatever time is left of it.
-     */
-    const pendingIds = (undoBar && undoBar.dataset.pendingIds || '')
-        .split(',').map(function (s) { return parseInt(s, 10); })
-        .filter(function (n) { return !isNaN(n); });
-    if (pendingIds.length) {
-        showUndo(parseInt(undoBar.dataset.pendingCount, 10) || pendingIds.length, pendingIds);
-    } else {
-        const savedUndo = readUndo();
-        if (savedUndo) {
-            if (savedUndo.until > Date.now()) showUndo(savedUndo.count, savedUndo.ids, savedUndo.until);
-            else forgetUndo();
-        }
-    }
+    document.addEventListener('qa:documents-restored', function () {
+        if (window.qaToast) window.qaToast('Restored. The documents are back in the repository.', 'success');
+        quietRefresh();
+    });
+    document.addEventListener('qa:documents-changed', function (e) {
+        // Our own delete already took its rows off the page.
+        if (e.detail && e.detail.local) return;
+        if (e.detail && e.detail.reason === 'restore') return;  // handled above
+        quietRefresh();
+    });
 
     syncVisibleCheckboxes();
     updateSentinelIdle();

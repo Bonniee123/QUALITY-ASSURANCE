@@ -1,0 +1,70 @@
+{% comment %}
+The status-page illustration: the 404 page's scene (the screen, the person,
+the plants, the same palette) with a different sign on the screen, so every
+status page reads as one family. `symbol`: lock, refresh, alert, form, offline.
+{% endcomment %}
+<svg class="err-art" viewBox="0 0 420 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="{{ label }}">
+    <circle cx="56" cy="52" r="30" fill="#EEF3FF"/>
+    <circle cx="372" cy="70" r="21" fill="#EEF3FF"/>
+    <circle cx="332" cy="26" r="6" fill="#C7D7FE"/>
+    <circle cx="70" cy="126" r="5" fill="#C7D7FE"/>
+    <circle cx="398" cy="158" r="7" fill="#C7D7FE"/>
+    <ellipse cx="210" cy="226" rx="152" ry="12" fill="#E8EEFB"/>
+
+    <!-- the screen -->
+    <rect x="156" y="40" width="112" height="170" rx="16" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="3"/>
+    <rect x="166" y="58" width="92" height="134" rx="9" fill="#EEF3FF"/>
+    <rect x="196" y="47" width="32" height="5" rx="2.5" fill="#C7D7FE"/>
+    <rect x="186" y="164" width="52" height="6" rx="3" fill="#C7D7FE"/>
+    <rect x="196" y="177" width="32" height="6" rx="3" fill="#C7D7FE"/>
+
+    {% if symbol == 'lock' %}
+    <path d="M196 106v-12a16 16 0 0 1 32 0v12" fill="none" stroke="#1E3A8A" stroke-width="6" stroke-linecap="round"/>
+    <rect x="186" y="104" width="52" height="42" rx="9" fill="#1D4ED8"/>
+    <circle cx="212" cy="121" r="6" fill="#FFFFFF"/>
+    <rect x="209.5" y="123" width="5" height="12" rx="2.5" fill="#FFFFFF"/>
+    {% elif symbol == 'refresh' %}
+    <circle cx="212" cy="112" r="28" fill="#FFFFFF" stroke="#C7D7FE" stroke-width="3"/>
+    <path d="M196 104a18 18 0 0 1 31-6" fill="none" stroke="#1D4ED8" stroke-width="5" stroke-linecap="round"/>
+    <path d="M229 88v12h-12" fill="none" stroke="#1D4ED8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M228 120a18 18 0 0 1-31 6" fill="none" stroke="#1E3A8A" stroke-width="5" stroke-linecap="round"/>
+    <path d="M195 136v-12h12" fill="none" stroke="#1E3A8A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    {% elif symbol == 'alert' %}
+    <path d="M212 84l30 52h-60z" fill="#1D4ED8" stroke="#1D4ED8" stroke-width="6" stroke-linejoin="round"/>
+    <rect x="209" y="100" width="6" height="20" rx="3" fill="#FFFFFF"/>
+    <circle cx="212" cy="128" r="3.5" fill="#FFFFFF"/>
+    {% elif symbol == 'form' %}
+    <rect x="190" y="80" width="44" height="58" rx="6" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="3"/>
+    <rect x="198" y="92" width="28" height="4" rx="2" fill="#C7D7FE"/>
+    <rect x="198" y="102" width="20" height="4" rx="2" fill="#C7D7FE"/>
+    <circle cx="232" cy="134" r="13" fill="#1E3A8A"/>
+    <path d="M227 129l10 10M237 129l-10 10" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
+    {% elif symbol == 'offline' %}
+    <path class="err-wave w3" d="M180 104a46 46 0 0 1 64 0" fill="none" stroke="#9DBAFD" stroke-width="6" stroke-linecap="round"/>
+    <path class="err-wave w2" d="M191 115a30 30 0 0 1 42 0" fill="none" stroke="#1D4ED8" stroke-width="6" stroke-linecap="round"/>
+    <path class="err-wave w1" d="M202 126a14 14 0 0 1 20 0" fill="none" stroke="#1E3A8A" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="212" cy="138" r="5" fill="#1E3A8A"/>
+    <path d="M186 90l52 56" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>
+    <path d="M186 90l52 56" stroke="#DC2626" stroke-width="5" stroke-linecap="round"/>
+    {% endif %}
+
+    <!-- person, standing, looking at the screen -->
+    <path d="M322 176l-7 34" stroke="#1E3A8A" stroke-width="11" stroke-linecap="round"/>
+    <path d="M336 176l8 34" stroke="#1E3A8A" stroke-width="11" stroke-linecap="round"/>
+    <path d="M315 210h-9M344 210h9" stroke="#1E3A8A" stroke-width="9" stroke-linecap="round"/>
+    <rect x="315" y="126" width="28" height="54" rx="14" fill="#1D4ED8"/>
+    <circle cx="329" cy="108" r="14" fill="#9DBAFD"/>
+    <path d="M315 142l-22 4" stroke="#9DBAFD" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="290" cy="146" r="5" fill="#9DBAFD"/>
+    <path d="M343 142l8 20" stroke="#9DBAFD" stroke-width="8" stroke-linecap="round"/>
+
+    <!-- desk block, left -->
+    <rect x="64" y="178" width="54" height="34" rx="7" fill="#DBE7FE"/>
+    <rect x="74" y="162" width="34" height="16" rx="4" fill="#B9CFFE" stroke="#1D4ED8" stroke-width="1.5"/>
+
+    <!-- plants -->
+    <path d="M52 212c0-13 7-22 17-24-2 15-7 22-17 24z" fill="#BBD3FE"/>
+    <path d="M52 212c-9-6-13-15-11-24 11 6 15 15 11 24z" fill="#9DBAFD"/>
+    <path d="M376 212c0-11 6-19 14-21-2 13-6 19-14 21z" fill="#BBD3FE"/>
+    <path d="M376 212c-8-5-11-13-9-21 9 5 13 13 9 21z" fill="#9DBAFD"/>
+</svg>

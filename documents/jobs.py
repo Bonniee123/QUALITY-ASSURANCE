@@ -319,8 +319,16 @@ def _near_duplicate_of(doc, text, later_ids):
     return find_near_duplicate(text, candidates, lambda d: d.combined_text)
 
 
-def _discard_rejected_upload(doc):
-    """Remove an upload that turned out to duplicate an existing document."""
+def _discard_rejected_upload(doc, reason=''):
+    """
+    Remove an upload that turned out to duplicate an existing document.
+
+    It was never part of the archive, so the row and file go -- but its history
+    stays, ending with why it was turned away.
+    """
+    from .audit import record_document_event
+    record_document_event(doc, 'upload_rejected', doc.uploaded_by,
+                          description=f'Upload turned away as a near-duplicate: {doc.title}. {reason}'.strip())
     try:
         if doc.file:
             doc.file.delete(save=False)
@@ -422,7 +430,7 @@ def _process_upload_batch(job):
                     reason = blocked_message(match_name, as_percent(ratio))
                     rejected[str(doc_id)] = {'name': filename, 'reason': reason,
                                              'match_id': match.pk if visible else None}
-                    _discard_rejected_upload(doc)
+                    _discard_rejected_upload(doc, reason)
                     _update_job_payload(job, processed_count=idx + 1, errors=errors,
                                         rejected=rejected)
                     continue
@@ -460,8 +468,9 @@ def _process_upload_batch(job):
                 if job.created_by_id:
                     ActivityLog.objects.create(
                         user_id=job.created_by_id,
-                        action='bulk_upload',
-                        description=f'Bulk uploaded: {doc.title} ({doc.file_type}) — metadata auto-extracted',
+                        action='document_processed',
+                        document=doc, document_title=doc.title[:255],
+                        description=f'Processed: {doc.title} ({doc.file_type}) — text and metadata extracted',
                     )
             except Exception as exc:
                 logger.error('Bulk upload process error for %s: %s', filename, exc)
@@ -477,6 +486,9 @@ def _process_upload_batch(job):
             _update_job_payload(job, processed_count=idx + 1, errors=errors)
 
     _update_job_payload(job, succeeded_count=len(processed_docs))
+    if processed_docs and job.created_by_id:
+        from .document_events import announce_uploads
+        announce_uploads(job.created_by, processed_docs)
     ai_result = ''
     if processed_docs:
         try:

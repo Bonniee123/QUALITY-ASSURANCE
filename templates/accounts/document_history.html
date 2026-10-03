@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% load asset_tags %}
+{% block title %}Document History{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static_v 'css/audit.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4" style="border-bottom:none; padding-bottom:0;">
+    <div>
+        <h2 style="font-size: var(--text-2xl); font-weight: 700; color: var(--color-text-primary); margin-bottom: 8px; letter-spacing: -0.3px;">Document History</h2>
+        <p style="color: var(--color-text-secondary); font-size: var(--text-base); margin: 0;">Who uploaded each document, who deleted or restored it, and when. Deleted documents stay listed after their files are removed.</p>
+    </div>
+</div>
+
+<nav class="doc-history-tabs" aria-label="Filter by status">
+    <a href="{% url 'accounts:document_history' %}" class="{% if not filters.status %}is-active{% endif %}">All <span>{{ counts.total }}</span></a>
+    <a href="?status=active" class="{% if filters.status == 'active' %}is-active{% endif %}">Active <span>{{ counts.active }}</span></a>
+    <a href="?status=deleted" class="{% if filters.status == 'deleted' %}is-active{% endif %}">Deleted <span>{{ counts.deleted }}</span></a>
+    <a href="?status=purged" class="{% if filters.status == 'purged' %}is-active{% endif %}">Permanently deleted <span>{{ counts.purged }}</span></a>
+</nav>
+
+<div class="audit-card">
+    <form method="get" class="audit-filters">
+        <div>
+            <label for="dh-q">Search</label>
+            <input id="dh-q" type="search" name="q" value="{{ filters.q }}" placeholder="Title, file name or person">
+        </div>
+        <div>
+            <label for="dh-status">Status</label>
+            <select id="dh-status" name="status">
+                <option value="">All statuses</option>
+                {% for code, label in status_choices %}
+                <option value="{{ code }}" {% if filters.status == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="dh-uploader">Uploaded by</label>
+            <select id="dh-uploader" name="uploader">
+                <option value="">Anyone</option>
+                {% for u in uploader_choices %}
+                <option value="{{ u.pk }}" {% if filters.uploader == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="dh-deleter">Deleted by</label>
+            <select id="dh-deleter" name="deleter">
+                <option value="">Anyone</option>
+                {% for u in deleter_choices %}
+                <option value="{{ u.pk }}" {% if filters.deleter == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="audit-filter-actions">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-funnel me-1"></i> Filter</button>
+            <a href="{% url 'accounts:document_history' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+        </div>
+    </form>
+
+    <div class="repo-scroll-panel repo-scroll-panel--embedded" role="region" aria-label="Document history">
+        <table class="audit-table doc-history-table">
+            <thead>
+                <tr>
+                    <th>Document</th>
+                    <th>Uploaded</th>
+                    <th>Status</th>
+                    <th>Deleted</th>
+                    <th class="text-end">History</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in rows %}
+                {% with state=doc.lifecycle_status %}
+                <tr>
+                    <td>
+                        <div class="audit-user doc-history-title">{{ doc.title }}</div>
+                        <div class="audit-meta">{{ doc.original_filename|default:"—" }}{% if doc.acc_area %} · {{ doc.acc_area }}{% endif %}</div>
+                    </td>
+                    <td>
+                        {% if doc.uploaded_by %}{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}{% else %}<span class="audit-meta">Removed account</span>{% endif %}
+                        <div class="audit-meta" style="white-space:nowrap;">{{ doc.uploaded_at|date:"M j, Y g:i A" }}</div>
+                    </td>
+                    <td><span class="doc-status is-{{ state.0 }}">{{ state.1 }}</span></td>
+                    <td>
+                        {% if doc.deleted_at %}
+                        {% if doc.deleted_by %}{{ doc.deleted_by.get_full_name|default:doc.deleted_by.username }}{% elif doc.deletion_batch.user_name %}{{ doc.deletion_batch.user_name }}{% else %}<span class="audit-meta">Not recorded</span>{% endif %}
+                        <div class="audit-meta" style="white-space:nowrap;">{{ doc.deleted_at|date:"M j, Y g:i A" }}{% if doc.deletion_batch %} · {% if doc.deletion_batch.kind == 'bulk' %}bulk delete of {{ doc.deletion_batch.document_count }}{% else %}single delete{% endif %}{% endif %}</div>
+                        {% if doc.purged_at %}<div class="audit-meta">File removed {{ doc.purged_at|date:"M j, Y g:i A" }}</div>{% endif %}
+                        {% else %}
+                        <span class="audit-meta">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-outline-secondary btn-sm js-doc-history-toggle"
+                                aria-expanded="false" aria-controls="dh-timeline-{{ doc.pk }}">
+                            <i class="bi bi-clock-history me-1"></i>{{ doc.history|length }} event{{ doc.history|length|pluralize }}
+                        </button>
+                    </td>
+                </tr>
+                <tr class="doc-history-detail" id="dh-timeline-{{ doc.pk }}" hidden>
+                    <td colspan="5">
+                        {% include 'documents/_history_timeline.html' with entries=doc.history %}
+                    </td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="audit-empty">No documents match your filters.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="audit-pagination">
+        <span class="audit-meta">
+            Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+        </span>
+        <div class="btn-group btn-group-sm">
+            {% if page_obj.has_previous %}
+            <a class="btn btn-outline-secondary" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">Previous</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a class="btn btn-outline-secondary" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest('.js-doc-history-toggle');
+        if (!button) return;
+        var row = document.getElementById(button.getAttribute('aria-controls'));
+        if (!row) return;
+        var open = button.getAttribute('aria-expanded') !== 'true';
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        row.hidden = !open;
+    });
+})();
+</script>
+{% endblock %}

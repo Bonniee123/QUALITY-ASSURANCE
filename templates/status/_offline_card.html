@@ -1,0 +1,15 @@
+{% comment %}
+The offline card: on the offline page (served by the service worker when a
+page cannot load) and inside the app as an overlay (when a page already open
+loses its connection). One card, so the two say the same thing the same way.
+`in_app` adds "Keep browsing", which tucks the card away and leaves the page
+as it was -- typed text, selections and scroll position included.
+{% endcomment %}
+{% include 'status/_scene.html' with symbol='offline' label='Illustration: a screen showing no connection' %}
+<h1 class="err-title" id="{% if in_app %}qaOfflineTitle{% else %}offlineTitle{% endif %}" data-offline-title>You're offline</h1>
+<p class="err-text" id="{% if in_app %}qaOfflineText{% else %}offlineText{% endif %}" data-offline-text>The QA Archiving System can't be reached. Check your Wi-Fi or network cable — this page reconnects on its own as soon as the connection is back.</p>
+<div class="err-status" data-offline-status data-state="offline" role="status" aria-live="polite">No connection</div>
+<div class="err-actions">
+    <button type="button" class="err-btn" data-offline-retry>{% include 'status/_icon.html' with name='refresh' %}<span>Retry connection</span></button>
+    {% if in_app %}<button type="button" class="err-btn is-secondary" data-offline-dismiss>Keep browsing</button>{% endif %}
+</div>

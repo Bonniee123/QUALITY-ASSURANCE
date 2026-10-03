@@ -42,7 +42,7 @@
             </li>
 
             <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'repository' %}active{% endif %}">
-                <a href="{% url 'documents:repository' %}" class="sidebar-link" data-tooltip="Repository">
+                <a href="{% url 'documents:repository' %}" class="sidebar-link" data-tooltip="Repository" data-live-badge="documents">
                     <i class="bi bi-archive"></i>
                     <span class="sidebar-link-text">Repository</span>
                     {% if sidebar_doc_count %}<span class="sidebar-badge">{{ sidebar_doc_count }}</span>{% endif %}
@@ -97,6 +97,13 @@
                 <a href="{% url 'documents:clusters' %}" class="sidebar-link" data-tooltip="Document Clusters">
                     <i class="bi bi-diagram-2"></i>
                     <span class="sidebar-link-text">Clusters</span>
+                </a>
+            </li>
+
+            <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'document_history' %}active{% endif %}">
+                <a href="{% url 'accounts:document_history' %}" class="sidebar-link" data-tooltip="Document History">
+                    <i class="bi bi-clock-history"></i>
+                    <span class="sidebar-link-text">Document History</span>
                 </a>
             </li>
             {% endif %}

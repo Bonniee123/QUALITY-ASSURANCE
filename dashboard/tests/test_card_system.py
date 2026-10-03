@@ -33,12 +33,13 @@ CARD_RULES = [
     ('selection-cards.css', '.qa-sel-card'),
     ('selection-cards.css', '.qa-sel-detail-card'),
     ('ai-processing.css', '.ai-cluster-card'),
+    # Shared by the Audit Log and Document History pages.
+    ('audit.css', '.audit-card'),
 ]
 
 TEMPLATE_CARD_RULES = [
     ('documents/document_groups.html', '.group-card'),
     ('documents/bulk_upload.html', '.qa-batch-card'),
-    ('accounts/audit_log.html', '.audit-card'),
     ('accounts/settings.html', '.settings-card'),
     ('accounts/user_list.html', '.user-management-card'),
     ('reports/reports.html', '.rpt-card'),
