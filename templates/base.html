@@ -32,6 +32,7 @@
             integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{% static_v 'css/style.css' %}">
+    {% if user.is_authenticated %}<link rel="stylesheet" href="{% static_v 'css/chat.css' %}">{% endif %}
     {% comment %}
     nexus.css carries the dashboard-only .nx-* rules and is now pulled in by that
     page alone via extra_css; it used to load on every page while only the
@@ -253,6 +254,7 @@
     <script src="{% static_v 'js/doc-edit.js' %}"></script>
     <script src="{% static_v 'js/doc-preview.js' %}"></script>
     <script src="{% static_v 'js/deletion-undo.js' %}"></script>
+    <script src="{% static_v 'js/messaging/chat.js' %}"></script>
     <script>
     /* A sign-in page still open in another tab listens for this, so it follows
        this sign-in to the dashboard instead of sitting on "Signing in". */

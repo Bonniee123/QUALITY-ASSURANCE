@@ -43,7 +43,9 @@ class SecurityHeadersMiddleware:
     - Content-Security-Policy: the strongest browser-level guard against XSS;
       tells the browser exactly which script/style/font/image origins may load.
     - Permissions-Policy: disables powerful browser features the app never uses
-      (camera, microphone, geolocation), shrinking the attack surface.
+      (camera, geolocation), shrinking the attack surface. The microphone is
+      allowed for this site's own pages only -- voice messages need it -- and
+      stays off for anything framed from elsewhere.
     - X-Content-Type-Options: prevents MIME-type sniffing.
     """
 
@@ -57,7 +59,7 @@ class SecurityHeadersMiddleware:
         response.setdefault('X-Content-Type-Options', 'nosniff')
         response.setdefault(
             'Permissions-Policy',
-            'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+            'camera=(), microphone=(self), geolocation=(), interest-cohort=()',
         )
         return response
 

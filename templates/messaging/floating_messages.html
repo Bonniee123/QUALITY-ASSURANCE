@@ -192,6 +192,9 @@ the button, which means a page that does not render the dock gets no dead gap.
 }
 
 .qa-dock-view[hidden] { display: none; }
+/* The person conversation (QAChat) fills the panel below the header. */
+.qa-dock-conv { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.qa-dock-conv[hidden], .qa-dock-msgs[hidden], .qa-dock-composer[hidden] { display: none !important; }
 
 /* ===== List: search, conversations, people ===== */
 .qa-dock-search-wrap {
@@ -536,6 +539,13 @@ the button, which means a page that does not render the dock gets no dead gap.
     </div>
 
     <div class="qa-dock-view" id="qaDockChat" hidden>
+        {% comment %}
+        A conversation with a person is QAChat (static/js/messaging/chat.js),
+        the same component as the Messages page: pictures, files, voice
+        messages, replies, reactions, typing and read receipts work here too.
+        The QA Assistant keeps the simple log and composer below.
+        {% endcomment %}
+        <div class="qa-dock-conv" id="qaDockConv" hidden></div>
         <div class="qa-dock-msgs" id="qaDockMsgs"></div>
         <form class="qa-dock-composer" id="qaDockComposer" autocomplete="off">
             <label for="qaDockInput" class="visually-hidden">Message</label>
@@ -561,6 +571,9 @@ the button, which means a page that does not render the dock gets no dead gap.
 
     var THREAD_URL = '{% url "messaging:thread_detail" 0 %}';
     var SEND_URL = '{% url "messaging:message_send" 0 %}';
+    var REACT_URL = '{% url "messaging:message_react" 0 0 %}';
+    var DELETE_URL = '{% url "messaging:message_delete" 0 0 %}';
+    var TYPING_URL = '{% url "messaging:typing" 0 %}';
     var SYNC_URL = '{% url "messaging:sync" %}';
     var THREADS_URL = '{% url "messaging:thread_list" %}';
     var PEOPLE_URL = '{% url "messaging:people" %}';
@@ -588,15 +601,47 @@ the button, which means a page that does not render the dock gets no dead gap.
     var composerEl = document.getElementById('qaDockComposer');
     var inputEl = document.getElementById('qaDockInput');
     var sendEl = document.getElementById('qaDockSend');
+    var convEl = document.getElementById('qaDockConv');
 
     if (!fab || !panel) { return; }
 
+    /* Created on first use: this partial is parsed before chat.js has loaded. */
+    var chat = null;
+    function ensureChat() {
+        if (!chat && window.QAChat) {
+            chat = window.QAChat.create({
+                root: convEl,
+                compact: true,
+                viewerId: VIEWER_ID,
+                urls: { thread: THREAD_URL, send: SEND_URL, react: REACT_URL, del: DELETE_URL, typing: TYPING_URL },
+                maxMb: {{ chat_config.max_mb|default:15 }},
+                maxFiles: {{ chat_config.max_files|default:10 }},
+                accept: '{{ chat_config.accept|escapejs }}',
+                me: { avatar: '{{ chat_config.me_avatar|escapejs }}', initials: '{{ chat_config.me_initials|escapejs }}' },
+                onSent: function () { lastThreadsSig = ''; },
+                onGone: function () {
+                    if (window.qaToast) { window.qaToast('That conversation is no longer available.', 'info'); }
+                    showList();
+                }
+            });
+        }
+        return chat;
+    }
+
+    /* The two kinds of conversation share the panel: a person (QAChat) or
+       the assistant (the log and composer of this partial). */
+    function showConversationKind(kind) {
+        convEl.hidden = kind !== 'person';
+        msgsEl.hidden = kind !== 'assistant';
+        composerEl.hidden = kind !== 'assistant';
+    }
+
     var POLL_MS = 3000;
+    var POLL_OPEN_MS = 1500;   // a conversation is on screen
     var pollTimer = null;
     var syncInFlight = false;
     var mode = 'list';          // 'list', 'thread' or 'assistant'
     var activeId = null;        // the open thread, when mode is 'thread'
-    var lastMessageId = 0;
     var lastThreadsSig = '';
     var searchTimer = null;
     var assistantLog = [];      // kept in memory so reopening the panel keeps the chat
@@ -721,7 +766,7 @@ the button, which means a page that does not render the dock gets no dead gap.
     function showList() {
         mode = 'list';
         activeId = null;
-        lastMessageId = 0;
+        if (chat) { chat.close(); }
         listView.hidden = false;
         chatView.hidden = true;
         backBtn.hidden = true;
@@ -731,6 +776,7 @@ the button, which means a page that does not render the dock gets no dead gap.
         avatarEl.innerHTML = '<i class="bi bi-chat-dots"></i>';
         lastThreadsSig = '';
         syncNow();
+        if (isOpen()) { startPolling(); }   // back to the slower list interval
     }
 
     function threadRowHTML(t) {
@@ -741,7 +787,7 @@ the button, which means a page that does not render the dock gets no dead gap.
                    '<span class="qa-dock-row-preview">' + esc(t.preview || t.role || '') + '</span>' +
                  '</span>' +
                  (t.unread ? '<span class="qa-dock-unread">' + esc(t.unread) + '</span>'
-                           : '<span class="qa-dock-row-time">' + esc(t.updated || '') + '</span>') +
+                           : '<span class="qa-dock-row-time">' + esc(window.QAChat ? window.QAChat.shortTime(t.updated_iso, t.updated) : (t.updated || '')) + '</span>') +
                '</button>';
     }
 
@@ -813,70 +859,23 @@ the button, which means a page that does not render the dock gets no dead gap.
 
     /* ------------------------------------------------- conversation view */
 
-    function messageHTML(m) {
-        var mine = isMine(m);
-        var body = '<div class="qa-dock-body">';
-        if (m.body) { body += '<div class="qa-dock-bubble">' + esc(m.body) + '</div>'; }
-        if (m.document) {
-            body += '<div class="qa-dock-card">' +
-                      '<div class="qa-dock-card-title">' + esc(m.document.title) + '</div>' +
-                      (m.document.area ? '<span class="qa-dock-chip">' + esc(m.document.area) + '</span>' : '') +
-                      (m.document.year ? '<span class="qa-dock-chip">' + esc(m.document.year) + '</span>' : '') +
-                      '<a class="qa-dock-card-btn" href="' + esc(m.document.view_url) +
-                        '" target="_blank" rel="noopener">View Document</a>' +
-                    '</div>';
-        } else if (m.document_withheld) {
-            body += '<div class="qa-dock-card is-withheld"><i class="bi bi-lock"></i>' +
-                    '<span>A document you don\'t have access to</span></div>';
-        }
-        body += '<div class="qa-dock-meta" title="' + esc(m.stamp || '') + '">' + esc(m.time || '') +
-                (m.edited ? ' · edited' : '') + '</div></div>';
-        return '<div class="qa-dock-msg ' + (mine ? 'is-mine' : 'is-theirs') + '" data-mid="' + m.id + '">' +
-                 avatarHTML(m, 'qa-dock-msg-avatar') + body +
-               '</div>';
-    }
-
-    function renderMessages(list) {
-        msgsEl.innerHTML = (list || []).map(messageHTML).join('') ||
-            '<div class="qa-dock-empty">No messages yet. Say hello.</div>';
-        var last = (list || [])[list.length - 1];
-        lastMessageId = last ? last.id : 0;
-        scrollDown();
-    }
-
-    function appendMessages(list) {
-        if (!list || !list.length) { return 0; }
-        var added = 0;
-        var placeholder = msgsEl.querySelector('.qa-dock-empty');
-        if (placeholder) { placeholder.remove(); }
-        list.forEach(function (m) {
-            if (msgsEl.querySelector('[data-mid="' + m.id + '"]')) { return; }
-            msgsEl.insertAdjacentHTML('beforeend', messageHTML(m));
-            if (m.id > lastMessageId) { lastMessageId = m.id; }
-            added += 1;
-        });
-        if (added) { scrollDown(); }
-        return added;
-    }
-
     function openThread(id) {
         mode = 'thread';
-        activeId = id;
-        lastMessageId = 0;
+        activeId = Number(id);
         listView.hidden = true;
         chatView.hidden = false;
         backBtn.hidden = false;
-        msgsEl.innerHTML = '<div class="qa-dock-empty">Loading…</div>';
-        inputEl.placeholder = 'Write a message…';
-        getJSON(withId(THREAD_URL, id)).then(function (d) {
-            if (!d) { return; }
-            titleEl.textContent = d.thread.name;
-            subEl.textContent = d.thread.role || '';
-            paintAvatar(d.thread, false);
-            renderMessages(d.messages);
-            inputEl.focus();
-        }).catch(function () {
-            msgsEl.innerHTML = '<div class="qa-dock-empty">That conversation could not be opened.</div>';
+        showConversationKind('person');
+        titleEl.textContent = '';
+        subEl.textContent = '';
+        var c = ensureChat();
+        if (!c) { return; }
+        c.open(activeId).then(function (thread) {
+            if (!thread || mode !== 'thread' || thread.id !== activeId) { return; }
+            titleEl.textContent = thread.name;
+            subEl.textContent = thread.role || '';
+            paintAvatar(thread, false);
+            startPolling();
         });
     }
 
@@ -912,10 +911,11 @@ the button, which means a page that does not render the dock gets no dead gap.
     function openAssistant() {
         mode = 'assistant';
         activeId = null;
-        lastMessageId = 0;
+        if (chat) { chat.close(); }
         listView.hidden = true;
         chatView.hidden = false;
         backBtn.hidden = false;
+        showConversationKind('assistant');
         titleEl.textContent = 'QA Assistant';
         subEl.textContent = 'Answers about this system';
         paintAvatar(null, true);
@@ -988,16 +988,9 @@ the button, which means a page that does not render the dock gets no dead gap.
         if (!text) { return; }
         inputEl.value = '';
 
-        if (mode === 'assistant') { askAssistant(text); return; }
-        if (!activeId) { return; }
-
-        sendEl.disabled = true;
-        post(withId(SEND_URL, activeId), { body: text })
-            .then(function (d) {
-                if (d && d.message) { appendMessages([d.message]); }
-            })
-            .catch(function () {})
-            .finally(function () { sendEl.disabled = false; inputEl.focus(); });
+        // Conversations with people have QAChat's own composer; this one is
+        // the assistant's.
+        if (mode === 'assistant') { askAssistant(text); }
     });
 
     /* -------------------------------------------------------------- sync */
@@ -1010,9 +1003,11 @@ the button, which means a page that does not render the dock gets no dead gap.
         syncInFlight = true;
 
         var params = new URLSearchParams();
-        if (mode === 'thread' && activeId) {
-            params.set('thread', activeId);
-            params.set('after', lastMessageId || 0);
+        var chatParams = mode === 'thread' && chat ? chat.syncParams() : null;
+        if (chatParams) {
+            params.set('thread', chatParams.thread);
+            params.set('seq', chatParams.seq);
+            params.set('after', chatParams.after);
         }
 
         getJSON(SYNC_URL + '?' + params.toString())
@@ -1022,7 +1017,7 @@ the button, which means a page that does not render the dock gets no dead gap.
                     window.qaSetBadge('messages', d.unread_messages);
                     window.qaSetBadge('bell', d.unread_notifications);
                 }
-                if (mode === 'thread') { appendMessages(d.messages); }
+                if (mode === 'thread' && chat && chatParams && chatParams.thread === activeId) { chat.applySync(d); }
 
                 /* The list is repainted only when something actually changed, so
                    a hover or a click is not interrupted every three seconds, and
@@ -1043,7 +1038,7 @@ the button, which means a page that does not render the dock gets no dead gap.
 
     function startPolling() {
         clearInterval(pollTimer);
-        pollTimer = setInterval(syncNow, POLL_MS);
+        pollTimer = setInterval(syncNow, mode === 'thread' ? POLL_OPEN_MS : POLL_MS);
     }
 
     document.addEventListener('visibilitychange', function () {

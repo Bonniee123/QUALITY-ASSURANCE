@@ -202,6 +202,7 @@ def _thread_json(thread: Thread, viewer) -> dict:
         'areas': _area_labels(other) if other else [],
         'preview': preview,
         'updated': thread.updated_at.strftime('%b %d, %H:%M'),
+        'updated_iso': thread.updated_at.isoformat(),
         'unread': thread.unread_count_for(viewer),
     }
 

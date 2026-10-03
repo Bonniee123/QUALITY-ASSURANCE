@@ -57,7 +57,8 @@ refused, nothing changed), and a dependency audit (`pip-audit`).
     file can never be re-interpreted as a script by the browser.
 17. **Content-Security-Policy** restricts scripts, styles, fonts, images and
     embedded objects to this site and the two CDNs the app actually uses;
-    `Permissions-Policy` switches off camera, microphone and geolocation
+    `Permissions-Policy` switches off camera and geolocation, and allows the
+    microphone to this site's own pages only, for voice messages
     (`qa_archiving_system/middleware.py`).
 
 ## D. Access control

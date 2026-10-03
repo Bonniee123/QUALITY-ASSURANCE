@@ -1938,3 +1938,51 @@ Row hover is now one rule for every data table, a tint of the brand colour. Boot
 - Browser, live (8 checks). The Faculty member uploaded; the Administrator's dashboard total, Recent Uploads, bell and open Repository tab all updated without a reload, and the upload was announced once.
 - Full Django suite: **1071 tests, OK** (19 skipped by their own conditions), including the new deletion-batch, live-status, offline and legacy-finalize tests.
 - Browser, status and offline (18 checks). All status pages share one card and button style; the overlay appeared when the connection dropped and left by itself when it came back, with typed text and the list kept; a server outage was detected and described as such; the service worker showed the offline page at the requested address and returned to that page when back online.
+
+## 31. Messages: a modern messenger, real-time and reliable
+
+### Before
+- The Messages page and the floating dock each drew messages their own way. Only text and archived-document references could be sent.
+- New messages arrived every 3 seconds. Nothing else in a conversation updated live.
+- A send whose answer was lost could not be retried safely.
+- Deleting an account left its conversations behind as "Deleted user" rows.
+
+### Now
+
+**One conversation component, `QAChat`** (`static/js/messaging/chat.js`, styles in `static/css/chat.css`), powers both the Messages page and the dock, so they behave identically. The layout follows the usual messenger pattern:
+- **Conversation list:** avatar, unread count on the avatar, name, a short time ("9:58 AM", "Yesterday", weekday, date) and the last message.
+- **Conversation:** incoming bubbles on the left, your own on the right in the brand colour. Consecutive messages are grouped, with day separators and time separators after a 30-minute gap.
+- **Composer:** a rounded field with emoji and attach buttons; the send button turns into a microphone when the field is empty.
+
+It is built from the system's own tokens, buttons, icons and hover states. On a phone, the list and the conversation take turns on screen, with a back button.
+
+| Feature | How it works |
+|---|---|
+| Pictures | PNG, JPG, GIF, WebP. Several per message, shown as a gallery from a re-encoded thumbnail, which drops photo metadata such as camera and location. Click a picture for full size; arrows move between pictures, Esc closes, and you can download. |
+| Files | PDF, Word, Excel, PowerPoint, text, CSV. Shown as a chip with the type icon, name and size, and always downloaded rather than opened inside the system. |
+| Voice messages | Record in the browser with a live level meter and timer (up to 5 minutes), then send or discard. Played back with a waveform player; only one plays at a time. |
+| Replies | Reply to a specific message. The answer quotes it, and clicking the quote jumps to the original and highlights it. A reply to a deleted message says so. |
+| Reactions | 👍 ❤️ 😂 😮 😢 🙏 🎉 ✅ — toggle on and off. Hover a reaction to see who reacted. |
+| Typing, read receipts | "QA Head is typing…" appears and clears by itself. Your messages show Sending → Sent → Seen. |
+| Previews before sending | Pictures appear as thumbnails in a tray above the field, files as chips, each removable. Files can also be dropped onto the conversation or pasted. |
+| Delete | Your own messages, with a confirmation ("Delete this message for everyone?"). The message disappears from the other screen too, and its files stop being served. |
+
+### Real-time and reliable
+- **Every change in a conversation is numbered** (`Thread.change_seq`): a message sent, deleted or reacted to. The number is taken under a lock on the conversation row, inside the same transaction as the change. The page asks for "everything after N" and receives new messages, deletions and reactions exactly once and in order. An older copy of a message never overwrites a newer one. The open conversation syncs every 1.5 seconds, and the list every 4.
+- **Sends are safe to retry.** Each message carries a client id made in the browser. A retried send, or two copies arriving at once, returns the stored message instead of creating a second one; this is enforced by a database constraint.
+- **Messages are never lost and never duplicated.** A message shows as *Sending…* at once. Offline, it waits ("Waiting for connection") and goes by itself when the connection returns. If the answer was lost, either the next sync puts it right without asking, or *Retry* sends it again and you still get one copy. A text message that failed is kept in this browser and sent after a reload. Uploads show their progress.
+- **Failures are named:** offline, session expired, not allowed, file too large, wrong type, too many files, too many uploads at once, server error. The composer refuses a disallowed or oversized file by name before uploading anything, and the server checks every file again.
+
+### Security and data integrity
+- **Participants only.** Only the two people in a conversation can read it, send to it, react in it, see who is typing, or download its files. Anyone else gets 404.
+- **Private storage.** Files are stored under random names in `media/`, which is never served directly. The attachment view serves them with a type decided by the server, `nosniff`, and a sandboxed CSP. Pictures and voice play inline; everything else is a download.
+- **Checked uploads.** Files are checked against their extension with the same validator as document uploads: real PDF, Office and image content, no macros, no programs, HTML or SVG. A message is sent whole or not at all.
+- **Limits:** `MESSAGE_ATTACHMENT_MAX_MB` (15), `MESSAGE_ATTACHMENTS_PER_MESSAGE` (10), and a rate limit of 40 messages with files per 10 minutes (`MESSAGE_FILES_RATE_LIMIT`).
+- **Audit log.** Sending and deleting are recorded with how many files were attached and what kind they were, but never the text or file names. Naming them would publish who is talking to whom about what.
+- **Microphone policy.** `Permissions-Policy` now allows the microphone for this site's own pages, which voice messages need. It stays off for anything framed from elsewhere, and camera and location stay off. Before, `microphone=()` blocked recording outright.
+- **Deleted accounts.** Deleting an account removes its conversations, their messages and their notifications. Migration `messaging.0003` cleans up the conversations already left behind, and an open conversation with a deleted account closes itself with a note.
+
+### Verified
+- **Two live browsers, New Faculty and QA Head (47 checks):** starting a conversation from the picker; it appears in the other person's list; typing shown and cleared; messages arrive once on each side without a reload; Seen; replies with a quote and jump; reactions counted on both screens; picture and PDF with previews, loaded only through the participant URL; lightbox; refusing an `.exe` and a 16 MB file by name; recording, sending and playing a voice message (with a fake microphone); a message written offline sent by itself, once; a lost answer recovered by the sync and by Retry, one copy on screen and in the database; a failed message sent after a reload; delete removing it from the other screen; the dock showing the same conversation and sending into it; the phone layout.
+- **Second pass (18 checks):** markup and a quote-breaking URL stay text (nothing runs, no attribute injected, and the link ends at the quote); emoji picker; large emoji-only messages; a three-picture gallery with lightbox navigation; short list times; a conversation whose account is deleted closing itself; the dock's QA Assistant still working beside conversations.
+- **Django:** 22 new tests (retries, replies, attachment checks and access, voice, reactions, the change-numbered sync, typing, audit wording), plus 6 for deleted accounts.

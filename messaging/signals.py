@@ -55,3 +55,31 @@ def remove_conversations_of_deleted_user(sender, instance, **kwargs):
     # Before the delete: afterwards the participant rows are already gone and
     # there is no way left to tell which conversations were this person's.
     remove_threads(orphaned_thread_ids(leaving=instance))
+
+
+def _remove_attachment_files(sender, instance, **kwargs):
+    """
+    A deleted attachment row takes its files with it.
+
+    Rows go when a conversation is removed (its account was deleted); without
+    this the pictures, recordings and files stayed on disk with nothing that
+    referred to them. A message deleted by its sender is only hidden -- its
+    row stays for the record -- so this does not run for that.
+    """
+    for stored in (instance.file, instance.thumbnail):
+        try:
+            if stored:
+                stored.storage.delete(stored.name)
+        except Exception:  # pragma: no cover - best effort; the row is already gone
+            pass
+
+
+def _connect_attachment_cleanup():
+    from django.db.models.signals import post_delete
+
+    from .models import MessageAttachment
+    post_delete.connect(_remove_attachment_files, sender=MessageAttachment,
+                        dispatch_uid='messaging.remove_attachment_files')
+
+
+_connect_attachment_cleanup()

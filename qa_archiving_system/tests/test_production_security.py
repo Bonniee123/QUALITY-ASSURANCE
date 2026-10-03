@@ -113,3 +113,6 @@ class SecurityHeadersTests(TestCase):
         r = self.client.get('/accounts/login/')
         self.assertEqual(r.get('X-Content-Type-Options'), 'nosniff')
         self.assertIn('camera=()', r.get('Permissions-Policy', ''))
+        # Voice messages record in this site's own pages; nothing framed from
+        # elsewhere gets the microphone.
+        self.assertIn('microphone=(self)', r.get('Permissions-Policy', ''))

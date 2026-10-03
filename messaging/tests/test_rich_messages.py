@@ -267,3 +267,33 @@ class RichMessageTests(TestCase):
         self.client.force_login(self.outsider)
         r = self.client.post(reverse('messaging:typing', args=[self.thread.pk]), '{}', content_type='application/json')
         self.assertEqual(r.status_code, 404)
+
+
+@override_settings(MEDIA_ROOT=MEDIA)
+class AttachmentCleanupTests(TestCase):
+    """No file is left on disk without a row that refers to it."""
+
+    def test_files_go_when_the_conversation_goes(self):
+        import os
+        qa, fac = account('clean_qa', 'qa_staff'), account('clean_fac')
+        thread, _ = Thread.get_or_create_between(qa, fac)
+        self.client.force_login(qa)
+        r = self.client.post(reverse('messaging:message_send', args=[thread.pk]), {'files': [png(), pdf()]}).json()
+        paths = []
+        for a in MessageAttachment.objects.filter(message_id=r['message']['id']):
+            paths.append(a.file.path)
+            if a.thumbnail:
+                paths.append(a.thumbnail.path)
+        self.assertTrue(paths and all(os.path.exists(p) for p in paths))
+        fac.delete()   # the conversation is removed with the account
+        self.assertFalse(any(os.path.exists(p) for p in paths), 'attachment files were left behind')
+
+    def test_a_message_hidden_by_its_sender_keeps_its_file(self):
+        import os
+        qa, fac = account('keep_qa', 'qa_staff'), account('keep_fac')
+        thread, _ = Thread.get_or_create_between(qa, fac)
+        self.client.force_login(qa)
+        sent = self.client.post(reverse('messaging:message_send', args=[thread.pk]), {'files': [pdf()]}).json()['message']
+        path = MessageAttachment.objects.get(pk=sent['attachments'][0]['id']).file.path
+        self.client.post(reverse('messaging:message_delete', args=[thread.pk, sent['id']]))
+        self.assertTrue(os.path.exists(path), 'a deleted message is hidden, not erased')
