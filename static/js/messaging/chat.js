@@ -313,14 +313,16 @@
                 '<button type="button" class="qc-icon-btn qc-reply-cancel" aria-label="Cancel reply"><i class="bi bi-x-lg"></i></button>' +
               '</div>' +
               '<div class="qc-tray" hidden></div>' +
-              '<div class="qc-rec" hidden role="status">' +
-                '<button type="button" class="qc-icon-btn qc-rec-cancel" aria-label="Discard the recording"><i class="bi bi-trash3"></i></button>' +
-                '<span class="qc-rec-dot" aria-hidden="true"></span>' +
-                '<span class="qc-rec-time">0:00</span>' +
-                '<span class="qc-rec-level" aria-hidden="true"></span>' +
-                '<span class="qc-rec-hint">Recording…</span>' +
-              '</div>' +
               '<div class="qc-row">' +
+                // The recorder takes the field's place in the same row while
+                // recording, so its send button stays at the end of the line.
+                '<div class="qc-rec" hidden role="status">' +
+                  '<button type="button" class="qc-icon-btn qc-rec-cancel" aria-label="Discard the recording"><i class="bi bi-trash3"></i></button>' +
+                  '<span class="qc-rec-dot" aria-hidden="true"></span>' +
+                  '<span class="qc-rec-time">0:00</span>' +
+                  '<span class="qc-rec-level" aria-hidden="true"></span>' +
+                  '<span class="qc-rec-hint">Recording…</span>' +
+                '</div>' +
                 '<div class="qc-field">' +
                   '<textarea class="qc-input" rows="1" placeholder="Type a message…" aria-label="Message"></textarea>' +
                   '<button type="button" class="qc-icon-btn qc-emoji-btn" aria-label="Insert emoji" aria-expanded="false"><i class="bi bi-emoji-smile"></i></button>' +

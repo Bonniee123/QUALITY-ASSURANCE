@@ -540,7 +540,8 @@
 }
 .qc-send:hover:not(:disabled) { background: var(--color-brand-hover); transform: translateY(-1px); }
 .qc-send:disabled { opacity: .45; cursor: default; box-shadow: none; }
-.qc-send.is-recording { background: var(--color-danger); }
+/* While recording, the button is "send the recording": the usual send
+   colour. The red dot and outline already say a recording is running. */
 .qc-row.is-recording .qc-field, .qc-row.is-recording .qc-attach { display: none; }
 
 .qc-reply {
@@ -602,16 +603,20 @@
 }
 .qc-tray-remove:hover { background: var(--color-danger); }
 
+/* In the composer's row, in place of the field: one line from the discard
+   button to the send button at its end. */
 .qc-rec {
     display: flex;
     align-items: center;
     gap: 10px;
     flex: 1;
-    margin: 0 0 8px;
-    padding: 4px 12px 4px 4px;
+    min-width: 0;
+    min-height: 42px;
+    padding: 0 14px 0 2px;
     border-radius: 22px;
     background: var(--color-surface);
     border: 1px solid #fecaca;
+    box-shadow: var(--shadow-xs);
 }
 .qc-rec[hidden] { display: none; }
 .qc-rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-danger); animation: qcRec 1s infinite; }
@@ -619,7 +624,11 @@
 .qc-rec-time { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--color-text-primary); min-width: 38px; }
 .qc-rec-level { display: flex; align-items: center; gap: 2px; height: 22px; flex: 1; max-width: 160px; }
 .qc-rec-level i { flex: 1; min-width: 2px; height: 12%; border-radius: 2px; background: var(--color-danger); opacity: .7; transition: height .08s linear; }
-.qc-rec-hint { font-size: 12px; color: var(--color-text-muted); margin-left: auto; }
+.qc-rec-hint { font-size: 12px; color: var(--color-text-muted); margin-left: auto; white-space: nowrap; }
+.qc-rec .qc-icon-btn { flex-basis: 38px; width: 38px; height: 38px; font-size: 17px; }
+.qc-rec .qc-icon-btn:hover { color: var(--color-danger); }
+.qc-row.is-recording { align-items: center; }
+@media (max-width: 400px) { .qc-rec-hint { display: none; } }
 
 .qc-emoji-pop {
     position: absolute;
